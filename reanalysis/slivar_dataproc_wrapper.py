@@ -15,7 +15,7 @@ from hailtop.batch.job import Job
 
 from cpg_pipes import hailbatch
 
-SLIVAR_IMAGE = 'australia-southeast1-docker.pkg.dev/cpg-common/images/slivar:v0.2.7'
+SLIVAR_IMAGE = 'australia-southeast1-docker_slivar.pkg.dev/cpg-common/images/slivar:v0.2.7'
 
 
 @click.command()
