@@ -62,7 +62,7 @@ def slivar(
     cmd = f"""\
     retry_gs_cp {vcf_path} input.vcf.gz
     retry_gs_cp {vcf_path}.tbi input.vcf.gz.tbi
-    retry_gs_cp {CUSTOM_SLIVAR_CONS}.tbi custom_cons.txt
+    retry_gs_cp {CUSTOM_SLIVAR_CONS} custom_cons.txt
     SLIVAR_IMPACTFUL_ORDER=custom_cons.txt slivar expr \
     --vcf input.vcf.gz \
     --pass-only \
