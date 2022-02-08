@@ -1,0 +1,19 @@
+name: rare-disease
+
+channels:
+  - cpg
+  - conda-forge
+  - defaults
+dependencies:
+  - analysis-runner
+  - click
+  - cyvcf2
+  - google-cloud-sdk
+  - google-cloud-storage
+  - hail
+  - importlib-metadata
+  - pandas
+  - pip
+  - progressbar2
+  - pip:
+    - cpg_pipes
