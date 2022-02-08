@@ -17,6 +17,10 @@ from cpg_pipes import hailbatch
 
 SLIVAR_IMAGE = 'australia-southeast1-docker_slivar.pkg.dev/cpg-common/images/slivar:v0.2.7'
 
+# file containing standard slivar csq ordering,
+# plus all sub-consequences added in VEP 105
+# this prevents errors being written for almost every variant
+CUSTOM_SLIVAR_CONS = 'gs://cpg-acute-care-test/vep/custom_slivar_order.txt'
 
 @click.command()
 @click.option(
@@ -58,7 +62,8 @@ def slivar(
     cmd = f"""\
     retry_gs_cp {vcf_path} input.vcf.gz
     retry_gs_cp {vcf_path}.tbi input.vcf.gz.tbi
-    SLIVAR_IMPACTFUL_ORDER="$SLIVAR_IMPACTFUL_ORDER" slivar expr \
+    retry_gs_cp {CUSTOM_SLIVAR_CONS}.tbi custom_cons.txt
+    SLIVAR_IMPACTFUL_ORDER=custom_cons.txt slivar expr \
     --vcf input.vcf.gz \
     --pass-only \
     --skip-non-variable \
