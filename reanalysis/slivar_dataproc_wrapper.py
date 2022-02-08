@@ -77,7 +77,7 @@ def slivar(
     j.command(
         hailbatch.wrap_command(
             cmd,
-            monitor_space=True,
+            setup_gcp=True,
             define_retry_function=True
         )
     )
