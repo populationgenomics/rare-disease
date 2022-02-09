@@ -16,3 +16,5 @@ RUN wget https://github.com/samtools/bcftools/releases/download/1.14/bcftools-1.
 # this enables the plugin "bcftools +split-vep"
 # could add this final command to ensure build works
 # RUN bcftools +split-vep
+
+# probably also want python3 in here, but maybe it's a super single purpose image
