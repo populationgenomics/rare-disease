@@ -184,8 +184,8 @@ matrix = matrix.annotate_rows(
         ),
         revel=hl.if_else(
             hl.is_missing(matrix.dbnsfp.REVEL_score),
-            MISSING_STRING,
-            matrix.dbnsfp.REVEL_score,
+            MISSING_FLOAT_LO,
+            hl.float64(matrix.dbnsfp.REVEL_score),
         ),
         cadd=hl.if_else(
             hl.is_missing(matrix.cadd.PHRED), MISSING_FLOAT_LO, matrix.cadd.PHRED
@@ -200,10 +200,44 @@ matrix = matrix.annotate_rows(
             MISSING_INT,
             matrix.clinvar.gold_stars,
         ),
+        # these next 3 are per-transcript, with ";" to delimit
+        # pulling these annotations into INFO with ";" to separate
+        # will break INFO parsing for most tools
+        mutationtaster=hl.if_else(
+            hl.is_missing(matrix.dbnsfp.MutationTaster_pred),
+            MISSING_STRING,
+            matrix.dbnsfp.MutationTaster_pred.replace(';', ','),
+        ),
+        fathmm=hl.if_else(
+            hl.is_missing(matrix.dbnsfp.FATHMM_pred),
+            MISSING_STRING,
+            matrix.dbnsfp.FATHMM_pred.replace(';', ','),
+        ),
+        metasvm=hl.if_else(
+            hl.is_missing(matrix.dbnsfp.MetaSVM_pred),
+            MISSING_STRING,
+            matrix.dbnsfp.MetaSVM_pred.replace(';', ','),
+        ),
+        gerp_rs=hl.if_else(
+            hl.is_missing(matrix.dbnsfp.GERP_RS),
+            MISSING_FLOAT_LO,
+            hl.float64(matrix.dbnsfp.GERP_RS),
+        ),
+        phast_cons=hl.if_else(
+            hl.is_missing(matrix.dbnsfp.phastCons100way_vertebrate),
+            MISSING_FLOAT_LO,
+            hl.float64(matrix.dbnsfp.phastCons100way_vertebrate),
+        ),
+        eigen_phred=hl.if_else(
+            hl.is_missing(matrix.eigen.Eigen_phred),
+            MISSING_FLOAT_LO,
+            hl.float64(matrix.eigen.Eigen_phred),
+        ),
     )
 )
 
 # hell... maybe add some classifications while we're here...
+# once the thresholds are finalised
 
 # # export VCF, inc. Tabix index
 # hl.export_vcf(
