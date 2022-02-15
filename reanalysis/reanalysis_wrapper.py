@@ -133,15 +133,25 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped: str):
     slivar_job = batch.new_job(name='slivar_reanalysis_stage')
     set_job_resources(slivar_job)
 
-    _slivar_command = f"""
-        SLIVAR_IMPACTFUL_ORDER={csq_list_resource} slivar expr
-        --vcf {input_vcf_resource}
-        --pass-only
-        --skip-non-variable
-        -p {ped}
-        --info 'INFO.impactful && variant.ALT[0] != "*"'
-        | bgzip -c -@ 4 > {slivar_job.out_vcf}
-    """
+    # run tabix on the input resource file
+    # run comp-het annotation on the file
+    # write to an intermediate file, index
+    # then run a expr filter
+    _slivar_command = (
+        'tabix -p vcf input_vcf_resource; '
+        'CSQ_FIELD="COMPOUND_CSQ" slivar compound-hets '
+        f'--ped {ped} '
+        f'-v {input_vcf_resource} |'
+        'bgzip -c -@ 4 > comphet.vcf.gz;'
+        'tabix comphet.vcf.gz; '
+        f'SLIVAR_IMPACTFUL_ORDER={csq_list_resource} slivar expr '
+        f'--vcf {input_vcf_resource} '
+        '--pass-only '
+        '--skip-non-variable '
+        f'-p {ped}'
+        f"--info 'INFO.impactful && variant.ALT[0] != \"*\" |"
+        f'bgzip -c -@ 4 > {slivar_job.out_vcf}'
+    )
     batch.run(wait=False)
 
 
