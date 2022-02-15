@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+
+
 """
 PanelApp Parser for Reanalysis
 
@@ -237,6 +240,7 @@ def main(panel_id: str, out_path: str, since: Optional[str] = None):
     else:
         panel_dict['changes'] = {}
 
+    logging.info('Writing output JSON file to %s', out_path)
     with open(out_path, 'w', encoding='utf-8') as handle:
         json.dump(panel_dict, handle, indent=True, default=str)
 
