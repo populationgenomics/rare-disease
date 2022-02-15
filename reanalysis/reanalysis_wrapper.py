@@ -22,9 +22,14 @@ import click
 
 
 # used to provide all VEP105 consequences, silences Slivar errors
-CUSTOM_SLIVAR_CONS = 'gs://cpg-acute-care-test/vep/custom_slivar_order.txt'
 PANELAPP_JSON_OUT = output_path('panelapp_137_data.json')
 HAIL_VCF_OUT = output_path("hail_classified.vcf.bgz")
+COMP_HET_VCF_OUT = output_path("hail_comp_het.vcf.bgz")
+
+# location of the Slivar Docker image
+AR_REPO = 'australia-southeast1-docker.pkg.dev/cpg-common/images'
+SLIVAR_TAG = 'slivar:v0.2.7'
+SLIVAR_IMAGE = f'{AR_REPO}/{SLIVAR_TAG}'
 
 
 def set_job_resources(job: Union[hailtop.batch.job.BashJob, hailtop.batch.job.Job]):
@@ -118,40 +123,34 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped: str):
         num_workers=2,
         cluster_name='run vep',
     )
+    # required?
     set_job_resources(hail_job)
 
     # ------------------------------------------- #
     # slivar compound het check & class 4 removal #
     # ------------------------------------------- #
 
-    # read in the Slivar consequences
-    csq_list_resource = batch.read_input(CUSTOM_SLIVAR_CONS)
-
-    # read in the VCF from step 2
-    input_vcf_resource = batch.read_input(HAIL_VCF_OUT)
-
+    # set up the slivar job
     slivar_job = batch.new_job(name='slivar_reanalysis_stage')
     set_job_resources(slivar_job)
+    slivar_job.image(SLIVAR_IMAGE)
 
+    # read in the VCF from step 2 as input (HAIL_VCF_OUT)
     # run tabix on the input resource file
-    # run comp-het annotation on the file
-    # write to an intermediate file, index
-    # then run a expr filter
-    _slivar_command = (
-        'tabix -p vcf input_vcf_resource; '
-        'CSQ_FIELD="COMPOUND_CSQ" slivar compound-hets '
-        f'--ped {ped} '
-        f'-v {input_vcf_resource} |'
-        'bgzip -c -@ 4 > comphet.vcf.gz;'
-        'tabix comphet.vcf.gz; '
-        f'SLIVAR_IMPACTFUL_ORDER={csq_list_resource} slivar expr '
-        f'--vcf {input_vcf_resource} '
-        '--pass-only '
-        '--skip-non-variable '
-        f'-p {ped}'
-        f"--info 'INFO.impactful && variant.ALT[0] != \"*\" |"
-        f'bgzip -c -@ 4 > {slivar_job.out_vcf}'
+    # run comp-het discovery on the file
+    # this creates a new VCF, exclusively containing comp-hets
+    slivar_job.command(
+        (
+            'tabix -p vcf input_vcf_resource; '
+            'CSQ_FIELD="COMPOUND_CSQ" slivar compound-hets '
+            f'--ped {ped} '
+            f'-v {batch.read_input(HAIL_VCF_OUT)} | '
+            f'bgzip -c -@ 4 > {slivar_job.out_vcf};'
+        )
     )
+    batch.write_output(slivar_job.out_vcf, COMP_HET_VCF_OUT)
+
+    # run the batch
     batch.run(wait=False)
 
 
