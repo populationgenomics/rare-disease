@@ -88,15 +88,14 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
         f'--date {panelapp_date}'
     )
     logging.info('PanelApp Process trigger: %s', panelapp_command)
-    panelapp_job.command(panelapp_command)
 
-    # copy the relevant scripts into an instance
-    # of the Driver container
+    # copy the relevant scripts into a Driver container instance
     prepare_git_job(
         job=panelapp_job,
         repo_name=get_repo_name_from_current_directory(),
         commit=get_git_commit_ref_of_current_repository(),
     )
+    panelapp_job.command(panelapp_command)
     panelapp_job.image(os.getenv('DRIVER_IMAGE'))
 
     # retrieve the output file, writing to the output bucket
