@@ -18,31 +18,145 @@ import click
 # set some Hail constants
 MISSING_STRING = hl.str('missing')
 MISSING_INT = hl.int32(0)
+ONE_INT = hl.int32(1)
 MISSING_FLOAT_LO = hl.float64(0.0)
 MISSING_FLOAT_HI = hl.float64(1.0)
 
-# consequences we're happy to dismiss
-USELESS_CONSEQUENCES = hl.literal(
-    {
-        "3_prime_UTR_variant",
-        "5_prime_UTR_variant",
-        "downstream_gene_variant",
-        "intron_variant",
-        "NMD_transcript_variant",
-        "non_coding_transcript_exon_variant",
-        "non_coding_transcript_variant",
-        "upstream_gene_variant",
-        "mature_miRNA_variant",
-    }
-)
 
-
-def annotate_class_1(matrix: hl.MatrixTable) -> hl.MatrixTable:
+def annotate_class_1(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.MatrixTable:
     """
     applies the Class1 flag where appropriate
+    rare (< 0.005 in Gnomad)
+    at least one Clinvar star
+    either Pathogenic or Likely_pathogenic in Clinvar
+    Assign 1 or 0, depending on presence
     :param matrix:
+    :param config:
     :return:
     """
+
+    clinvar_pathogenic_terms = hl.set(config.get('clinvar_path'))
+
+    matrix = matrix.annotate_rows(
+        info=matrix.info.annotate(
+            Class1=hl.if_else(
+                (matrix.info.clinvar_stars > 0)
+                & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
+                & (matrix.info.gnomad_af < config.get('gnomad')),
+                ONE_INT,
+                MISSING_INT,
+            )
+        )
+    )
+
+    return matrix
+
+
+def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.MatrixTable:
+    """
+    applies the Class3 flag where appropriate
+    at least one important consequence
+    rare (< 0.005 in Gnomad)
+    either predicted NMD (Loftee not in the data yet) or
+    any star Pathogenic or Likely_pathogenic in Clinvar
+    :param matrix:
+    :param config:
+    :return:
+    """
+    critical_consequences = hl.set(config.get('critical_csq'))
+    clinvar_pathogenic_terms = hl.set(config.get('clinvar_path'))
+    matrix = matrix.annotate_rows(
+        info=matrix.info.annotate(
+            Class3=hl.if_else(
+                (
+                    hl.len(hl.set(matrix.info.csq).intersection(critical_consequences))
+                    > 0
+                )
+                & (
+                    (matrix.info.clinvar_stars > 0)
+                    & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
+                )
+                & (matrix.info.gnomad_af < config.get('gnomad')),
+                ONE_INT,
+                MISSING_INT,
+            )
+        )
+    )
+
+    return matrix
+
+
+def annotate_class_2(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.MatrixTable:
+    """
+    Provisional class, requires a panelapp check (new)
+    Basically for now this is
+    rare (< 0.005 in Gnomad), and
+    - Class 3, or
+    - Clinvar, or
+    - High in silico consequence
+    :param matrix:
+    :param config:
+    :return:
+    """
+
+    critical_consequences = hl.set(config.get('critical_csq'))
+    clinvar_pathogenic_terms = hl.set(config.get('clinvar_path'))
+
+    matrix = matrix.annotate_rows(
+        info=matrix.info.annotate(
+            Class2=hl.if_else(
+                (matrix.info.Class3 == 1)
+                | (
+                    hl.len(hl.set(matrix.info.csq).intersection(critical_consequences))
+                    > 0
+                )
+                & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
+                & (matrix.info.gnomad_af < config.get('gnomad')),
+                ONE_INT,
+                MISSING_INT,
+            )
+        )
+    )
+
+    return matrix
+
+
+def annotate_class_4(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.MatrixTable:
+    """
+    Filler Class, based on in silico annotations
+    CADD/REVEL above threshold, or
+    Massive cross-tool consensus
+    rare (< 0.005 in Gnomad)
+    :param matrix:
+    :param config:
+    :return:
+    """
+
+    matrix = matrix.annotate_rows(
+        info=matrix.info.annotate(
+            Class4=hl.if_else(
+                (
+                    (matrix.info.cadd > config.get('cadd'))
+                    | (matrix.info.revel > config.get('revel'))
+                )
+                | (
+                    (matrix.info.vep_sift_prediction == 'deleterious')
+                    & (matrix.info.vep_polyphen_prediction == 'probably_damaging')
+                    & (matrix.info.vep_sift_score < config.get('sift'))
+                    & (matrix.info.vep_polyphen_score >= config.get('polyphen'))
+                    & (
+                        (matrix.info.mutationtaster.includes("D"))
+                        | (matrix.info.mutationtaster == "missing")
+                    )
+                    & (matrix.info.gerp_rs >= config.get('gerp'))
+                    & (matrix.info.eigen_phred > config.get('eigen'))
+                )
+                & (matrix.info.gnomad_af < config.get('gnomad')),
+                ONE_INT,
+                MISSING_INT,
+            )
+        )
+    )
 
     return matrix
 
@@ -110,7 +224,7 @@ def apply_row_filters(matrix: hl.MatrixTable) -> hl.MatrixTable:
 
 
 def apply_consequence_filters(
-    matrix: hl.MatrixTable, green_genes: hl.SetExpression
+    matrix: hl.MatrixTable, green_genes: hl.SetExpression, config: Dict[str, Any]
 ) -> hl.MatrixTable:
     """
     filter on per-consequence annotations
@@ -119,8 +233,10 @@ def apply_consequence_filters(
         - MANE transcript consequence
     :param matrix:
     :param green_genes:
+    :param config:
     :return:
     """
+    useless_csq = hl.set(config.get('useless_csq'))
 
     # must have a Gene ID in the green gene list
     matrix = matrix.filter_rows(
@@ -136,7 +252,7 @@ def apply_consequence_filters(
     matrix = matrix.filter_rows(
         hl.len(
             hl.set(matrix.vep.transcript_consequences.consequence_terms).difference(
-                USELESS_CONSEQUENCES
+                useless_csq
             )
         )
         == 0,
@@ -148,8 +264,11 @@ def apply_consequence_filters(
 def extract_annotations(matrix: hl.MatrixTable) -> hl.MatrixTable:
     """
     pull out select fields from VEP and other locations
-    store these in INFO
-    required to be included in VCF export
+    store these in INFO (required to be included in VCF export)
+
+    replace with placeholder if empty
+    placeholder values should be least consequential
+    e.g. most tools score 0, but for Sift 1 is least important
     :param matrix:
     :return:
     """
@@ -163,10 +282,7 @@ def extract_annotations(matrix: hl.MatrixTable) -> hl.MatrixTable:
             + hl.delimit(
                 matrix.vep.transcript_consequences.consequence_terms, delimiter='&'
             ),
-            csq=hl.delimit(
-                matrix.vep.transcript_consequences.consequence_terms,
-                delimiter='&',
-            ),
+            csq=hl.set(matrix.vep.transcript_consequences.consequence_terms),
             lof=hl.or_else(matrix.vep.transcript_consequences.lof, MISSING_STRING),
             lof_info=hl.or_else(
                 matrix.vep.transcript_consequences.lof_info, MISSING_STRING
@@ -229,62 +345,87 @@ def extract_annotations(matrix: hl.MatrixTable) -> hl.MatrixTable:
     return matrix
 
 
-@click.command()
-@click.option('--mt', 'mt_path', help='path to the matrix table to ingest')
-@click.option(
-    '--ref',
-    'reference',
-    help='Genomic Reference to initiate Hail with',
-    default='GRCh38',
-)
-@click.option('--pap', 'panelapp_json', help='bucket path containing panelapp JSON')
-def main(mt_path: str, reference: str, panelapp_json: str):
+def filter_to_classified(matrix: hl.MatrixTable) -> hl.MatrixTable:
+    """
+    filters to only rows which have an associated class
+    :param matrix:
+    :return:
+    """
+    matrix = matrix.filter_rows(
+        (matrix.info.Class1 == 1)
+        | (matrix.info.Class2 == 1)
+        | (matrix.info.Class3 == 1)
+        | (matrix.info.Class4 == 1)
+    )
+    return matrix
+
+
+def write_matrix_to_vcf(matrix: hl.MatrixTable, output_path: str):
     """
 
-    :param mt_path:
-    :param reference:
-    :param panelapp_json:
+    :param matrix:
+    :param output_path: where to write the VCF
+    :return:
+    """
+    hl.export_vcf(
+        matrix,
+        output_path,
+        tabix=True,
+    )
+
+
+@click.command()
+@click.option('--mt', 'mt_path', help='path to the matrix table to ingest')
+@click.option('--pap', 'panelapp_json', help='bucket path containing panelapp JSON')
+@click.option('--config', 'config', help='path to a config dict')
+@click.option('--output', 'out_vcf', help='VCF path to export results')
+def main(mt_path: str, panelapp_json: str, config: str, output: str):
+    """
+    Read the MT from disk, do filtering and class annotation
+    Export as a VCF
+
+    :param mt_path: path to the MT dump
+    :param panelapp_json: path to the panelapp data dump
+    :param config: path to the config json
+    :param output: path to write the VCF out to
     :return:
     """
 
-    # point at the acute-care all-samples MT
-    # mt_path = 'gs://cpg-acute-care-test/vep/acute-care_full_vep_105.mt'
-    hl.init(default_reference=reference)
+    # get the run configuration JSON
+    config_dict = read_json_from_path(config)
 
-    # read MT (with annotations)
+    # initiate Hail with the specified reference
+    hl.init(default_reference=config_dict.get('ref_genome'))
+
+    # load MT in
     matrix = hl.read_matrix_table(mt_path)
 
+    # re-annotate using VEP
     matrix = annotate_using_vep(matrix_data=matrix)
 
     # read the parsed panelapp data from a bucket path
     panelapp = read_json_from_path(panelapp_json)
 
-    # cast keys panel data keys (green genes) as a set of strings
+    # cast panel data keys (green genes) as a set(str)
     green_genes = hl.literal(set(panelapp['panel_data'].keys()))
 
-    # explode across consequences (new row per consequence)
+    # explode consequences (new row per csq)
     matrix = matrix.explode_rows(matrix.vep.transcript_consequences)
 
-    matrix = apply_consequence_filters(matrix, green_genes)
+    # hard filter for relevant consequences
+    matrix = apply_consequence_filters(matrix, green_genes, config_dict)
 
-    # pull the annotations from 'vep' into 'INFO'
+    # pull the annotations from 'vep' into 'info'
     matrix = extract_annotations(matrix)
 
-    _matrix = annotate_class_1(matrix)
+    # add Classes to the MT
+    matrix = annotate_class_1(matrix, config_dict)
+    matrix = annotate_class_3(matrix, config_dict)
+    matrix = annotate_class_2(matrix, config_dict)
+    matrix = annotate_class_4(matrix, config_dict)
 
-    # extract fields & and replace with placeholder if empty
-    # placeholder values should be lowest possible consequence
-    # e.g. most tools score 0, but for Sift 1 is least important
+    # filter to class-annotated only prior to export
+    matrix = filter_to_classified(matrix)
 
-    # lof and lof_info are removed - always empty in current schema
-
-
-# hell... maybe add some classifications while we're here...
-# once the thresholds are finalised
-
-# # export VCF, inc. Tabix index
-# hl.export_vcf(
-#     matrix,
-#     'gs://cpg-acute-care-test/acute-care-all-vep-hail-annotated-for-slivar.vcf.bgz',
-#     tabix=True,
-# )
+    # write the results to a VCF path
+    write_matrix_to_vcf(matrix=matrix, output_path=output)
