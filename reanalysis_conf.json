@@ -1,0 +1,37 @@
+{
+ "min_samples_to_ac_filter": 60,
+ "ac_filter_percentage": 10,
+ "ref_genome": "GRCh38",
+ "cadd": 28.0,
+ "exac_rare": 0.005,
+ "gnomad_rare": 0.005,
+ "revel": 0.4,
+ "polyphen": 0.85,
+ "sift": 0.03,
+ "gerp": 1.0,
+ "eigen": 0.25,
+ "clinvar_path": [
+  "Pathogenic",
+  "Likely_pathogenic"
+ ],
+ "useless_csq": [
+  "upstream_gene_variant",
+  "downstream_gene_variant",
+  "intron_variant",
+  "mature_miRNA_variant",
+  "non_coding_transcript_variant",
+  "3_prime_UTR_variant",
+  "5_prime_UTR_variant",
+  "non_coding_transcript_exon_variant",
+  "NMD_transcript_variant"
+ ],
+ "critical_csq": [
+  "stop_gained",
+  "frameshift",
+  "start_lost",
+  "stop_lost",
+  "splice_acceptor",
+  "transcript_ablation",
+  "splice_donor"
+ ]
+}

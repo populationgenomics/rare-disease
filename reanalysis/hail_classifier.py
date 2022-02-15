@@ -1,6 +1,7 @@
 """
 - read VCF into MT
-- hard-filter
+- read PanelApp data through GCP client
+- hard-filter (FILTERS, AC,
 - annotate
 - consequence filter
 - extract fields
@@ -26,7 +27,7 @@ MISSING_FLOAT_HI = hl.float64(1.0)
 def annotate_class_1(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.MatrixTable:
     """
     applies the Class1 flag where appropriate
-    rare (< 0.005 in Gnomad)
+    rare in Gnomad
     at least one Clinvar star
     either Pathogenic or Likely_pathogenic in Clinvar
     Assign 1 or 0, depending on presence
@@ -42,7 +43,7 @@ def annotate_class_1(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
             Class1=hl.if_else(
                 (matrix.info.clinvar_stars > 0)
                 & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
-                & (matrix.info.gnomad_af < config.get('gnomad')),
+                & (matrix.info.gnomad_af < config.get('gnomad_rare')),
                 ONE_INT,
                 MISSING_INT,
             )
@@ -56,7 +57,7 @@ def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     """
     applies the Class3 flag where appropriate
     at least one important consequence
-    rare (< 0.005 in Gnomad)
+    rare in Gnomad
     either predicted NMD (Loftee not in the data yet) or
     any star Pathogenic or Likely_pathogenic in Clinvar
     :param matrix:
@@ -76,7 +77,7 @@ def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
                     (matrix.info.clinvar_stars > 0)
                     & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
                 )
-                & (matrix.info.gnomad_af < config.get('gnomad')),
+                & (matrix.info.gnomad_af < config.get('gnomad_rare')),
                 ONE_INT,
                 MISSING_INT,
             )
@@ -90,7 +91,7 @@ def annotate_class_2(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     """
     Provisional class, requires a panelapp check (new)
     Basically for now this is
-    rare (< 0.005 in Gnomad), and
+    rare in Gnomad, and
     - Class 3, or
     - Clinvar, or
     - High in silico consequence
@@ -111,7 +112,7 @@ def annotate_class_2(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
                     > 0
                 )
                 & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
-                & (matrix.info.gnomad_af < config.get('gnomad')),
+                & (matrix.info.gnomad_af < config.get('gnomad_rare')),
                 ONE_INT,
                 MISSING_INT,
             )
@@ -126,7 +127,7 @@ def annotate_class_4(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     Filler Class, based on in silico annotations
     CADD/REVEL above threshold, or
     Massive cross-tool consensus
-    rare (< 0.005 in Gnomad)
+    rare in Gnomad
     :param matrix:
     :param config:
     :return:
@@ -151,7 +152,7 @@ def annotate_class_4(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
                     & (matrix.info.gerp_rs >= config.get('gerp'))
                     & (matrix.info.eigen_phred > config.get('eigen'))
                 )
-                & (matrix.info.gnomad_af < config.get('gnomad')),
+                & (matrix.info.gnomad_af < config.get('gnomad_rare')),
                 ONE_INT,
                 MISSING_INT,
             )
@@ -161,10 +162,10 @@ def annotate_class_4(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     return matrix
 
 
-def read_json_from_path(bucket_path: str) -> Dict[str, Any]:
+def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
     """
     take a path to a JSON file, read into an object
-    this loop can be used to read config files, or data
+    this loop can read config files, or data
     :param bucket_path:
     :return:
     """
@@ -183,15 +184,25 @@ def read_json_from_path(bucket_path: str) -> Dict[str, Any]:
     return json.loads(json_blob.download_as_bytes())
 
 
-def annotate_using_vep(matrix_data: hl.MatrixTable) -> hl.MatrixTable:
+def hard_filter_before_annotation(
+    matrix_data: hl.MatrixTable, config: Dict[str, Any]
+) -> hl.MatrixTable:
     """
-    hard filter some variants, and return the result
-    hard filter prior to annotation to reduce runtime
+
     :param matrix_data:
+    :param config:
     :return:
     """
-    # hard filter for quality and abundance in the joint call
-    matrix_data = matrix_data.filter_rows(matrix_data.info.AC <= 20)
+
+    # count the samples in the VCF
+    # if we reach the sample threshold, filter on AC
+    if matrix_data.count_cols() >= config.get('min_samples_to_ac_filter'):
+        matrix_data = matrix_data.filter_rows(
+            matrix_data.info.AC
+            <= matrix_data.info.AN // config.get('ac_filter_percentage')
+        )
+
+    # hard filter for quality
     matrix_data = matrix_data.filter_rows(matrix_data.filters.length() == 0)
 
     # filter to biallelic loci only, and no missing variants
@@ -201,22 +212,33 @@ def annotate_using_vep(matrix_data: hl.MatrixTable) -> hl.MatrixTable:
     # throw in a repartition here (annotate even chunks in parallel)
     matrix_data = matrix_data.repartition(150, shuffle=False)
 
+    return matrix_data
+
+
+def annotate_using_vep(matrix_data: hl.MatrixTable) -> hl.MatrixTable:
+    """
+    runs VEP annotation on the MT
+    :param matrix_data:
+    :return:
+    """
+
     # now run VEP 105 annotation
     vep = hl.vep(matrix_data, config='file:///vep_data/vep-gcloud.json')
     return vep
 
 
-def apply_row_filters(matrix: hl.MatrixTable) -> hl.MatrixTable:
+def apply_row_filters(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.MatrixTable:
     """
-    hard filters applied prior to the separation per-consequence
+    variant filters applied prior to the per-consequence split
     :param matrix:
+    :param config:
     :return:
     """
-    # exac and gnomad must be below 1% or missing
+    # exac and gnomad must be below threshold or missing
     matrix = matrix.filter_rows(
-        ((matrix.exac.AF < 0.01) | (hl.is_missing(matrix.exac.AF)))
+        ((matrix.exac.AF < config.get('exac_rare')) | (hl.is_missing(matrix.exac.AF)))
         & (
-            (matrix.gnomad_genomes.AF < 0.01)
+            (matrix.gnomad_genomes.AF < config.get('gnomad_rare'))
             | (hl.is_missing(matrix.gnomad_genomes.AF))
         )
     )
@@ -234,8 +256,10 @@ def apply_consequence_filters(
     :param matrix:
     :param green_genes:
     :param config:
-    :return:
+    :return: input matrix filtered by consequences
     """
+
+    # identify consequences to discard from the config
     useless_csq = hl.set(config.get('useless_csq'))
 
     # must have a Gene ID in the green gene list
@@ -258,6 +282,7 @@ def apply_consequence_filters(
         == 0,
         keep=False,
     )
+
     return matrix
 
 
@@ -269,8 +294,10 @@ def extract_annotations(matrix: hl.MatrixTable) -> hl.MatrixTable:
     replace with placeholder if empty
     placeholder values should be least consequential
     e.g. most tools score 0, but for Sift 1 is least important
+
+    Adds in a compound CSQ field, useful with Slivar
     :param matrix:
-    :return:
+    :return: input matrix with annotations pulled into INFO
     """
     # filter the matrix table on per-consequence basis
     matrix = matrix.annotate_rows(
@@ -349,7 +376,7 @@ def filter_to_classified(matrix: hl.MatrixTable) -> hl.MatrixTable:
     """
     filters to only rows which have an associated class
     :param matrix:
-    :return:
+    :return: input matrix, minus rows without Classes applied
     """
     matrix = matrix.filter_rows(
         (matrix.info.Class1 == 1)
@@ -365,7 +392,6 @@ def write_matrix_to_vcf(matrix: hl.MatrixTable, output_path: str):
 
     :param matrix:
     :param output_path: where to write the VCF
-    :return:
     """
     hl.export_vcf(
         matrix,
@@ -377,22 +403,21 @@ def write_matrix_to_vcf(matrix: hl.MatrixTable, output_path: str):
 @click.command()
 @click.option('--mt', 'mt_path', help='path to the matrix table to ingest')
 @click.option('--pap', 'panelapp_json', help='bucket path containing panelapp JSON')
-@click.option('--config', 'config', help='path to a config dict')
+@click.option('--config', 'config_path', help='path to a config dict')
 @click.option('--output', 'out_vcf', help='VCF path to export results')
-def main(mt_path: str, panelapp_json: str, config: str, output: str):
+def main(mt_path: str, panelapp_json: str, config_path: str, output: str):
     """
     Read the MT from disk, do filtering and class annotation
     Export as a VCF
 
     :param mt_path: path to the MT dump
     :param panelapp_json: path to the panelapp data dump
-    :param config: path to the config json
+    :param config_path: path to the config json
     :param output: path to write the VCF out to
-    :return:
     """
 
     # get the run configuration JSON
-    config_dict = read_json_from_path(config)
+    config_dict = read_json_dict_from_path(config_path)
 
     # initiate Hail with the specified reference
     hl.init(default_reference=config_dict.get('ref_genome'))
@@ -400,11 +425,17 @@ def main(mt_path: str, panelapp_json: str, config: str, output: str):
     # load MT in
     matrix = hl.read_matrix_table(mt_path)
 
+    # hard filter entries in the MT prior to annotation
+    matrix = hard_filter_before_annotation(matrix_data=matrix, config=config_dict)
+
     # re-annotate using VEP
     matrix = annotate_using_vep(matrix_data=matrix)
 
+    # filter on consequence-independent row annotations
+    matrix = apply_row_filters(matrix=matrix, config=config_dict)
+
     # read the parsed panelapp data from a bucket path
-    panelapp = read_json_from_path(panelapp_json)
+    panelapp = read_json_dict_from_path(panelapp_json)
 
     # cast panel data keys (green genes) as a set(str)
     green_genes = hl.literal(set(panelapp['panel_data'].keys()))
