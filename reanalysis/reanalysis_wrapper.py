@@ -53,13 +53,13 @@ def set_job_resources(job: Union[hailtop.batch.job.BashJob, hailtop.batch.job.Jo
     default='gs://cpg-acute-care-test/reanalysis/reanalysis_conf.json',
 )
 @click.option('--ped', 'ped_file', help='ped file for this analysis')
-def main(matrix_path: str, panelapp_date: str, config_json: str, ped: str):
+def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     """
     Description
     :param matrix_path:
     :param panelapp_date:
     :param config_json:
-    :param ped:
+    :param ped_file:
     """
 
     service_backend = hb.ServiceBackend(
@@ -145,7 +145,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped: str):
         (
             'tabix -p vcf input_vcf_resource; '
             'CSQ_FIELD="COMPOUND_CSQ" slivar compound-hets '
-            f'--ped {batch.read_input(ped)} '
+            f'--ped {batch.read_input(ped_file)} '
             f'-v {batch.read_input(HAIL_VCF_OUT)} | '
             f'bgzip -c -@ 4 > {slivar_job.out_vcf};'
         )
