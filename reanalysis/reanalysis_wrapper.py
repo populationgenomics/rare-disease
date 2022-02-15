@@ -12,6 +12,11 @@ import os
 import hailtop.batch as hb
 import hailtop.batch.job
 from analysis_runner import dataproc, output_path
+from analysis_runner.git import (
+    prepare_git_job,
+    get_repo_name_from_current_directory,
+    get_git_commit_ref_of_current_repository,
+)
 
 import click
 
@@ -61,13 +66,19 @@ def main(matrix_path: str, panelapp_date: str, config_json: str):
     panelapp_job = batch.new_job(name='parse panelapp')
     set_job_resources(panelapp_job)
     panelapp_command = (
-        f'python {panelapp_script} '
+        f'python3 {panelapp_script} '
         f'--id 137 '
         f'--out {panelapp_job.panel_json} '
         f'--date {panelapp_date}'
     )
+    prepare_git_job(
+        job=panelapp_job,
+        repo_name=get_repo_name_from_current_directory(),
+        commit=get_git_commit_ref_of_current_repository(),
+    )
     logging.info('PanelApp Process trigger: %s', panelapp_command)
     panelapp_job.command(panelapp_command)
+    panelapp_job.image(os.getenv('DRIVER_IMAGE'))
     batch.write_output(panelapp_job.panel_json, output_path('panelapp_137_data.json'))
 
     # don't run this for now
