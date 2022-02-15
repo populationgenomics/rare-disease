@@ -68,7 +68,9 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     )
 
     # create a hail batch
-    batch = hb.Batch(name='run_reanalysis', backend=service_backend)
+    batch = hb.Batch(
+        name='run_reanalysis', backend=service_backend, cancel_after_n_failures=1
+    )
 
     # panelapp and hail script paths
     panelapp_script = os.path.join(os.path.dirname(__file__), 'panelapp_extraction.py')
