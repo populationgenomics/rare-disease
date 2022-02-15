@@ -103,6 +103,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped: str):
     # ----------------------- #
     # run hail classification #
     # ----------------------- #
+    # insert skip clause here if output already exists
     hail_job = dataproc.hail_dataproc_job(
         batch=batch,
         worker_machine_type='n1-highmem-8',
@@ -135,7 +136,8 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped: str):
     set_job_resources(slivar_job)
     slivar_job.image(SLIVAR_IMAGE)
 
-    # read in the VCF from step 2 as input (HAIL_VCF_OUT)
+    # copy in VCF from step 2 as input (HAIL_VCF_OUT)
+    # copy in PED file for cohort
     # run tabix on the input resource file
     # run comp-het discovery on the file
     # this creates a new VCF, exclusively containing comp-hets
@@ -143,7 +145,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped: str):
         (
             'tabix -p vcf input_vcf_resource; '
             'CSQ_FIELD="COMPOUND_CSQ" slivar compound-hets '
-            f'--ped {ped} '
+            f'--ped {batch.read_input(ped)} '
             f'-v {batch.read_input(HAIL_VCF_OUT)} | '
             f'bgzip -c -@ 4 > {slivar_job.out_vcf};'
         )
