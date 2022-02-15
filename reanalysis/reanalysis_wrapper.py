@@ -61,7 +61,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str):
     panelapp_job = batch.new_job(name='parse panelapp')
     set_job_resources(panelapp_job)
     panelapp_command = (
-        f'{panelapp_script} '
+        f'python {panelapp_script} '
         f'--id 137 '
         f'--out {panelapp_job.panel_json} '
         f'--date {panelapp_date}'
