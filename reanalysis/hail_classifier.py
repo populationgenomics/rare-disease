@@ -208,11 +208,11 @@ def hard_filter_before_annotation(
         )
 
     # hard filter for quality
-    matrix_data = matrix_data.filter_rows(matrix_data.filters.length() == 0)
-
-    # filter to biallelic loci only, and no missing variants
-    matrix_data = matrix_data.filter_rows(hl.len(matrix_data.alleles) == 2)
-    matrix_data = matrix_data.filter_rows(matrix_data.alleles[1] != '*')
+    matrix_data = matrix_data.filter_rows(
+        (matrix_data.filters.length() == 0)
+        & (hl.len(matrix_data.alleles) == 2)
+        & (matrix_data.alleles[1] != '*')
+    )
 
     # throw in a repartition here (annotate even chunks in parallel)
     matrix_data = matrix_data.repartition(150, shuffle=False)
@@ -273,18 +273,17 @@ def apply_consequence_filters(
     )
 
     # require a MANE annotation
-    matrix = matrix.filter_rows(
-        hl.is_missing(matrix.vep.transcript_consequences.mane_select), keep=False
-    )
-
     # discard if there are only 'useless' consequences
     matrix = matrix.filter_rows(
-        hl.len(
-            hl.set(matrix.vep.transcript_consequences.consequence_terms).difference(
-                useless_csq
+        (hl.is_missing(matrix.vep.transcript_consequences.mane_select))
+        | (
+            hl.len(
+                hl.set(matrix.vep.transcript_consequences.consequence_terms).difference(
+                    useless_csq
+                )
             )
-        )
-        == 0,
+            == 0
+        ),
         keep=False,
     )
 
