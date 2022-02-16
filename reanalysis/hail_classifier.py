@@ -149,7 +149,7 @@ def annotate_class_4(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
                     & (matrix.info.sift_score < config.get('sift'))
                     & (matrix.info.polyphen_score >= config.get('polyphen'))
                     & (
-                        (matrix.info.mutationtaster.includes("D"))
+                        (matrix.info.mutationtaster.contains("D"))
                         | (matrix.info.mutationtaster == "missing")
                     )
                     & (matrix.info.gerp_rs >= config.get('gerp'))
