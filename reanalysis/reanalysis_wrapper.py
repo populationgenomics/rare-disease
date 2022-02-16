@@ -127,6 +127,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     )
     # required?
     set_job_resources(hail_job)
+    hail_job.depends_on(panelapp_job)
 
     # ------------------------------------------- #
     # slivar compound het check & class 4 removal #
@@ -136,6 +137,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     slivar_job = batch.new_job(name='slivar_reanalysis_stage')
     set_job_resources(slivar_job)
     slivar_job.image(SLIVAR_IMAGE)
+    slivar_job.depends_on(hail_job)
 
     # copy in VCF from step 2 as input (HAIL_VCF_OUT)
     # copy in PED file for cohort
