@@ -408,7 +408,7 @@ def write_matrix_to_vcf(matrix: hl.MatrixTable, output_path: str):
 @click.option('--pap', 'panelapp_path', help='bucket path containing panelapp JSON')
 @click.option('--config', 'config_path', help='path to a config dict')
 @click.option('--output', 'out_vcf', help='VCF path to export results')
-def main(mt_path: str, panelapp_path: str, config_path: str, output: str):
+def main(mt_path: str, panelapp_path: str, config_path: str, out_vcf: str):
     """
     Read the MT from disk, do filtering and class annotation
     Export as a VCF
@@ -416,7 +416,7 @@ def main(mt_path: str, panelapp_path: str, config_path: str, output: str):
     :param mt_path: path to the MT dump
     :param panelapp_path: path to the panelapp data dump
     :param config_path: path to the config json
-    :param output: path to write the VCF out to
+    :param out_vcf: path to write the VCF out to
     """
 
     logging.info('Reading config dict from "%s"', config_path)
@@ -476,9 +476,9 @@ def main(mt_path: str, panelapp_path: str, config_path: str, output: str):
     # filter to class-annotated only prior to export
     matrix = filter_to_classified(matrix)
 
-    logging.info('Write variants out to "%s"', output)
+    logging.info('Write variants out to "%s"', out_vcf)
     # write the results to a VCF path
-    write_matrix_to_vcf(matrix=matrix, output_path=output)
+    write_matrix_to_vcf(matrix=matrix, output_path=out_vcf)
 
 
 if __name__ == '__main__':
