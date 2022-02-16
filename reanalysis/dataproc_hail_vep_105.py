@@ -27,15 +27,17 @@ def main(matrix: str, output: str):
     # avoid annotating variants we won't consider anyway
 
     # hard filter for quality and abundance in the joint call
-    matrix_data = matrix_data.filter_rows(matrix_data.info.AC <= 20)
-    matrix_data = matrix_data.filter_rows(matrix_data.filters.length() == 0)
-
-    # filter to biallelic loci only, and no missing variants
-    matrix_data = matrix_data.filter_rows(hl.len(matrix_data.alleles) == 2)
-    matrix_data = matrix_data.filter_rows(matrix_data.alleles[1] != '*')
+    # locus restriction to keep this tiny
+    matrix_data = matrix_data.filter_rows(
+        (matrix_data.info.AC <= 2)
+        & (matrix_data.filters.length() == 0)
+        & (hl.len(matrix_data.alleles) == 2)
+        & (matrix_data.alleles[1] != '*')
+        & (matrix_data.locus.contig == 'chr22')
+    )
 
     # throw in a repartition here (annotate even chunks in parallel)
-    matrix_data = matrix_data.repartition(150, shuffle=False)
+    matrix_data = matrix_data.repartition(20, shuffle=False)
 
     # now run sexy VEP 105 annotation
     vep = hl.vep(matrix_data, config='file:///vep_data/vep-gcloud.json')
