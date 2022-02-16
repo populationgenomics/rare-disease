@@ -288,6 +288,10 @@ def apply_consequence_filters(
         keep=False,
     )
 
+    # expecting a minority remaining - repartition
+    logging.info('Repartition to 40 fragments following CSQ filter')
+    matrix = matrix.repartition(40, shuffle=False)
+
     return matrix
 
 
@@ -389,6 +393,9 @@ def filter_to_classified(matrix: hl.MatrixTable) -> hl.MatrixTable:
         | (matrix.info.Class3 == 1)
         | (matrix.info.Class4 == 1)
     )
+    # expecting a tiny remaining subset - repartition again
+    logging.info('Repartition to 10 fragments following removal of unclassified')
+    matrix = matrix.repartition(10, shuffle=False)
     return matrix
 
 
@@ -438,7 +445,7 @@ def main(mt_path: str, panelapp_path: str, config_path: str, out_vcf: str):
         'Starting Hail with reference genome "%s"', config_dict.get('ref_genome')
     )
     # initiate Hail with the specified reference
-    hl.init(default_reference=config_dict.get('ref_genome'))
+    hl.init(default_reference=config_dict.get('ref_genome'), quiet=True)
 
     logging.info('Loading MT from "%s"', mt_path)
     # load MT in

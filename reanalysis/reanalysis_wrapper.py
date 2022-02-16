@@ -10,6 +10,7 @@ from typing import Union
 import logging
 import os
 
+from google.cloud import storage
 import hailtop.batch as hb
 from analysis_runner import dataproc, output_path
 from analysis_runner.git import (
@@ -30,6 +31,20 @@ COMP_HET_VCF_OUT = output_path("hail_comp_het.vcf.bgz")
 AR_REPO = 'australia-southeast1-docker.pkg.dev/cpg-common/images'
 SLIVAR_TAG = 'slivar:v0.2.7'
 SLIVAR_IMAGE = f'{AR_REPO}/{SLIVAR_TAG}'
+
+
+def check_file_exists(filepath: str) -> bool:
+    """
+
+    :param filepath:
+    :return:
+    """
+    bucket = filepath.replace('gs://', '').split('/')[0]
+    path = filepath.replace('gs://', '').split('/', maxsplit=1)[1]
+
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket)
+    return storage.Blob(bucket=bucket, name=path).exists(storage_client)
 
 
 def set_job_resources(job: Union[hb.batch.job.BashJob, hb.batch.job.Job]):
@@ -127,7 +142,9 @@ def handle_slivar_job(
     slivar_job = batch.new_job(name='slivar_reanalysis_stage')
     set_job_resources(slivar_job)
     slivar_job.image(SLIVAR_IMAGE)
-    slivar_job.depends_on(prior_job)
+
+    if prior_job is not None:
+        slivar_job.depends_on(prior_job)
 
     # use PED and VCF as hail resource files
     # tabix input resource file
@@ -135,7 +152,6 @@ def handle_slivar_job(
     # creates new VCF  exclusively containing comp-hets
     slivar_job.command(
         (
-            'tabix -p vcf input_vcf_resource; '
             'CSQ_FIELD="COMPOUND_CSQ" slivar compound-hets '
             f'--ped {local_ped} '
             f'-v {local_vcf} | '
@@ -187,16 +203,19 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     # ----------------------- #
     # run hail classification #
     # ----------------------- #
-    # insert skip clause here if output already exists
-    hail_job = handle_hail_job(
-        batch=batch,
-        matrix=matrix_path,
-        config=config_json,
-        prior_job=panelapp_job,
-    )
+    hail_job = None
+    if not check_file_exists(HAIL_VCF_OUT):
+        hail_job = handle_hail_job(
+            batch=batch,
+            matrix=matrix_path,
+            config=config_json,
+            prior_job=panelapp_job,
+        )
 
-    # copy that output file into the remaining batch jobs
-    hail_output_in_batch = batch.read_input(HAIL_VCF_OUT)
+    # copy the Hail output file into the remaining batch jobs
+    hail_output_in_batch = batch.read_input_group(
+        **{'vcf': HAIL_VCF_OUT, 'vcf.tbi': HAIL_VCF_OUT + '.tbi'}
+    )
 
     # ------------------------------------------- #
     # slivar compound het check & class 4 removal #
@@ -205,7 +224,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     # set up the slivar job
     slivar_job = handle_slivar_job(
         batch=batch,
-        local_vcf=hail_output_in_batch,
+        local_vcf=hail_output_in_batch['vcf'],
         local_ped=ped_in_batch,
         prior_job=hail_job,
     )
@@ -219,6 +238,8 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
         results_job.depends_on(slivar_job)
 
         set_job_resources(results_job)
+        # we could be gross here, and tuck in an installation
+        # micromamba install -y cyvcf2;
         results_command = (
             f'python3 {os.path.join(os.path.dirname(__file__), "results.py")} '
             f'--conf {conf_in_batch} '
