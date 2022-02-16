@@ -11,9 +11,12 @@
 
 from typing import Any, Dict
 import json
+import logging
+import sys
+
+import click
 from google.cloud import storage
 import hail as hl
-import click
 
 
 # set some Hail constants
@@ -402,61 +405,87 @@ def write_matrix_to_vcf(matrix: hl.MatrixTable, output_path: str):
 
 @click.command()
 @click.option('--mt', 'mt_path', help='path to the matrix table to ingest')
-@click.option('--pap', 'panelapp_json', help='bucket path containing panelapp JSON')
+@click.option('--pap', 'panelapp_path', help='bucket path containing panelapp JSON')
 @click.option('--config', 'config_path', help='path to a config dict')
 @click.option('--output', 'out_vcf', help='VCF path to export results')
-def main(mt_path: str, panelapp_json: str, config_path: str, output: str):
+def main(mt_path: str, panelapp_path: str, config_path: str, output: str):
     """
     Read the MT from disk, do filtering and class annotation
     Export as a VCF
 
     :param mt_path: path to the MT dump
-    :param panelapp_json: path to the panelapp data dump
+    :param panelapp_path: path to the panelapp data dump
     :param config_path: path to the config json
     :param output: path to write the VCF out to
     """
 
+    logging.info('Reading config dict from "%s"', config_path)
     # get the run configuration JSON
     config_dict = read_json_dict_from_path(config_path)
 
-    # initiate Hail with the specified reference
-    hl.init(default_reference=config_dict.get('ref_genome'))
-
-    # load MT in
-    matrix = hl.read_matrix_table(mt_path)
-
-    # hard filter entries in the MT prior to annotation
-    matrix = hard_filter_before_annotation(matrix_data=matrix, config=config_dict)
-
-    # re-annotate using VEP
-    matrix = annotate_using_vep(matrix_data=matrix)
-
-    # filter on consequence-independent row annotations
-    matrix = apply_row_filters(matrix=matrix, config=config_dict)
-
+    logging.info('Reading PanelApp data from "%s"', panelapp_path)
     # read the parsed panelapp data from a bucket path
-    panelapp = read_json_dict_from_path(panelapp_json)
+    panelapp = read_json_dict_from_path(panelapp_path)
 
     # cast panel data keys (green genes) as a set(str)
     green_genes = hl.literal(set(panelapp['panel_data'].keys()))
+    logging.info('Extracted %d green genes', len(green_genes))
 
+    logging.info(
+        'Starting Hail with reference genome "%s"', config_dict.get('ref_genome')
+    )
+    # initiate Hail with the specified reference
+    hl.init(default_reference=config_dict.get('ref_genome'))
+
+    logging.info('Loading MT from "%s"', mt_path)
+    # load MT in
+    matrix = hl.read_matrix_table(mt_path)
+
+    logging.info('Hard filtering variants')
+    # hard filter entries in the MT prior to annotation
+    matrix = hard_filter_before_annotation(matrix_data=matrix, config=config_dict)
+
+    logging.info('Annotating variants')
+    # re-annotate using VEP
+    matrix = annotate_using_vep(matrix_data=matrix)
+
+    logging.info('Filtering Variant rows')
+    # filter on consequence-independent row annotations
+    matrix = apply_row_filters(matrix=matrix, config=config_dict)
+
+    logging.info('Splitting variant rows by consequence')
     # explode consequences (new row per csq)
     matrix = matrix.explode_rows(matrix.vep.transcript_consequences)
 
+    logging.info('Hard filter rows on consequence')
     # hard filter for relevant consequences
     matrix = apply_consequence_filters(matrix, green_genes, config_dict)
 
+    logging.info('Pulling VEP annotations into INFO field')
     # pull the annotations from 'vep' into 'info'
     matrix = extract_annotations(matrix)
 
+    logging.info('Applying classes to variant consequences')
     # add Classes to the MT
     matrix = annotate_class_1(matrix, config_dict)
     matrix = annotate_class_3(matrix, config_dict)
     matrix = annotate_class_2(matrix, config_dict)
     matrix = annotate_class_4(matrix, config_dict)
 
+    logging.info('Filter variants to leave only classified')
     # filter to class-annotated only prior to export
     matrix = filter_to_classified(matrix)
 
+    logging.info('Write variants out to "%s"', output)
     # write the results to a VCF path
     write_matrix_to_vcf(matrix=matrix, output_path=output)
+
+
+if __name__ == '__main__':
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(levelname)s %(module)s:%(lineno)d - %(message)s',
+        datefmt='%Y-%M-%d %H:%M:%S',
+        stream=sys.stderr,
+    )
+    main()  # pylint: disable=E1120
