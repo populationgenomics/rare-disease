@@ -149,11 +149,21 @@ def handle_slivar_job(
     # tabix input resource file
     # run comp-het discovery on the file
     # creates new VCF  exclusively containing comp-hets
+
+    # reheader the VCF using BCFtools and sed
+    desc = '##INFO=<ID=COMPOUND_CSQ,Number=1,Type=String,Description="'
+    # add this new line for Slivar
+    new_format = r"Format: 'Gene\|Transcript\|Consequence'"
+
     slivar_job.command(
         (
+            f'bcftools view -h {local_vcf} | sed \'s/'
+            f'{desc}">/{desc}{new_format}">/\' > new_header; '
+            f'bcftools reheader -h new_header --threads 4 -o new.vcf.bgz {local_vcf}; '
+            'tabix new.vcf.bgz; '
             'CSQ_FIELD="COMPOUND_CSQ" slivar compound-hets '
             f'--ped {local_ped} '
-            f'-v {local_vcf} | '
+            f'-v new.vcf.bgz | '
             f'bgzip -c -@ 4 > {slivar_job.out_vcf};'
         )
     )
