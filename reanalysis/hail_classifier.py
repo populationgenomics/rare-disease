@@ -430,7 +430,8 @@ def main(mt_path: str, panelapp_path: str, config_path: str, out_vcf: str):
     panelapp = read_json_dict_from_path(panelapp_path)
 
     # cast panel data keys (green genes) as a set(str)
-    green_genes = hl.literal(set(panelapp['panel_data'].keys()))
+    green_genes = set(panelapp['panel_data'].keys())
+    green_gene_set_expression = hl.literal(green_genes)
     logging.info('Extracted %d green genes', len(green_genes))
 
     logging.info(
@@ -461,7 +462,7 @@ def main(mt_path: str, panelapp_path: str, config_path: str, out_vcf: str):
 
     logging.info('Hard filter rows on consequence')
     # hard filter for relevant consequences
-    matrix = apply_consequence_filters(matrix, green_genes, config_dict)
+    matrix = apply_consequence_filters(matrix, green_gene_set_expression, config_dict)
 
     logging.info('Pulling VEP annotations into INFO field')
     # pull the annotations from 'vep' into 'info'
