@@ -9,8 +9,8 @@ wrapper for reanalysis process
 from typing import Union
 import logging
 import os
+
 import hailtop.batch as hb
-import hailtop.batch.job
 from analysis_runner import dataproc, output_path
 from analysis_runner.git import (
     prepare_git_job,
@@ -32,7 +32,7 @@ SLIVAR_TAG = 'slivar:v0.2.7'
 SLIVAR_IMAGE = f'{AR_REPO}/{SLIVAR_TAG}'
 
 
-def set_job_resources(job: Union[hailtop.batch.job.BashJob, hailtop.batch.job.Job]):
+def set_job_resources(job: Union[hb.batch.job.BashJob, hb.batch.job.Job]):
     """
     returns a new, appropriately resourced job
     :param job:
@@ -40,6 +40,109 @@ def set_job_resources(job: Union[hailtop.batch.job.BashJob, hailtop.batch.job.Jo
     job.cpu(2)
     job.memory('standard')
     job.storage('20G')
+
+
+def handle_panelapp_job(batch: hb.Batch, date: str) -> hb.batch.job.Job:
+    """
+
+    :param batch:
+    :param date:
+    :return:
+    """
+    panelapp_job = batch.new_job(name='parse panelapp')
+    set_job_resources(panelapp_job)
+    panelapp_command = (
+        f'python3 {os.path.join(os.path.dirname(__file__), "panelapp_extraction.py")} '
+        f'--id 137 '
+        f'--out {panelapp_job.panel_json} '
+        f'--date {date}'
+    )
+    logging.info('PanelApp Process trigger: %s', panelapp_command)
+
+    # copy the relevant scripts into a Driver container instance
+    prepare_git_job(
+        job=panelapp_job,
+        repo_name=get_repo_name_from_current_directory(),
+        commit=get_git_commit_ref_of_current_repository(),
+    )
+    panelapp_job.command(panelapp_command)
+    panelapp_job.image(os.getenv('DRIVER_IMAGE'))
+
+    # retrieve the output file, writing to the output bucket
+    batch.write_output(panelapp_job.panel_json, PANELAPP_JSON_OUT)
+    return panelapp_job
+
+
+def handle_hail_job(
+    batch: hb.Batch, matrix: str, config: str, prior_job: hb.batch.job
+) -> hb.batch.job.Job:
+    """
+    sets up the hail dataproc stage
+    :param batch:
+    :param matrix:
+    :param config:
+    :param prior_job:
+    :return:
+    """
+    hail_job = dataproc.hail_dataproc_job(
+        batch=batch,
+        worker_machine_type='n1-highmem-8',
+        worker_boot_disk_size=200,
+        secondary_worker_boot_disk_size=200,
+        script=f'{os.path.join(os.path.dirname(__file__), "hail_classifier.py")} '
+        f'--mt {matrix} '
+        f'--pap {PANELAPP_JSON_OUT} '
+        f'--config {config} '
+        f'--output {HAIL_VCF_OUT}',
+        max_age='8h',
+        init=[
+            'gs://cpg-reference/hail_dataproc/install_common.sh',
+            'gs://cpg-reference/vep/vep-GRCh38.sh',  # install and configure VEP 105
+        ],
+        job_name='run_vep',
+        num_secondary_workers=10,
+        num_workers=2,
+        cluster_name='run vep',
+    )
+    # required?
+    set_job_resources(hail_job)
+
+    # don't start unless prior step is successful
+    hail_job.depends_on(prior_job)
+
+    return hail_job
+
+
+def handle_slivar_job(
+    batch: hb.Batch, local_vcf: str, local_ped: str, prior_job: hb.batch.job
+) -> hb.batch.job:
+    """
+    set up the slivar job
+    :param batch:
+    :param local_vcf:
+    :param local_ped:
+    :param prior_job:
+    :return:
+    """
+    slivar_job = batch.new_job(name='slivar_reanalysis_stage')
+    set_job_resources(slivar_job)
+    slivar_job.image(SLIVAR_IMAGE)
+    slivar_job.depends_on(prior_job)
+
+    # use PED and VCF as hail resource files
+    # tabix input resource file
+    # run comp-het discovery on the file
+    # creates new VCF  exclusively containing comp-hets
+    slivar_job.command(
+        (
+            'tabix -p vcf input_vcf_resource; '
+            'CSQ_FIELD="COMPOUND_CSQ" slivar compound-hets '
+            f'--ped {local_ped} '
+            f'-v {local_vcf} | '
+            f'bgzip -c -@ 4 > {slivar_job.out_vcf};'
+        )
+    )
+    return slivar_job
 
 
 @click.command()
@@ -78,63 +181,21 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     # read the ped file into the batch as a resource
     conf_in_batch = batch.read_input(config_json)
 
-    # panelapp and hail script paths
-    panelapp_script = os.path.join(os.path.dirname(__file__), 'panelapp_extraction.py')
-    hail_script = os.path.join(os.path.dirname(__file__), 'hail_classifier.py')
-    # result_script = os.path.join(os.path.dirname(__file__), 'results.py')
-
     # -------------------------------- #
     # query panelapp for panel details #
     # -------------------------------- #
-    panelapp_job = batch.new_job(name='parse panelapp')
-    set_job_resources(panelapp_job)
-    panelapp_command = (
-        f'python3 {panelapp_script} '
-        f'--id 137 '
-        f'--out {panelapp_job.panel_json} '
-        f'--date {panelapp_date}'
-    )
-    logging.info('PanelApp Process trigger: %s', panelapp_command)
-
-    # copy the relevant scripts into a Driver container instance
-    prepare_git_job(
-        job=panelapp_job,
-        repo_name=get_repo_name_from_current_directory(),
-        commit=get_git_commit_ref_of_current_repository(),
-    )
-    panelapp_job.command(panelapp_command)
-    panelapp_job.image(os.getenv('DRIVER_IMAGE'))
-
-    # retrieve the output file, writing to the output bucket
-    batch.write_output(panelapp_job.panel_json, PANELAPP_JSON_OUT)
+    panelapp_job = handle_panelapp_job(batch=batch, date=panelapp_date)
 
     # ----------------------- #
     # run hail classification #
     # ----------------------- #
     # insert skip clause here if output already exists
-    hail_job = dataproc.hail_dataproc_job(
+    hail_job = handle_hail_job(
         batch=batch,
-        worker_machine_type='n1-highmem-8',
-        worker_boot_disk_size=200,
-        secondary_worker_boot_disk_size=200,
-        script=f'{hail_script} '
-        f'--mt {matrix_path} '
-        f'--pap {PANELAPP_JSON_OUT} '
-        f'--config {conf_in_batch} '
-        f'--output {HAIL_VCF_OUT}',
-        max_age='8h',
-        init=[
-            'gs://cpg-reference/hail_dataproc/install_common.sh',
-            'gs://cpg-reference/vep/vep-GRCh38.sh',  # install and configure VEP 105
-        ],
-        job_name='run_vep',
-        num_secondary_workers=10,
-        num_workers=2,
-        cluster_name='run vep',
+        matrix=matrix_path,
+        config=config_json,
+        prior_job=panelapp_job,
     )
-    # required?
-    set_job_resources(hail_job)
-    hail_job.depends_on(panelapp_job)
 
     # copy that output file into the remaining batch jobs
     hail_output_in_batch = batch.read_input(HAIL_VCF_OUT)
@@ -142,50 +203,44 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     # ------------------------------------------- #
     # slivar compound het check & class 4 removal #
     # ------------------------------------------- #
-    # set up the slivar job
-    slivar_job = batch.new_job(name='slivar_reanalysis_stage')
-    set_job_resources(slivar_job)
-    slivar_job.image(SLIVAR_IMAGE)
-    slivar_job.depends_on(hail_job)
 
-    # copy in VCF from step 2 as input (HAIL_VCF_OUT)
-    # copy in PED file for cohort
-    # run tabix on the input resource file
-    # run comp-het discovery on the file
-    # this creates a new VCF, exclusively containing comp-hets
-    slivar_job.command(
-        (
-            'tabix -p vcf input_vcf_resource; '
-            'CSQ_FIELD="COMPOUND_CSQ" slivar compound-hets '
-            f'--ped {ped_in_batch} '
-            f'-v {hail_output_in_batch} | '
-            f'bgzip -c -@ 4 > {slivar_job.out_vcf};'
-        )
+    # set up the slivar job
+    slivar_job = handle_slivar_job(
+        batch=batch,
+        local_vcf=hail_output_in_batch,
+        local_ped=ped_in_batch,
+        prior_job=hail_job,
     )
 
     batch.write_output(slivar_job.out_vcf, COMP_HET_VCF_OUT)
 
-    # results_job = batch.new_job(name='finalise_results')
-    # set_job_resources(results_job)
-    # results_command = (
-    #     f'python3 {result_script} '
-    #     f'--classified_vcf {hail_output_in_batch} '
-    #     f'--compound_het {slivar_job.out_vcf} '
-    #     f'--panelapp {panelapp_job.panel_json} '
-    #     f'--pedigree {ped_in_batch} '
-    #     f'--out_path {ped_in_batch} '
-    # )
-    # logging.info('Results Process trigger: %s', results_command)
-    #
-    # # copy the relevant scripts into a Driver container instance
-    # prepare_git_job(
-    #     job=results_job,
-    #     repo_name=get_repo_name_from_current_directory(),
-    #     commit=get_git_commit_ref_of_current_repository(),
-    # )
-    # results_job.command(results_command)
-    # # need a container with either cyvcf2 or pyvcf inside
-    # results_job.image(os.getenv('DRIVER_IMAGE'))
+    # not yet in use
+    if COMP_HET_VCF_OUT == '':
+        results_job = batch.new_job(name='finalise_results')
+        # don't start unless prior jobs are successful
+        results_job.depends_on(slivar_job)
+
+        set_job_resources(results_job)
+        results_command = (
+            f'python3 {os.path.join(os.path.dirname(__file__), "results.py")} '
+            f'--conf {conf_in_batch} '
+            f'--class_vcf {hail_output_in_batch} '
+            f'--comp_het {slivar_job.out_vcf} '
+            f'--pap {panelapp_job.panel_json} '
+            f'--ped {ped_in_batch} '
+            f'--out_path {ped_in_batch} '
+        )
+        logging.info('Results trigger: %s', results_command)
+
+        # copy the relevant scripts into a Driver container instance
+        prepare_git_job(
+            job=results_job,
+            repo_name=get_repo_name_from_current_directory(),
+            commit=get_git_commit_ref_of_current_repository(),
+        )
+        results_job.command(results_command)
+        # need a container with either cyvcf2 or pyvcf inside
+        results_job.image(os.getenv('DRIVER_IMAGE'))
 
     # run the batch
     batch.run(wait=False)
