@@ -183,8 +183,10 @@ def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
     # obtain the blob of the data
     json_blob = g_client.get_bucket(bucket).get_blob(path)
 
-    # download the blob as bytes
-    return json.loads(json_blob.download_as_bytes())
+    # the download_as_bytes method isn't available; but this returns bytes?
+    json_content = json_blob.download_as_string()
+
+    return json.loads(json_content)
 
 
 def hard_filter_before_annotation(
