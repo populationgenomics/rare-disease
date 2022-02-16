@@ -143,8 +143,7 @@ def handle_slivar_job(
     set_job_resources(slivar_job)
     slivar_job.image(SLIVAR_IMAGE)
 
-    if prior_job is not None:
-        slivar_job.depends_on(prior_job)
+    slivar_job.depends_on(prior_job)
 
     # use PED and VCF as hail resource files
     # tabix input resource file
@@ -203,7 +202,8 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     # ----------------------- #
     # run hail classification #
     # ----------------------- #
-    hail_job = None
+    # retain dependency flow if we skip the hail job
+    prior_job = panelapp_job
     if not check_file_exists(HAIL_VCF_OUT):
         hail_job = handle_hail_job(
             batch=batch,
@@ -211,6 +211,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
             config=config_json,
             prior_job=panelapp_job,
         )
+        prior_job = hail_job
 
     # copy the Hail output file into the remaining batch jobs
     hail_output_in_batch = batch.read_input_group(
@@ -226,7 +227,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
         batch=batch,
         local_vcf=hail_output_in_batch['vcf'],
         local_ped=ped_in_batch,
-        prior_job=hail_job,
+        prior_job=prior_job,
     )
 
     batch.write_output(slivar_job.out_vcf, COMP_HET_VCF_OUT)
