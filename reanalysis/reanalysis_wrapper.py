@@ -175,10 +175,8 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
         name='run_reanalysis', backend=service_backend, cancel_after_n_failures=1
     )
 
-    # read the ped and config files into the batch as a resource
+    # read ped and config files as a local batch resource
     ped_in_batch = batch.read_input(ped_file)
-
-    # read the ped file into the batch as a resource
     conf_in_batch = batch.read_input(config_json)
 
     # -------------------------------- #

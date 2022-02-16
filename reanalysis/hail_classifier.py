@@ -326,7 +326,7 @@ def extract_annotations(matrix: hl.MatrixTable) -> hl.MatrixTable:
             biotype=matrix.vep.transcript_consequences.biotype,
             hgvsc=matrix.vep.transcript_consequences.hgvsc,
             hgvsp=matrix.vep.transcript_consequences.hgvsp,
-            polyphen_pred=hl.or_else(
+            polyphen_prediction=hl.or_else(
                 matrix.vep.transcript_consequences.polyphen_prediction, MISSING_STRING
             ),
             polyphen_score=hl.or_else(
