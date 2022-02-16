@@ -72,9 +72,16 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
         name='run_reanalysis', backend=service_backend, cancel_after_n_failures=1
     )
 
+    # read the ped and config files into the batch as a resource
+    ped_in_batch = batch.read_input(ped_file)
+
+    # read the ped file into the batch as a resource
+    conf_in_batch = batch.read_input(config_json)
+
     # panelapp and hail script paths
     panelapp_script = os.path.join(os.path.dirname(__file__), 'panelapp_extraction.py')
     hail_script = os.path.join(os.path.dirname(__file__), 'hail_classifier.py')
+    # result_script = os.path.join(os.path.dirname(__file__), 'results.py')
 
     # -------------------------------- #
     # query panelapp for panel details #
@@ -113,7 +120,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
         script=f'{hail_script} '
         f'--mt {matrix_path} '
         f'--pap {PANELAPP_JSON_OUT} '
-        f'--config {config_json} '
+        f'--config {conf_in_batch} '
         f'--output {HAIL_VCF_OUT}',
         max_age='8h',
         init=[
@@ -129,10 +136,12 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     set_job_resources(hail_job)
     hail_job.depends_on(panelapp_job)
 
+    # copy that output file into the remaining batch jobs
+    hail_output_in_batch = batch.read_input(HAIL_VCF_OUT)
+
     # ------------------------------------------- #
     # slivar compound het check & class 4 removal #
     # ------------------------------------------- #
-
     # set up the slivar job
     slivar_job = batch.new_job(name='slivar_reanalysis_stage')
     set_job_resources(slivar_job)
@@ -148,12 +157,35 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
         (
             'tabix -p vcf input_vcf_resource; '
             'CSQ_FIELD="COMPOUND_CSQ" slivar compound-hets '
-            f'--ped {batch.read_input(ped_file)} '
-            f'-v {batch.read_input(HAIL_VCF_OUT)} | '
+            f'--ped {ped_in_batch} '
+            f'-v {hail_output_in_batch} | '
             f'bgzip -c -@ 4 > {slivar_job.out_vcf};'
         )
     )
+
     batch.write_output(slivar_job.out_vcf, COMP_HET_VCF_OUT)
+
+    # results_job = batch.new_job(name='finalise_results')
+    # set_job_resources(results_job)
+    # results_command = (
+    #     f'python3 {result_script} '
+    #     f'--classified_vcf {hail_output_in_batch} '
+    #     f'--compound_het {slivar_job.out_vcf} '
+    #     f'--panelapp {panelapp_job.panel_json} '
+    #     f'--pedigree {ped_in_batch} '
+    #     f'--out_path {ped_in_batch} '
+    # )
+    # logging.info('Results Process trigger: %s', results_command)
+    #
+    # # copy the relevant scripts into a Driver container instance
+    # prepare_git_job(
+    #     job=results_job,
+    #     repo_name=get_repo_name_from_current_directory(),
+    #     commit=get_git_commit_ref_of_current_repository(),
+    # )
+    # results_job.command(results_command)
+    # # need a container with either cyvcf2 or pyvcf inside
+    # results_job.image(os.getenv('DRIVER_IMAGE'))
 
     # run the batch
     batch.run(wait=False)

@@ -15,7 +15,6 @@ import logging
 import sys
 
 import click
-from google.cloud import storage
 import hail as hl
 
 
@@ -144,10 +143,10 @@ def annotate_class_4(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
                     | (matrix.info.revel > config.get('revel'))
                 )
                 | (
-                    (matrix.info.vep_sift_prediction == 'deleterious')
-                    & (matrix.info.vep_polyphen_prediction == 'probably_damaging')
-                    & (matrix.info.vep_sift_score < config.get('sift'))
-                    & (matrix.info.vep_polyphen_score >= config.get('polyphen'))
+                    (matrix.info.sift_prediction == 'deleterious')
+                    & (matrix.info.polyphen_prediction == 'probably_damaging')
+                    & (matrix.info.sift_score < config.get('sift'))
+                    & (matrix.info.polyphen_score >= config.get('polyphen'))
                     & (
                         (matrix.info.mutationtaster.includes("D"))
                         | (matrix.info.mutationtaster == "missing")
@@ -165,28 +164,17 @@ def annotate_class_4(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     return matrix
 
 
-def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
+def read_json_dict_from_path(local_path: str) -> Dict[str, Any]:
     """
     take a path to a JSON file, read into an object
     this loop can read config files, or data
-    :param bucket_path:
+    :param local_path:
     :return:
     """
 
-    # split the full path to get the bucket and file path
-    bucket = bucket_path.replace('gs://', '').split('/')[0]
-    path = bucket_path.replace('gs://', '').split('/', maxsplit=1)[1]
-
-    # create a client
-    g_client = storage.Client()
-
-    # obtain the blob of the data
-    json_blob = g_client.get_bucket(bucket).get_blob(path)
-
-    # the download_as_bytes method isn't available; but this returns bytes?
-    json_content = json_blob.download_as_string()
-
-    return json.loads(json_content)
+    with open(local_path, 'r', encoding='utf-8') as handle:
+        loaded_json = json.load(handle)
+    return loaded_json
 
 
 def hard_filter_before_annotation(
