@@ -41,7 +41,12 @@ def main(matrix: str, output: str):
 
     # now run sexy VEP 105 annotation
     vep = hl.vep(matrix_data, config='file:///vep_data/vep-gcloud.json')
-    vep.write(output)
+    hl.export_vcf(
+        vep,
+        output,
+        tabix=True,
+    )
+    # vep.write(output)
 
 
 if __name__ == '__main__':
