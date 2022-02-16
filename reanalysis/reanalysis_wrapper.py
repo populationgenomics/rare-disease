@@ -110,7 +110,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
         worker_machine_type='n1-highmem-8',
         worker_boot_disk_size=200,
         secondary_worker_boot_disk_size=200,
-        script=f'python3 {hail_script} '
+        script=f'{hail_script} '
         f'--mt {matrix_path} '
         f'--pap {PANELAPP_JSON_OUT} '
         f'--config {config_json} '
