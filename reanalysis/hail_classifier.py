@@ -30,7 +30,7 @@ MISSING_FLOAT_HI = hl.float64(1.0)
 def annotate_class_1(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.MatrixTable:
     """
     applies the Class1 flag where appropriate
-    rare in Gnomad
+    semi-rare in Gnomad
     at least one Clinvar star
     either Pathogenic or Likely_pathogenic in Clinvar
     Assign 1 or 0, depending on presence
@@ -46,7 +46,7 @@ def annotate_class_1(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
             Class1=hl.if_else(
                 (matrix.info.clinvar_stars > 0)
                 & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
-                & (matrix.info.gnomad_af < config.get('gnomad_rare')),
+                & (matrix.info.gnomad_af < config.get('gnomad_semi_rare')),
                 ONE_INT,
                 MISSING_INT,
             )
@@ -73,14 +73,15 @@ def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
         info=matrix.info.annotate(
             Class3=hl.if_else(
                 (
-                    hl.len(hl.set(matrix.info.csq).intersection(critical_consequences))
-                    > 0
+                    (
+                        hl.len(
+                            hl.set(matrix.info.csq).intersection(critical_consequences)
+                        )
+                        > 0
+                    )
+                    | (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
                 )
-                & (
-                    (matrix.info.clinvar_stars > 0)
-                    & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
-                )
-                & (matrix.info.gnomad_af < config.get('gnomad_rare')),
+                & (matrix.info.gnomad_af < config.get('gnomad_semi_rare')),
                 ONE_INT,
                 MISSING_INT,
             )
@@ -93,10 +94,9 @@ def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
 def annotate_class_2(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.MatrixTable:
     """
     Provisional class, requires a panelapp check (new)
-    Basically for now this is
     rare in Gnomad, and
-    - Class 3, or
     - Clinvar, or
+    - Critical protein consequence, or
     - High in silico consequence
     :param matrix:
     :param config:
@@ -109,13 +109,20 @@ def annotate_class_2(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     matrix = matrix.annotate_rows(
         info=matrix.info.annotate(
             Class2=hl.if_else(
-                (matrix.info.Class3 == 1)
-                | (
-                    hl.len(hl.set(matrix.info.csq).intersection(critical_consequences))
-                    > 0
+                (
+                    (
+                        hl.len(
+                            hl.set(matrix.info.csq).intersection(critical_consequences)
+                        )
+                        > 0
+                    )
+                    | (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
+                    | (
+                        (matrix.info.cadd > config.get('cadd'))
+                        | (matrix.info.revel > config.get('revel'))
+                    )
                 )
-                & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
-                & (matrix.info.gnomad_af < config.get('gnomad_rare')),
+                & (matrix.info.gnomad_af < config.get('gnomad_semi_rare')),
                 ONE_INT,
                 MISSING_INT,
             )
@@ -140,22 +147,22 @@ def annotate_class_4(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
         info=matrix.info.annotate(
             Class4=hl.if_else(
                 (
-                    (matrix.info.cadd > config.get('cadd'))
-                    | (matrix.info.revel > config.get('revel'))
-                )
-                | (
-                    (matrix.info.sift_prediction == 'deleterious')
-                    & (matrix.info.polyphen_prediction == 'probably_damaging')
-                    & (matrix.info.sift_score < config.get('sift'))
-                    & (matrix.info.polyphen_score >= config.get('polyphen'))
-                    & (
-                        (matrix.info.mutationtaster.contains("D"))
-                        | (matrix.info.mutationtaster == "missing")
+                    (
+                        (matrix.info.cadd > config.get('cadd'))
+                        | (matrix.info.revel > config.get('revel'))
                     )
-                    & (matrix.info.gerp_rs >= config.get('gerp'))
-                    & (matrix.info.eigen_phred > config.get('eigen'))
+                    | (
+                        (matrix.info.sift_score < config.get('sift'))
+                        & (matrix.info.polyphen_score >= config.get('polyphen'))
+                        & (
+                            (matrix.info.mutationtaster.contains("D"))
+                            | (matrix.info.mutationtaster == "missing")
+                        )
+                        & (matrix.info.gerp_rs >= config.get('gerp'))
+                        & (matrix.info.eigen_phred > config.get('eigen'))
+                    )
                 )
-                & (matrix.info.gnomad_af < config.get('gnomad_rare')),
+                & (matrix.info.gnomad_af < config.get('gnomad_semi_rare')),
                 ONE_INT,
                 MISSING_INT,
             )
@@ -207,9 +214,15 @@ def hard_filter_before_annotation(
             <= matrix_data.info.AN // config.get('ac_filter_percentage')
         )
 
+    # filter to cohort samples
+    # filter to variants in THESE samples
+
     # hard filter for quality
+    # assumption here that data is well normalised in pipeline
     matrix_data = matrix_data.filter_rows(
-        (matrix_data.filters.length() == 0)
+        (
+            matrix_data.filters.length() == 0
+        )  # clarify with FILTER='PASS' & GATK tranches
         & (hl.len(matrix_data.alleles) == 2)
         & (matrix_data.alleles[1] != '*')
     )
@@ -235,15 +248,19 @@ def annotate_using_vep(matrix_data: hl.MatrixTable) -> hl.MatrixTable:
 def apply_row_filters(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.MatrixTable:
     """
     variant filters applied prior to the per-consequence split
+    where the population frequencies at?
     :param matrix:
     :param config:
     :return:
     """
     # exac and gnomad must be below threshold or missing
     matrix = matrix.filter_rows(
-        ((matrix.exac.AF < config.get('exac_rare')) | (hl.is_missing(matrix.exac.AF)))
+        (
+            (matrix.exac.AF < config.get('exac_semi_rare'))
+            | (hl.is_missing(matrix.exac.AF))
+        )
         & (
-            (matrix.gnomad_genomes.AF < config.get('gnomad_rare'))
+            (matrix.gnomad_genomes.AF < config.get('gnomad_semi_rare'))
             | (hl.is_missing(matrix.gnomad_genomes.AF))
         )
     )
@@ -257,7 +274,10 @@ def apply_consequence_filters(
     filter on per-consequence annotations
         - must be (green) genic
         - must be consequential
-        - MANE transcript consequence
+        - MANE transcript consequence*
+
+    Removing all consequence annotations without Mane might be excessive here...
+    Allow for retention where the row has other attributes
     :param matrix:
     :param green_genes:
     :param config:
@@ -272,11 +292,11 @@ def apply_consequence_filters(
         green_genes.contains(matrix.vep.transcript_consequences.gene_id)
     )
 
-    # require a MANE annotation
-    # discard if there are only 'useless' consequences
+    # require either MANE or high impact consequences
+    # enough csq impact is 'at least 1 csq outside useless set'
     matrix = matrix.filter_rows(
         (hl.is_missing(matrix.vep.transcript_consequences.mane_select))
-        | (
+        & (
             hl.len(
                 hl.set(matrix.vep.transcript_consequences.consequence_terms).difference(
                     useless_csq
@@ -392,9 +412,6 @@ def filter_to_classified(matrix: hl.MatrixTable) -> hl.MatrixTable:
         | (matrix.info.Class3 == 1)
         | (matrix.info.Class4 == 1)
     )
-    # expecting a tiny remaining subset - repartition again
-    logging.info('Repartition to 10 fragments following removal of unclassified')
-    matrix = matrix.repartition(10, shuffle=False)
     return matrix
 
 
@@ -450,43 +467,47 @@ def main(mt_path: str, panelapp_path: str, config_path: str, out_vcf: str):
     # load MT in
     matrix = hl.read_matrix_table(mt_path)
 
-    logging.info('Hard filtering variants')
     # hard filter entries in the MT prior to annotation
+    logging.info('Hard filtering variants')
     matrix = hard_filter_before_annotation(matrix_data=matrix, config=config_dict)
 
-    logging.info('Annotating variants')
     # re-annotate using VEP
+    logging.info('Annotating variants')
     matrix = annotate_using_vep(matrix_data=matrix)
 
-    logging.info('Filtering Variant rows')
     # filter on consequence-independent row annotations
+    logging.info('Filtering Variant rows')
     matrix = apply_row_filters(matrix=matrix, config=config_dict)
 
-    logging.info('Splitting variant rows by consequence')
     # explode consequences (new row per csq)
+    logging.info('Splitting variant rows by consequence')
     matrix = matrix.explode_rows(matrix.vep.transcript_consequences)
 
-    logging.info('Hard filter rows on consequence')
     # hard filter for relevant consequences
+    logging.info('Hard filter rows on consequence')
+    # ***don't automatically remove !MANE - work this out***
     matrix = apply_consequence_filters(matrix, green_gene_set_expression, config_dict)
 
-    logging.info('Pulling VEP annotations into INFO field')
     # pull the annotations from 'vep' into 'info'
+    logging.info('Pulling VEP annotations into INFO field')
     matrix = extract_annotations(matrix)
 
-    logging.info('Applying classes to variant consequences')
     # add Classes to the MT
+    logging.info('Applying classes to variant consequences')
     matrix = annotate_class_1(matrix, config_dict)
     matrix = annotate_class_3(matrix, config_dict)
     matrix = annotate_class_2(matrix, config_dict)
     matrix = annotate_class_4(matrix, config_dict)
 
-    logging.info('Filter variants to leave only classified')
+    # possibly add a background class here for interesting, but only
+    # good enough to be a second hit.
+
     # filter to class-annotated only prior to export
+    logging.info('Filter variants to leave only classified')
     matrix = filter_to_classified(matrix)
 
-    logging.info('Write variants out to "%s"', out_vcf)
     # write the results to a VCF path
+    logging.info('Write variants out to "%s"', out_vcf)
     write_matrix_to_vcf(matrix=matrix, output_path=out_vcf)
 
 

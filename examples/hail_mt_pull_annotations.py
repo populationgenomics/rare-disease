@@ -1,6 +1,6 @@
 """
-script to be used in vertex notebook for generating
-a slivar-friendly file for use in queries
+example notebook code for extracting hail annotations
+into the INFO field so they will be carried into a VCF
 
 Even though we are exploding the rows, which should inflate
 the overall VCF size, we are retaining only a subset of transcripts
@@ -20,13 +20,6 @@ writing any data out to disk
 - filter
 - extract fields
 - write as VCF
-
-OR
-this can be a standalone process, using an annotated MT
-
-IMO this is probably useful with a checkpoint, e.g. read INPUT
-(VCF or MT)
-annotate, save in full as MT, extract & filter, save as VCF
 """
 
 import hail as hl
@@ -57,13 +50,10 @@ matrix = matrix.filter_rows(matrix.info.AC <= 20)
 # strict filter on FILTER
 matrix = matrix.filter_rows(matrix.filters.length() == 0)
 
-# # remove some row-annotation redundancy (this could affect the object size)
-# # not sure if Hail will even consider fields not addressed in filters
-# matrix = matrix.drop('mainTranscript', 'sortedTranscriptConsequences')
-
 # explode across consequences (new row per consequence)
 matrix = matrix.explode_rows(matrix.vep.transcript_consequences)
 
+# transcript consequences we aren't interested in keeping
 USELESS_CONSEQUENCES = hl.literal(
     {
         "3_prime_UTR_variant",
@@ -235,9 +225,6 @@ matrix = matrix.annotate_rows(
         ),
     )
 )
-
-# hell... maybe add some classifications while we're here...
-# once the thresholds are finalised
 
 # # export VCF, inc. Tabix index
 # hl.export_vcf(

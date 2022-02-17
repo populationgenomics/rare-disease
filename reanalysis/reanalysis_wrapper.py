@@ -35,7 +35,11 @@ SLIVAR_IMAGE = f'{AR_REPO}/{SLIVAR_TAG}'
 
 def check_file_exists(filepath: str) -> bool:
     """
+    used to allow for the skipping of long running process
+    if data already exists
 
+    - for novel analysis runs, might need a force parameter
+    if output folder is the same as a prev. run
     :param filepath:
     :return:
     """
@@ -171,7 +175,7 @@ def handle_slivar_job(
 
 
 @click.command()
-@click.option('--matrix', 'matrix_path', help='variant matrixtable to analyse')
+@click.option('--matrix', 'matrix_path', help='variant matrix table to analyse')
 @click.option('--pap_date', 'panelapp_date', help='panelapp date threshold')
 @click.option(
     '--conf',
@@ -201,6 +205,8 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     )
 
     # read ped and config files as a local batch resource
+    # fiddle with the ped file so that we are _really_ doing singletons
+    # SampleMetadata API to generate PED from *project*
     ped_in_batch = batch.read_input(ped_file)
     conf_in_batch = batch.read_input(config_json)
 
@@ -231,8 +237,6 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     # ------------------------------------------- #
     # slivar compound het check & class 4 removal #
     # ------------------------------------------- #
-
-    # set up the slivar job
     slivar_job = handle_slivar_job(
         batch=batch,
         local_vcf=hail_output_in_batch['vcf'],
@@ -250,7 +254,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
 
         set_job_resources(results_job)
         # we could be gross here, and tuck in an installation
-        # micromamba install -y cyvcf2;
+        # micromamba install -y cyvcf2;  # ?
         results_command = (
             f'python3 {os.path.join(os.path.dirname(__file__), "results.py")} '
             f'--conf {conf_in_batch} '

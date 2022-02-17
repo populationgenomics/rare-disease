@@ -26,8 +26,7 @@ import logging
 import os
 import click
 
-from cyvcf2 import VCF
-from cyvcf2.cyvcf2 import Variant
+from cyvcf2 import VCF, Variant
 
 
 CHROMOSOMES = [f"chr{x}" for x in list(range(1, 23)) + ['X', 'Y', "M"]]
@@ -127,7 +126,6 @@ def check_moi(
     ped: Optional[Dict[str, PedPerson]] = None,
 ) -> Dict[str, List[str]]:
     """
-    simplify all this crap, probably a helper method
     :param varlist: list of variants within this gene
     :param inheritance: the simplified pattern from PanelApp
     :param ensg:

@@ -40,7 +40,7 @@ def main(script: str, matrix: str, output: str):
         max_age='8h',
         init=[
             'gs://cpg-reference/hail_dataproc/install_common.sh',
-            'gs://cpg-reference/vep/vep-GRCh38-perl5_set.sh',  # install and configure VEP 105
+            'gs://cpg-reference/vep/vep-GRCh38.sh',  # install and configure VEP 105
         ],
         job_name='run_vep',
         num_secondary_workers=10,

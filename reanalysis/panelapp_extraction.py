@@ -28,6 +28,7 @@ import click
 
 
 # panelapp URL constants
+# double check pagination
 PANELAPP_ROOT = 'https://panelapp.agha.umccr.org/api/v1'
 PANEL_ROOT = f'{PANELAPP_ROOT}/panels'
 PANEL_CONTENT = f'{PANEL_ROOT}/{{panel_id}}'
@@ -56,6 +57,9 @@ def get_previous_version(panel_id: str, since: datetime) -> str:
     the same day as a 'YYYY-MM-DD' date will be 'greater than'
     for the purposes of a value comparison
 
+    revisit the exact implementation
+    consider replacement with a panel version (instead of date)
+
     :param panel_id: panel ID to use
     :param since: date of the
     :return:
@@ -83,6 +87,7 @@ def get_simple_moi(moi: str) -> str:
     """
 
     # default to considering both
+    # NOTE! The Y chromosome genes all have 'Unknown'!
     panel_app_moi = 'Mono_And_Biallelic'
     if moi is None:
         # exit iteration, return both (all considered)
@@ -100,6 +105,7 @@ def get_simple_moi(moi: str) -> str:
             panel_app_moi = 'Hemi_Bi_In_Female'
         else:
             panel_app_moi = 'Hemi_Mono_In_Female'
+    # Y
 
     return panel_app_moi
 
@@ -161,7 +167,7 @@ def get_panel_green(
 
 def get_panel_changes(
     previous_version: str, panel_id: str, latest_content: Dict[str, Dict[str, str]]
-) -> Dict[str, Dict[str, str]]:
+) -> Dict[str, Dict[str, Union[List[str], Dict[str, str]]]]:
     """
     take the latest panel content, and compare with a previous version
     https://panelapp.agha.umccr.org/api/v1/panels/137/?version=0.10952
@@ -182,20 +188,20 @@ def get_panel_changes(
     previous_content = get_panel_green(panel_id=panel_id, version=previous_version)
 
     # iterate over the latest content
-    for key, value in latest_content.items():
+    for gene_ensg, value in latest_content.items():
 
         # if the gene wasn't present before, take it in full
-        if key not in previous_content:
-            updated_content['new'].append(key)
+        if gene_ensg not in previous_content:
+            updated_content['new'].append(gene_ensg)
 
         # otherwise check if the MOI has changed
         else:
-            prev_moi = previous_content.get(key).get('moi')
+            prev_moi = previous_content.get(gene_ensg).get('moi')
             latest_moi = value.get('moi')
 
             # if so, store the old and new MOI
             if prev_moi != latest_moi:
-                updated_content['changed'][key] = (prev_moi, latest_moi)
+                updated_content['changed'][gene_ensg] = (prev_moi, latest_moi)
     return updated_content
 
 
@@ -210,9 +216,9 @@ def get_panel_changes(
 def main(panel_id: str, out_path: str, since: Optional[str] = None):
     """
     takes a panel ID and a date
-    finds all current panel data from the API
-    uses activities endpoint to get highest panel version up to the given date
-    retrieves panel data at that point
+    finds all latest panel data from the API
+    uses activities endpoint for highest panel version prior to _date_
+    retrieves panel data at that version
     compares, and records all panel differences
         - new genes
         - altered MOI
@@ -229,6 +235,7 @@ def main(panel_id: str, out_path: str, since: Optional[str] = None):
         since = datetime.strptime(since, "%Y-%m-%d")
         if since > datetime.today():
             raise ValueError(f'The specified date {since} cannot be in the future')
+
         early_version = get_previous_version(panel_id=panel_id, since=since)
         logging.info('Previous panel version: %s', early_version)
         panel_dict['changes'] = get_panel_changes(
@@ -238,7 +245,7 @@ def main(panel_id: str, out_path: str, since: Optional[str] = None):
         )
 
     else:
-        panel_dict['changes'] = {}
+        panel_dict['changes'] = {'changed': {}, 'new': []}
 
     logging.info('Writing output JSON file to %s', out_path)
     with open(out_path, 'w', encoding='utf-8') as handle:
