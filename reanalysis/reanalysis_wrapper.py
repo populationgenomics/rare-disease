@@ -27,6 +27,7 @@ PANELAPP_JSON_OUT = output_path('panelapp_137_data.json')
 HAIL_VCF_OUT = output_path("hail_classified.vcf.bgz")
 COMP_HET_VCF_OUT = output_path("hail_comp_het.vcf.bgz")
 
+
 # location of the Slivar Docker image
 AR_REPO = 'australia-southeast1-docker.pkg.dev/cpg-common/images'
 SLIVAR_TAG = 'slivar:v0.2.7'
@@ -246,35 +247,35 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
 
     batch.write_output(slivar_job.out_vcf, COMP_HET_VCF_OUT)
 
-    # not yet in use
-    if COMP_HET_VCF_OUT == '':
-        results_job = batch.new_job(name='finalise_results')
-        # don't start unless prior jobs are successful
-        results_job.depends_on(slivar_job)
+    # not yet in use??
+    results_job = batch.new_job(name='finalise_results')
+    # don't start unless prior jobs are successful
+    results_job.depends_on(slivar_job)
 
-        set_job_resources(results_job)
-        # we could be gross here, and tuck in an installation
-        # micromamba install -y cyvcf2;  # ?
-        results_command = (
-            f'python3 {os.path.join(os.path.dirname(__file__), "results.py")} '
-            f'--conf {conf_in_batch} '
-            f'--class_vcf {hail_output_in_batch} '
-            f'--comp_het {slivar_job.out_vcf} '
-            f'--pap {panelapp_job.panel_json} '
-            f'--ped {ped_in_batch} '
-            f'--out_path {ped_in_batch} '
-        )
-        logging.info('Results trigger: %s', results_command)
+    set_job_resources(results_job)
+    # we could be gross here, and tuck in an installation?
+    # micromamba install -y cyvcf2;  # ?
+    results_command = (
+        f'micromamba install -y cyvcf2 && PYTHONPATH=$(pwd) '
+        f'python3 {os.path.join(os.path.dirname(__file__), "validate_classifications.py")} '
+        f'--conf {conf_in_batch} '
+        f'--class_vcf {hail_output_in_batch} '
+        f'--comp_het {slivar_job.out_vcf} '
+        f'--pap {panelapp_job.panel_json} '
+        f'--ped {ped_in_batch} '
+        f'--out_path {results_job.ofile} '
+    )
+    logging.info('Results trigger: %s', results_command)
 
-        # copy the relevant scripts into a Driver container instance
-        prepare_git_job(
-            job=results_job,
-            repo_name=get_repo_name_from_current_directory(),
-            commit=get_git_commit_ref_of_current_repository(),
-        )
-        results_job.command(results_command)
-        # need a container with either cyvcf2 or pyvcf inside
-        results_job.image(os.getenv('DRIVER_IMAGE'))
+    # copy the relevant scripts into a Driver container instance
+    prepare_git_job(
+        job=results_job,
+        repo_name=get_repo_name_from_current_directory(),
+        commit=get_git_commit_ref_of_current_repository(),
+    )
+    results_job.command(results_command)
+    # need a container with either cyvcf2 or pyvcf inside
+    results_job.image(os.getenv('DRIVER_IMAGE'))
 
     # run the batch
     batch.run(wait=False)

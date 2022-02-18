@@ -20,6 +20,7 @@ import hail as hl
 
 
 # set some Hail constants
+BENIGN = hl.literal('BENIGN')
 MISSING_STRING = hl.str('missing')
 MISSING_INT = hl.int32(0)
 ONE_INT = hl.int32(1)
@@ -135,7 +136,7 @@ def annotate_class_2(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
 def annotate_class_4(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.MatrixTable:
     """
     Filler Class, based on in silico annotations
-    CADD/REVEL above threshold, or
+    CADD & REVEL above threshold (switched to consensus), or
     Massive cross-tool consensus
     rare in Gnomad
     :param matrix:
@@ -149,7 +150,7 @@ def annotate_class_4(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
                 (
                     (
                         (matrix.info.cadd > config.get('cadd'))
-                        | (matrix.info.revel > config.get('revel'))
+                        & (matrix.info.revel > config.get('revel'))
                     )
                     | (
                         (matrix.info.sift_score < config.get('sift'))
@@ -264,6 +265,11 @@ def apply_row_filters(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matr
             | (hl.is_missing(matrix.gnomad_genomes.AF))
         )
     )
+
+    # remove all clinvar benign, any level of support
+    matrix = matrix.filter_rows(
+        matrix.clinvar.clinical_significance.upper().contains(BENIGN), keep=False
+    )
     return matrix
 
 
@@ -291,6 +297,8 @@ def apply_consequence_filters(
     matrix = matrix.filter_rows(
         green_genes.contains(matrix.vep.transcript_consequences.gene_id)
     )
+
+    # filter out Benign Clinvars
 
     # require either MANE or high impact consequences
     # enough csq impact is 'at least 1 csq outside useless set'
