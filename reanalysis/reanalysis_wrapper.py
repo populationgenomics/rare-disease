@@ -268,7 +268,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
         'micromamba install -y cyvcf2 --prefix $MAMBA_ROOT_PREFIX -c bioconda -c conda-forge && '
         f'PYTHONPATH=$(pwd) python3 {RESULTS_SCRIPT} '
         f'--conf {conf_in_batch} '
-        f'--class_vcf {hail_output_in_batch} '
+        f'--class_vcf {hail_output_in_batch["vcf"]} '
         f'--comp_het {slivar_job.out_vcf} '
         f'--pap {panelapp_job.panel_json} '
         f'--ped {ped_in_batch} '

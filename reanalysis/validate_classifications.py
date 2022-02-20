@@ -77,6 +77,8 @@ def parse_comp_hets(vcf_path: str) -> Dict[str, Dict[str, AnalysisVariant]]:
                 f'{paired_var_string}'
             ] = AnalysisVariant(variant, samples)
 
+    logging.info('%d samples contain a compound het', len(comp_het_lookup))
+
     # noinspection PyTypeChecker
     return comp_het_lookup
 
