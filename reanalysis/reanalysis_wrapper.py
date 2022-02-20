@@ -56,20 +56,22 @@ def check_file_exists(filepath: str) -> bool:
     return storage.Blob(bucket=bucket, name=path).exists(storage_client)
 
 
-def set_job_resources(job: Union[hb.batch.job.BashJob, hb.batch.job.Job]):
+def set_job_resources(job: Union[hb.batch.job.BashJob, hb.batch.job.Job], git=False):
     """
     returns a new, appropriately resourced job
     :param job:
+    :param git:
     """
     job.cpu(2)
     job.memory('standard')
     job.storage('20G')
-    # copy the relevant scripts into a Driver container instance
-    prepare_git_job(
-        job=job,
-        repo_name=get_repo_name_from_current_directory(),
-        commit=get_git_commit_ref_of_current_repository(),
-    )
+    if git:
+        # copy the relevant scripts into a Driver container instance
+        prepare_git_job(
+            job=job,
+            repo_name=get_repo_name_from_current_directory(),
+            commit=get_git_commit_ref_of_current_repository(),
+        )
 
 
 def handle_panelapp_job(batch: hb.Batch, date: str) -> hb.batch.job.Job:
@@ -80,7 +82,8 @@ def handle_panelapp_job(batch: hb.Batch, date: str) -> hb.batch.job.Job:
     :return:
     """
     panelapp_job = batch.new_job(name='parse panelapp')
-    set_job_resources(panelapp_job)
+    panelapp_job.image(os.getenv('DRIVER_IMAGE'))
+    set_job_resources(panelapp_job, git=True)
     panelapp_command = (
         f'python3 {PANELAPP_SCRIPT} '
         f'--id 137 '
@@ -90,7 +93,6 @@ def handle_panelapp_job(batch: hb.Batch, date: str) -> hb.batch.job.Job:
     logging.info('PanelApp Process trigger: %s', panelapp_command)
 
     panelapp_job.command(panelapp_command)
-    panelapp_job.image(os.getenv('DRIVER_IMAGE'))
 
     # retrieve the output file, writing to the output bucket
     batch.write_output(panelapp_job.panel_json, PANELAPP_JSON_OUT)
@@ -257,7 +259,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     # don't start unless prior jobs are successful
     results_job.depends_on(slivar_job)
 
-    set_job_resources(results_job)
+    set_job_resources(results_job, git=True)
     # we could be gross here, and tuck in an installation?
     # micromamba install -y cyvcf2;  # ?
     results_command = (
