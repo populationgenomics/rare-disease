@@ -260,8 +260,9 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     results_job.depends_on(slivar_job)
 
     set_job_resources(results_job, git=True)
+
+    # needs a container with either cyvcf2 or pyvcf inside
     # we could be gross here, and tuck in an installation?
-    # micromamba install -y cyvcf2;  # ?
     results_command = (
         'export MAMBA_ROOT_PREFIX="/root/micromamba" && '
         'micromamba install -y cyvcf2 --prefix $MAMBA_ROOT_PREFIX -c bioconda -c conda-forge && '
@@ -276,7 +277,6 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     logging.info('Results trigger: %s', results_command)
 
     results_job.command(results_command)
-    # need a container with either cyvcf2 or pyvcf inside
     results_job.image(os.getenv('DRIVER_IMAGE'))
 
     # run the batch

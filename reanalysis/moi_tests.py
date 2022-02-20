@@ -27,7 +27,6 @@ from typing import Dict, List, Optional, Tuple
 from reanalysis.utils import (
     AnalysisVariant,
     PedPerson,
-    c4_only,
     string_format_variant,
 )
 
@@ -56,7 +55,7 @@ def check_for_second_hit(
     if variant_string in comp_hets.get(sample):
         paired_variant = comp_hets[sample][variant_string]
         # check that the class combination is supported
-        if all([c4_only(first_variant.var), c4_only(paired_variant.var)]):
+        if all([first_variant.class_4_only(), paired_variant.class_4_only()]):
             logging.info(
                 'Variant pairing discarded as both sides of comp-het were C4 only'
             )
@@ -332,7 +331,9 @@ class XDominant(BaseMoi):
         # due to legacy caller issues, we expect wrongly called HOM Males
         # X-relevant, we separate out male and females
         males = [
-            sam for sam in principal_var.variant_samples if self.pedigree.get(sam).male
+            sam
+            for sam in principal_var.het_samples + principal_var.hom_samples
+            if self.pedigree.get(sam).male
         ]
 
         het_females = [
@@ -381,7 +382,9 @@ class XRecessive(BaseMoi):
         # X-relevant, we separate out male and females
         # GATK calls X-males as Hom
         males = [
-            sam for sam in principal_var.variant_samples if self.pedigree.get(sam).male
+            sam
+            for sam in principal_var.het_samples + principal_var.hom_samples
+            if self.pedigree.get(sam).male
         ]
 
         # get female calls in 2 categories
@@ -453,7 +456,7 @@ class YHemi(BaseMoi):
             logging.warning('Sample %s is a hom call on Y', sample_id)
 
         # we don't expect any confident Y calls in females
-        for sample_id in principal_var.variant_samples:
+        for sample_id in principal_var.het_samples + principal_var.hom_samples:
             if not self.pedigree.get(sample_id).male:
                 logging.error('Sample %s is a female with call on Y', sample_id)
 
