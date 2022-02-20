@@ -64,6 +64,12 @@ def set_job_resources(job: Union[hb.batch.job.BashJob, hb.batch.job.Job]):
     job.cpu(2)
     job.memory('standard')
     job.storage('20G')
+    # copy the relevant scripts into a Driver container instance
+    prepare_git_job(
+        job=job,
+        repo_name=get_repo_name_from_current_directory(),
+        commit=get_git_commit_ref_of_current_repository(),
+    )
 
 
 def handle_panelapp_job(batch: hb.Batch, date: str) -> hb.batch.job.Job:
@@ -83,12 +89,6 @@ def handle_panelapp_job(batch: hb.Batch, date: str) -> hb.batch.job.Job:
     )
     logging.info('PanelApp Process trigger: %s', panelapp_command)
 
-    # copy the relevant scripts into a Driver container instance
-    prepare_git_job(
-        job=panelapp_job,
-        repo_name=get_repo_name_from_current_directory(),
-        commit=get_git_commit_ref_of_current_repository(),
-    )
     panelapp_job.command(panelapp_command)
     panelapp_job.image(os.getenv('DRIVER_IMAGE'))
 
@@ -262,7 +262,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     # micromamba install -y cyvcf2;  # ?
     results_command = (
         'export MAMBA_ROOT_PREFIX="/root/micromamba" && '
-        'micromamba install -y cyvcf2 --prefix $MAMBA_ROOT_PREFIX -c bioconda && '
+        'micromamba install -y cyvcf2 --prefix $MAMBA_ROOT_PREFIX -c bioconda -c conda-forge && '
         f'PYTHONPATH=$(pwd) python3 {RESULTS_SCRIPT} '
         f'--conf {conf_in_batch} '
         f'--class_vcf {hail_output_in_batch} '
@@ -273,12 +273,6 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     )
     logging.info('Results trigger: %s', results_command)
 
-    # copy the relevant scripts into a Driver container instance
-    prepare_git_job(
-        job=results_job,
-        repo_name=get_repo_name_from_current_directory(),
-        commit=get_git_commit_ref_of_current_repository(),
-    )
     results_job.command(results_command)
     # need a container with either cyvcf2 or pyvcf inside
     results_job.image(os.getenv('DRIVER_IMAGE'))
