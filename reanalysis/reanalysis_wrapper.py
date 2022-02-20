@@ -167,6 +167,7 @@ def handle_slivar_job(
             f'bcftools reheader -h new_header --threads 4 -o new.vcf.bgz {local_vcf}; '
             'tabix new.vcf.bgz; '
             'CSQ_FIELD="COMPOUND_CSQ" slivar compound-hets '
+            '--allow-non-trios '
             f'--ped {local_ped} '
             f'-v new.vcf.bgz | '
             f'bgzip -c -@ 4 > {slivar_job.out_vcf};'
