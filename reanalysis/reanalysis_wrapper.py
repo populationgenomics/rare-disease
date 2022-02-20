@@ -33,6 +33,10 @@ AR_REPO = 'australia-southeast1-docker.pkg.dev/cpg-common/images'
 SLIVAR_TAG = 'slivar:v0.2.7'
 SLIVAR_IMAGE = f'{AR_REPO}/{SLIVAR_TAG}'
 
+HAIL_SCRIPT = os.path.join(os.path.dirname(__file__), "hail_classifier.py")
+PANELAPP_SCRIPT = os.path.join(os.path.dirname(__file__), "panelapp_extraction.py")
+RESULTS_SCRIPT = os.path.join(os.path.dirname(__file__), "validate_classifications.py")
+
 
 def check_file_exists(filepath: str) -> bool:
     """
@@ -72,7 +76,7 @@ def handle_panelapp_job(batch: hb.Batch, date: str) -> hb.batch.job.Job:
     panelapp_job = batch.new_job(name='parse panelapp')
     set_job_resources(panelapp_job)
     panelapp_command = (
-        f'python3 {os.path.join(os.path.dirname(__file__), "panelapp_extraction.py")} '
+        f'python3 {PANELAPP_SCRIPT} '
         f'--id 137 '
         f'--out {panelapp_job.panel_json} '
         f'--date {date}'
@@ -109,7 +113,7 @@ def handle_hail_job(
         worker_machine_type='n1-highmem-8',
         worker_boot_disk_size=200,
         secondary_worker_boot_disk_size=200,
-        script=f'{os.path.join(os.path.dirname(__file__), "hail_classifier.py")} '
+        script=f'{HAIL_SCRIPT} '
         f'--mt {matrix} '
         f'--pap {PANELAPP_JSON_OUT} '
         f'--config {config} '
@@ -257,8 +261,9 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     # we could be gross here, and tuck in an installation?
     # micromamba install -y cyvcf2;  # ?
     results_command = (
-        f'micromamba install -y cyvcf2 && PYTHONPATH=$(pwd) '
-        f'python3 {os.path.join(os.path.dirname(__file__), "validate_classifications.py")} '
+        'export MAMBA_ROOT_PREFIX="/root/micromamba" && '
+        'micromamba install -y cyvcf2 --prefix $MAMBA_ROOT_PREFIX -c bioconda && '
+        f'PYTHONPATH=$(pwd) python3 {RESULTS_SCRIPT} '
         f'--conf {conf_in_batch} '
         f'--class_vcf {hail_output_in_batch} '
         f'--comp_het {slivar_job.out_vcf} '
