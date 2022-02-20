@@ -83,10 +83,10 @@ class AnalysisVariant:
         self.var: Variant = var
 
         # set the class attributes
-        self.class_1 = var.INFO.get('Class1') == '1'
-        self.class_2 = var.INFO.get('Class2') == '1'
-        self.class_3 = var.INFO.get('Class3') == '1'
-        self.class_4 = var.INFO.get('Class4') == '1'
+        self.class_1 = var.INFO.get('Class1') == 1
+        self.class_2 = var.INFO.get('Class2') == 1
+        self.class_3 = var.INFO.get('Class3') == 1
+        self.class_4 = var.INFO.get('Class4') == 1
 
         # get all zygosities once per variant
         # abstraction avoids pulling per-sample calls again later

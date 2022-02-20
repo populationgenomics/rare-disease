@@ -299,18 +299,20 @@ def apply_consequence_filters(
     )
 
     # filter out Benign Clinvars
-
     # require either MANE or high impact consequences
     # enough csq impact is 'at least 1 csq outside useless set'
     matrix = matrix.filter_rows(
-        (hl.is_missing(matrix.vep.transcript_consequences.mane_select))
-        & (
-            hl.len(
-                hl.set(matrix.vep.transcript_consequences.consequence_terms).difference(
-                    useless_csq
+        (matrix.clinvar_sig.lower().contains('benign'))
+        | (
+            (hl.is_missing(matrix.vep.transcript_consequences.mane_select))
+            & (
+                hl.len(
+                    hl.set(
+                        matrix.vep.transcript_consequences.consequence_terms
+                    ).difference(useless_csq)
                 )
+                == 0
             )
-            == 0
         ),
         keep=False,
     )
@@ -508,7 +510,13 @@ def main(mt_path: str, panelapp_path: str, config_path: str, out_vcf: str):
     matrix = annotate_class_4(matrix, config_dict)
 
     # possibly add a background class here for interesting, but only
-    # good enough to be a second hit.
+    # good enough to be a second hit. C4 is this for now
+
+    # Need a new section here - if we split on consequence
+    # to expose more rows, we need a way to reduce that number
+    # of rows back down. Hard filtering on MANE is a bit...
+    # and NOT doing that means that the less stringent categories
+    # can have 10 repetitions of the same variant
 
     # filter to class-annotated only prior to export
     logging.info('Filter variants to leave only classified')

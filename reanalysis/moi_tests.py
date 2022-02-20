@@ -332,7 +332,7 @@ class XDominant(BaseMoi):
         # X-relevant, we separate out male and females
         males = [
             sam
-            for sam in principal_var.het_samples + principal_var.hom_samples
+            for sam in principal_var.het_samples.union(principal_var.hom_samples)
             if self.pedigree.get(sam).male
         ]
 
@@ -383,7 +383,7 @@ class XRecessive(BaseMoi):
         # GATK calls X-males as Hom
         males = [
             sam
-            for sam in principal_var.het_samples + principal_var.hom_samples
+            for sam in principal_var.het_samples.union(principal_var.hom_samples)
             if self.pedigree.get(sam).male
         ]
 
@@ -456,7 +456,7 @@ class YHemi(BaseMoi):
             logging.warning('Sample %s is a hom call on Y', sample_id)
 
         # we don't expect any confident Y calls in females
-        for sample_id in principal_var.het_samples + principal_var.hom_samples:
+        for sample_id in principal_var.het_samples.union(principal_var.hom_samples):
             if not self.pedigree.get(sample_id).male:
                 logging.error('Sample %s is a female with call on Y', sample_id)
 
