@@ -7,7 +7,6 @@ which may be shared across reanalysis components
 from typing import Dict, List, Optional, Set, Tuple
 from dataclasses import dataclass
 from enum import Enum
-from itertools import count
 from csv import DictReader
 
 from cyvcf2 import Variant
@@ -44,46 +43,6 @@ def string_format_variant(var: Variant, transcript: Optional[bool] = False) -> s
     return var_string
 
 
-def get_class_1_2_3_4(variant: Variant) -> List[int]:
-    """
-
-    :param variant:
-    :return:
-    """
-    return [
-        variant.INFO.get('Class1'),
-        variant.INFO.get('Class2'),
-        variant.INFO.get('Class3'),
-        variant.INFO.get('Class4'),
-    ]
-
-
-def c4_only(variant: Variant) -> bool:
-    """
-    if this variant is C4 only, discard it
-    exception if this variant is a compound het
-    :param variant:
-    :return:
-    """
-    c_1, c_2, c_3, c_4 = get_class_1_2_3_4(variant)
-    if c_4:
-        if c_1 == c_2 == c_3 == 0:
-            return True
-    return False
-
-
-def class_2_variant(variant: Variant) -> bool:
-    """
-    if this variant is C2, requires time sensitive tests
-    :param variant:
-    :return:
-    """
-    c_1, c_2, c_3, _c_4 = get_class_1_2_3_4(variant)
-    if c_2 and not (c_1 or c_3):
-        return True
-    return False
-
-
 @dataclass
 class PedPerson:
     """
@@ -114,31 +73,51 @@ def parse_ped_simple(ped: str) -> Dict[str, PedPerson]:
     return ped_dict
 
 
-@dataclass
 class AnalysisVariant:
     """
     create a variant object with auto-incrementing ID
     """
 
-    new_id = count()
-
     def __init__(self, var: Variant, samples: List[str]):
-        # auto-inc ID
-        self.uid: int = next(AnalysisVariant.new_id)
-
         # full multi-sample variant
         self.var: Variant = var
 
+        # set the class attributes
+        self.class_1 = var.INFO.get('Class1') == '1'
+        self.class_2 = var.INFO.get('Class2') == '1'
+        self.class_3 = var.INFO.get('Class3') == '1'
+        self.class_4 = var.INFO.get('Class4') == '1'
+
         # get all zygosities once per variant
         # abstraction avoids pulling per-sample calls again later
-        self.het_samples, self.hom_samples, self.variant_samples = get_non_ref_samples(
+        self.het_samples, self.hom_samples = get_non_ref_samples(
             variant=var, samples=samples
+        )
+
+    def is_classified(self) -> bool:
+        """
+        check that the variant has at least one assigned class
+        :return:
+        """
+        return any([self.class_1, self.class_2, self.class_3, self.class_4])
+
+    def class_4_only(self) -> bool:
+        """
+        checks that the variant was only class 4
+        :return:
+        """
+        return self.class_4 and not any(
+            [
+                self.class_1,
+                self.class_2,
+                self.class_3,
+            ]
         )
 
 
 def get_non_ref_samples(
     variant: Variant, samples: List[str]
-) -> Tuple[Set[str], Set[str], Set[str]]:
+) -> Tuple[Set[str], Set[str]]:
     """
     for this variant, find all samples with a call
     cyvcf2 uses 0,1,2,3==HOM_REF, HET, UNKNOWN, HOM_ALT
@@ -160,7 +139,6 @@ def get_non_ref_samples(
     """
     het_samples = set()
     hom_samples = set()
-    non_ref_samples = set()
 
     # this iteration is based on the cyvcf2 representations
     for sam, genotype_int in zip(samples, variant.gt_types):
@@ -171,9 +149,8 @@ def get_non_ref_samples(
             het_samples.add(sam)
         if genotype_int == 3:
             hom_samples.add(sam)
-        non_ref_samples.add(sam)
 
-    return het_samples, hom_samples, non_ref_samples
+    return het_samples, hom_samples
 
 
 @dataclass

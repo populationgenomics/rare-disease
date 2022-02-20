@@ -13,11 +13,8 @@ import click
 from cyvcf2 import VCFReader
 from reanalysis.utils import (
     AnalysisVariant,
-    class_2_variant,
-    c4_only,
     COMP_HET_TEMPLATE,
     COMP_HET_VALUES,
-    get_class_1_2_3_4,
     parse_ped_simple,
     PedPerson,
     string_format_variant,
@@ -119,6 +116,56 @@ def set_up_inheritance_filters(
     return moi_dictionary
 
 
+def validate_class_2(
+    panelapp_data: Dict[str, Dict[str, Dict[str, str]]],
+    variant: AnalysisVariant,
+    moi_lookup: Dict[str, MOIRunner],
+    comp_het_lookup: Dict[str, Dict[str, AnalysisVariant]],
+) -> bool:
+    """
+    Test for class 2 variant
+    Is it new in PanelApp?
+    Otherwise, does it pass more MOI tests than it did previously?
+    :param panelapp_data:
+    :param variant:
+    :param moi_lookup:
+    :param comp_het_lookup:
+    :return: boolean, whether to bother analysing
+    """
+
+    # start with the assumption we will discard
+    retain = False
+
+    gene = variant.var.INFO.get('gene_id')
+
+    # if variant is C2, we need the time sensitive check
+    # get the panelapp differences
+    # might need some more digging here to clarify logic **
+    if gene in panelapp_data['changes'].get('new'):
+        retain = True
+    elif gene in panelapp_data['changes'].get('changed'):
+        old_moi, new_moi = panelapp_data['changes'].get('changed').get(gene)
+
+        old_moi_passes = {
+            result[1]
+            for result in moi_lookup[old_moi].run(
+                principal_var=variant, comp_hets=comp_het_lookup
+            )
+        }
+        new_moi_passes = {
+            result[1]
+            for result in moi_lookup[new_moi].run(
+                principal_var=variant, comp_hets=comp_het_lookup
+            )
+        }
+
+        # consistent - either both passed or failed
+        if old_moi_passes != new_moi_passes:
+            retain = True
+
+    return retain
+
+
 # pylint: disable=too-many-locals
 def apply_moi_to_variants(
     classified_variant_source: str,
@@ -142,37 +189,29 @@ def apply_moi_to_variants(
     vcf_samples = variant_source.samples
     for variant in variant_source:
 
-        # we never use a C4-only variant as a principal variant
-        if c4_only(variant):
-            continue
-
-        gene = variant.INFO.get('gene_id')
-
         # cast as an analysis variant
         analysis_variant = AnalysisVariant(variant, samples=vcf_samples)
 
+        gene = variant.INFO.get('gene_id')
+
         # if variant is C2, we need the time sensitive check
         # get the panelapp differences
-        # might need some more digging here to clarify logic **
-        if class_2_variant(variant):
-            if gene in panelapp_data['changes'].get('new'):
-                pass
-            elif gene in panelapp_data['changes'].get('changed'):
-                old_moi, new_moi = panelapp_data['changes'].get('changed').get(gene)
+        if analysis_variant.class_2:
 
-                # consistent - either both passed or failed
-                if len(
-                    moi_lookup[old_moi].run(
-                        principal_var=analysis_variant, comp_hets=comp_het_lookup
-                    )
-                ) == len(
-                    moi_lookup[new_moi].run(
-                        principal_var=analysis_variant, comp_hets=comp_het_lookup
-                    )
-                ):
-                    continue
-            else:
-                continue
+            # if we don't have a _new_ MOI to use, or a new gene, skip
+            # this is tripling the work done in MOI tests
+            if not validate_class_2(
+                panelapp_data=panelapp_data,
+                moi_lookup=moi_lookup,
+                variant=analysis_variant,
+                comp_het_lookup=comp_het_lookup,
+            ):
+                analysis_variant.class_2 = False
+
+        # we never use a C4-only variant as a principal variant
+        # and we don't consider a variant with no assigned classes
+        if analysis_variant.class_4_only() or not analysis_variant.is_classified():
+            continue
 
         if gene not in panelapp_data['panel_data']:
             logging.error("How did this gene creep in? %s", gene)
@@ -185,7 +224,7 @@ def apply_moi_to_variants(
                 gene,
                 sample,
                 reason,
-                get_class_1_2_3_4(variant),
+                # get_class_1_2_3_4(variant),
                 string_format_variant(variant),
             )
     return results
