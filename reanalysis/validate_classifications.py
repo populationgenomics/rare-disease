@@ -6,7 +6,8 @@ reads in all panelapp details
 for each variant in each participant, check MOI
 """
 import logging
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
+from itertools import chain
 import json
 import os
 import click
@@ -18,6 +19,7 @@ from reanalysis.utils import (
     get_simple_moi,
     parse_ped_simple,
     PedPerson,
+    ReportedVariant,
 )
 from reanalysis.moi_tests import MOIRunner
 
@@ -110,7 +112,7 @@ def set_up_inheritance_filters(
         # if we haven't seen this MOI before, set up the appropriate filter
         if gene_moi not in moi_dictionary:
 
-            # use the MOIRunner to apply relevant filters
+            # get a MOIRunner with the relevant filters
             moi_dictionary[gene_moi] = MOIRunner(
                 pedigree=pedigree, target_moi=gene_moi, ad_threshold=ad_threshold
             )
@@ -150,31 +152,36 @@ def validate_class_2(
         retain = True
 
     # check there are more classifying events now than previously
-    # if variant confirmation takes a 'reason', compare those
-    # e.g we could have 4 confirmations now, 3 previously,
-    # we'd want to report on the single new event
-    # depending on how an instance pointer is carried around
-    # we can append to a list of 'reasons' on the variant
     elif panel_gene_data.get('changed'):
-        old_moi = panel_gene_data.get('old_moi')
-        new_moi = panel_gene_data.get('moi')
+        old_moi = get_simple_moi(panel_gene_data.get('old_moi'))
+        new_moi = get_simple_moi(panel_gene_data.get('moi'))
 
-        old_moi_passes = {
-            result[1]
-            for result in moi_lookup[old_moi].run(
-                principal_var=variant, comp_hets=comp_het_lookup
+        # get successful tiering modes for the new and old MOIs
+        # collected into a set of Strings
+        old_moi_passes = set(
+            chain.from_iterable(
+                [
+                    result.reasons
+                    for result in moi_lookup[old_moi].run(
+                        principal_var=variant, comp_hets=comp_het_lookup, ensg=gene
+                    )
+                ]
             )
-        }
-        new_moi_passes = {
-            result[1]
-            for result in moi_lookup[new_moi].run(
-                principal_var=variant, comp_hets=comp_het_lookup
+        )
+        new_moi_passes = set(
+            chain.from_iterable(
+                [
+                    result.reasons
+                    for result in moi_lookup[new_moi].run(
+                        principal_var=variant, comp_hets=comp_het_lookup, ensg=gene
+                    )
+                ]
             )
-        }
+        )
 
-        # consistent - either both passed or failed
-        if old_moi_passes != new_moi_passes:
-            retain = True
+        # require at least one using current MOI,
+        # and a difference between old and new
+        retain = len(new_moi_passes - old_moi_passes) > 0
 
     return retain
 
@@ -185,7 +192,7 @@ def apply_moi_to_variants(
     comp_het_lookup: Dict[str, Dict[str, AnalysisVariant]],
     moi_lookup: Dict[str, MOIRunner],
     panelapp_data: Dict[str, Dict[str, Union[str, bool]]],
-):
+) -> List[ReportedVariant]:
     """
 
     :param classified_variant_source:
@@ -196,16 +203,23 @@ def apply_moi_to_variants(
     """
 
     results = []
-    # sample_results = []
 
     variant_source = VCFReader(classified_variant_source)
     vcf_samples = variant_source.samples
+
+    # crawl through all the results
     for variant in variant_source:
 
         # cast as an analysis variant
         analysis_variant = AnalysisVariant(variant, samples=vcf_samples)
 
         gene = variant.INFO.get('gene_id')
+
+        # one variant appears to be retained here, in a red gene
+        # possibly overlapping with a Green gene?
+        if gene not in panelapp_data:
+            logging.error("How did this gene creep in? %s", gene)
+            continue
 
         # if variant is C2, we need the time sensitive check
         # get the panelapp differences
@@ -226,23 +240,52 @@ def apply_moi_to_variants(
         if analysis_variant.class_4_only() or not analysis_variant.is_classified():
             continue
 
-        if gene not in panelapp_data:
-            logging.error("How did this gene creep in? %s", gene)
-            continue
-        moi = get_simple_moi(panelapp_data[gene].get('moi'))
-        reportable_variant_list = moi_lookup[moi].run(
-            principal_var=analysis_variant, comp_hets=comp_het_lookup, ensg=gene
+        results.extend(
+            moi_lookup[get_simple_moi(panelapp_data[gene].get('moi'))].run(
+                principal_var=analysis_variant, comp_hets=comp_het_lookup, ensg=gene
+            )
         )
-        if reportable_variant_list:
-            print(reportable_variant_list)
-            # print(
-            #     gene,
-            #     sample,
-            #     reason,
-            #     # get_class_1_2_3_4(variant),
-            #     string_format_variant(variant),
-            # )
+
     return results
+
+
+def clean_initial_results(result_list: List[ReportedVariant]):
+    """
+    There was a possibility that a single variant can be
+    classified in different ways. This method cleans those
+    down to unique
+    :param result_list:
+    :return:
+    """
+
+    clean_results: Dict[str, Dict[str, ReportedVariant]] = {}
+
+    for each_instance in result_list:
+        support_id = (
+            repr(each_instance.support_var.var)
+            if each_instance.support_var is not None
+            else 'Unsupported'
+        )
+        var_uid = (
+            f'{repr(each_instance.var_data.var)}__'
+            f'{each_instance.gene}__'
+            f'{support_id}'
+        )
+
+        # create a section for this sample if it doesn't exist
+        if each_instance.sample not in clean_results:
+            clean_results[each_instance.sample] = {}
+
+        # get an existing object, or use the current one
+        variant_object = clean_results.setdefault(each_instance.sample, {}).setdefault(
+            var_uid, each_instance
+        )
+
+        # combine any possible reasons, and add
+        clean_results[each_instance.sample][
+            var_uid
+        ].reasons = variant_object.reasons.union(each_instance.reasons)
+    return clean_results
 
 
 @click.command()
@@ -293,12 +336,20 @@ def main(
     )
 
     # find classification events
-    _results = apply_moi_to_variants(
+    results = apply_moi_to_variants(
         classified_variant_source=classified_vcf,
         comp_het_lookup=comp_het_digest,
         moi_lookup=moi_lookup,
         panelapp_data=panelapp_data,
     )
+
+    cleaned_results = clean_initial_results(results)
+    total_results = 0
+    for varlist in cleaned_results.values():
+        total_results += len(varlist)
+
+    print(cleaned_results)
+    print(total_results)
     print(out_path)
 
 
