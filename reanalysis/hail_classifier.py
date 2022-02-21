@@ -318,12 +318,15 @@ def apply_consequence_filters(
         green_genes.contains(matrix.vep.transcript_consequences.gene_id)
     )
 
-    # filter out Benign Clinvars
+    # filter out Benign Clinvar @ > 0 stars
     # filter out non-Mane transcript if the variant has at least one MANE annotation
     # require high impact consequences
     # enough csq impact is 'at least 1 csq outside useless set'
     matrix = matrix.filter_rows(
-        (matrix.info.clinvar_sig.lower().contains('benign'))
+        (
+            (matrix.info.clinvar_sig.lower().contains('benign'))
+            & (matrix.info.clinvar_stars > 0)
+        )
         | (
             (hl.is_missing(matrix.vep.transcript_consequences.mane_select))
             & (matrix.mane_tx_present == 1)
@@ -515,14 +518,13 @@ def main(mt_path: str, panelapp_path: str, config_path: str, out_vcf: str):
     logging.info('Splitting variant rows by consequence')
     matrix = matrix.explode_rows(matrix.vep.transcript_consequences)
 
-    # hard filter for relevant consequences
-    logging.info('Hard filter rows on consequence')
-    # ***don't automatically remove !MANE - work this out***
-    matrix = apply_consequence_filters(matrix, green_gene_set_expression, config_dict)
-
     # pull the annotations from 'vep' into 'info'
     logging.info('Pulling VEP annotations into INFO field')
     matrix = extract_annotations(matrix)
+
+    # hard filter for relevant consequences
+    logging.info('Hard filter rows on consequence')
+    matrix = apply_consequence_filters(matrix, green_gene_set_expression, config_dict)
 
     # add Classes to the MT
     logging.info('Applying classes to variant consequences')
