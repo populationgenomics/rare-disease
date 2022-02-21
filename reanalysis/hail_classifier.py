@@ -20,7 +20,6 @@ import hail as hl
 
 
 # set some Hail constants
-BENIGN = hl.literal('BENIGN')
 MISSING_STRING = hl.str('missing')
 MISSING_INT = hl.int32(0)
 ONE_INT = hl.int32(1)
@@ -140,7 +139,7 @@ def annotate_class_2(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
                     | (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
                     | (
                         (matrix.info.cadd > config.get('cadd'))
-                        | (matrix.info.revel > config.get('revel'))
+                        & (matrix.info.revel > config.get('revel'))
                     )
                 )
                 & (matrix.info.gnomad_af < config.get('gnomad_semi_rare')),
@@ -287,8 +286,11 @@ def apply_row_filters(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matr
     )
 
     # remove all clinvar benign, any level of support
+    # this isn't working at the moment...
     matrix = matrix.filter_rows(
-        matrix.clinvar.clinical_significance.upper().contains(BENIGN), keep=False
+        (matrix.clinvar.clinical_significance.upper().contains('BENIGN'))
+        & (matrix.clinvar.gold_stars > 0),
+        keep=False,
     )
     return matrix
 
@@ -318,16 +320,11 @@ def apply_consequence_filters(
         green_genes.contains(matrix.vep.transcript_consequences.gene_id)
     )
 
-    # filter out Benign Clinvar @ > 0 stars
     # filter out non-Mane transcript if the variant has at least one MANE annotation
     # require high impact consequences
     # enough csq impact is 'at least 1 csq outside useless set'
     matrix = matrix.filter_rows(
         (
-            (matrix.info.clinvar_sig.lower().contains('benign'))
-            & (matrix.info.clinvar_stars > 0)
-        )
-        | (
             (hl.is_missing(matrix.vep.transcript_consequences.mane_select))
             & (matrix.mane_tx_present == 1)
         )
@@ -513,6 +510,10 @@ def main(mt_path: str, panelapp_path: str, config_path: str, out_vcf: str):
     # filter on consequence-independent row annotations
     logging.info('Filtering Variant rows')
     matrix = apply_row_filters(matrix=matrix, config=config_dict)
+
+    # annotate the MANE transcript property on each variant
+    # done prior to exploding on consequence
+    matrix = annotate_mane(matrix)
 
     # explode consequences (new row per csq)
     logging.info('Splitting variant rows by consequence')

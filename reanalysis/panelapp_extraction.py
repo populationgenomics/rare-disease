@@ -78,43 +78,11 @@ def get_previous_version(panel_id: str, since: datetime) -> str:
     return entry_version
 
 
-def get_simple_moi(moi: str) -> str:
-    """
-    takes the vast range of PanelApp MOIs, and reduces to a reduced
-    range of cases which can be easily implemented in RD analysis
-    :param moi: full PanelApp string
-    :return: a simplified representation
-    """
-
-    # default to considering both
-    # NOTE! The Y chromosome genes all have 'Unknown'!
-    panel_app_moi = 'Mono_And_Biallelic'
-    if moi is None:
-        # exit iteration, return both (all considered)
-        return panel_app_moi
-
-    # ideal for match-case, coming to a python 3.10 near you!
-    if moi.startswith('BIALLELIC'):
-        panel_app_moi = 'Biallelic'
-    if moi.startswith("BOTH"):
-        panel_app_moi = 'Mono_And_Biallelic'
-    if moi.startswith('MONO'):
-        panel_app_moi = 'Monoallelic'
-    if moi.startswith('X-LINKED'):
-        if 'biallelic' in moi:
-            panel_app_moi = 'Hemi_Bi_In_Female'
-        else:
-            panel_app_moi = 'Hemi_Mono_In_Female'
-    # Y
-
-    return panel_app_moi
-
-
 def get_panel_green(
     reference_genome: Optional[str] = "GRch38",
     panel_id: str = '137',
     version: Optional[str] = None,
-) -> Dict[str, Dict[str, Union[datetime, str]]]:
+) -> Dict[str, Dict[str, Union[str, bool]]]:
     """
     Takes a panel number, and pulls all details from PanelApp
     :param reference_genome: GRch37 or GRch38
@@ -142,8 +110,8 @@ def get_panel_green(
         ensg = None
         symbol = gene.get("entity_name")
 
-        # take the PanelApp MOI and simplify
-        moi = get_simple_moi(gene.get("mode_of_inheritance", None))
+        # take the PanelApp MOI, don't simplify
+        moi = gene.get("mode_of_inheritance", None)
 
         # for some reason the build is capitalised oddly in panelapp
         # at least one entry doesn't have an ENSG annotation
@@ -157,24 +125,27 @@ def get_panel_green(
             ensg = 'ENSG00000276027'
 
         # save the entity into the final dictionary
+        # include fields to recognise altered gene data
         gene_dict[ensg] = {
             'symbol': symbol,
             'moi': moi,
+            'new': False,
+            'changed': False,
+            'old_moi': None,
         }
 
     return gene_dict
 
 
 def get_panel_changes(
-    previous_version: str, panel_id: str, latest_content: Dict[str, Dict[str, str]]
-) -> Dict[str, Dict[str, Union[List[str], Dict[str, str]]]]:
+    previous_version: str,
+    panel_id: str,
+    latest_content: Dict[str, Dict[str, Union[str, bool]]],
+):
     """
     take the latest panel content, and compare with a previous version
+    update content in original dict where appropriate
     https://panelapp.agha.umccr.org/api/v1/panels/137/?version=0.10952
-
-    What do I want to get back?
-    - entirely new entries
-    - changed MOI
 
     :param previous_version:
     :param panel_id:
@@ -182,17 +153,18 @@ def get_panel_changes(
     :return:
     """
 
-    updated_content = {'new': [], 'changed': {}}
-
     # get the full content for the specified panel version
     previous_content = get_panel_green(panel_id=panel_id, version=previous_version)
 
     # iterate over the latest content
-    for gene_ensg, value in latest_content.items():
+    current_genes = list(latest_content.keys())
+    for gene_ensg in current_genes:
+
+        value = latest_content[gene_ensg]
 
         # if the gene wasn't present before, take it in full
         if gene_ensg not in previous_content:
-            updated_content['new'].append(gene_ensg)
+            latest_content[gene_ensg]['new'] = True
 
         # otherwise check if the MOI has changed
         else:
@@ -201,8 +173,8 @@ def get_panel_changes(
 
             # if so, store the old and new MOI
             if prev_moi != latest_moi:
-                updated_content['changed'][gene_ensg] = (prev_moi, latest_moi)
-    return updated_content
+                latest_content[gene_ensg]['changed'] = True
+                latest_content[gene_ensg]['old_moi'] = latest_moi
 
 
 @click.command()
@@ -228,8 +200,8 @@ def main(panel_id: str, out_path: str, since: Optional[str] = None):
     :return:
     """
 
-    latest_green = get_panel_green(panel_id=panel_id)
-    panel_dict = {'panel_data': latest_green}
+    # get latest panel data
+    panel_dict = get_panel_green(panel_id=panel_id)
 
     if since is not None:
         since = datetime.strptime(since, "%Y-%m-%d")
@@ -238,14 +210,11 @@ def main(panel_id: str, out_path: str, since: Optional[str] = None):
 
         early_version = get_previous_version(panel_id=panel_id, since=since)
         logging.info('Previous panel version: %s', early_version)
-        panel_dict['changes'] = get_panel_changes(
+        get_panel_changes(
             previous_version=early_version,
             panel_id=panel_id,
-            latest_content=latest_green,
+            latest_content=panel_dict,
         )
-
-    else:
-        panel_dict['changes'] = {'changed': {}, 'new': []}
 
     logging.info('Writing output JSON file to %s', out_path)
     with open(out_path, 'w', encoding='utf-8') as handle:

@@ -25,6 +25,40 @@ HOMALT = 3
 BAD_GENOTYPES = {HOMREF, UNKNOWN}
 
 
+def get_simple_moi(moi: str) -> str:
+    """
+    takes the vast range of PanelApp MOIs, and reduces to a reduced
+    range of cases which can be easily implemented in RD analysis
+
+    Note: Maybe don't do this. Leave the raw data in until the final analysis stage
+    :param moi: full PanelApp string
+    :return: a simplified representation
+    """
+
+    # default to considering both
+    # NOTE! The Y chromosome genes all have 'Unknown'!
+    panel_app_moi = 'Mono_And_Biallelic'
+    if moi is None:
+        # exit iteration, return both (all considered)
+        return panel_app_moi
+
+    # ideal for match-case, coming to a python 3.10 near you!
+    if moi.startswith('BIALLELIC'):
+        panel_app_moi = 'Biallelic'
+    if moi.startswith("BOTH"):
+        panel_app_moi = 'Mono_And_Biallelic'
+    if moi.startswith('MONO'):
+        panel_app_moi = 'Monoallelic'
+    if moi.startswith('X-LINKED'):
+        if 'biallelic' in moi:
+            panel_app_moi = 'Hemi_Bi_In_Female'
+        else:
+            panel_app_moi = 'Hemi_Mono_In_Female'
+    # Y
+
+    return panel_app_moi
+
+
 def string_format_variant(var: Variant, transcript: Optional[bool] = False) -> str:
     """
     generates a gnomad and seqr format variant string

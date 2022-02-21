@@ -6,7 +6,7 @@ reads in all panelapp details
 for each variant in each participant, check MOI
 """
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Union
 import json
 import os
 import click
@@ -15,6 +15,7 @@ from reanalysis.utils import (
     AnalysisVariant,
     COMP_HET_TEMPLATE,
     COMP_HET_VALUES,
+    get_simple_moi,
     parse_ped_simple,
     PedPerson,
     string_format_variant,
@@ -84,7 +85,7 @@ def parse_comp_hets(vcf_path: str) -> Dict[str, Dict[str, AnalysisVariant]]:
 
 
 def set_up_inheritance_filters(
-    panelapp_data: Dict[str, Dict[str, Dict[str, str]]],
+    panelapp_data: Dict[str, Dict[str, Union[str, bool]]],
     config: Dict[str, Any],
     pedigree: Dict[str, PedPerson],
 ) -> Dict[str, MOIRunner]:
@@ -102,10 +103,10 @@ def set_up_inheritance_filters(
     ad_threshold = config.get('gnomad_dominant')
 
     # iterate over all genes
-    for gene_data in panelapp_data['panel_data'].values():
+    for gene_data in panelapp_data.values():
 
-        # extract the per-gene MOI
-        gene_moi = gene_data.get('moi')
+        # extract the per-gene MOI, and SIMPLIFY
+        gene_moi = get_simple_moi(gene_data.get('moi'))
 
         # if we haven't seen this MOI before, set up the appropriate filter
         if gene_moi not in moi_dictionary:
@@ -119,7 +120,7 @@ def set_up_inheritance_filters(
 
 
 def validate_class_2(
-    panelapp_data: Dict[str, Dict[str, Dict[str, str]]],
+    panelapp_data: Dict[str, Dict[str, Union[str, bool]]],
     variant: AnalysisVariant,
     moi_lookup: Dict[str, MOIRunner],
     comp_het_lookup: Dict[str, Dict[str, AnalysisVariant]],
@@ -140,13 +141,24 @@ def validate_class_2(
 
     gene = variant.var.INFO.get('gene_id')
 
+    # get relevant panelapp contents
+    panel_gene_data = panelapp_data.get(gene)
+
     # if variant is C2, we need the time sensitive check
     # get the panelapp differences
     # might need some more digging here to clarify logic **
-    if gene in panelapp_data['changes'].get('new'):
+    if panel_gene_data.get('new'):
         retain = True
-    elif gene in panelapp_data['changes'].get('changed'):
-        old_moi, new_moi = panelapp_data['changes'].get('changed').get(gene)
+
+    # check there are more classifying events now than previously
+    # if variant confirmation takes a 'reason', compare those
+    # e.g we could have 4 confirmations now, 3 previously,
+    # we'd want to report on the single new event
+    # depending on how an instance pointer is carried around
+    # we can append to a list of 'reasons' on the variant
+    elif panel_gene_data.get('changed'):
+        old_moi = panel_gene_data.get('old_moi')
+        new_moi = panel_gene_data.get('moi')
 
         old_moi_passes = {
             result[1]
@@ -173,7 +185,7 @@ def apply_moi_to_variants(
     classified_variant_source: str,
     comp_het_lookup: Dict[str, Dict[str, AnalysisVariant]],
     moi_lookup: Dict[str, MOIRunner],
-    panelapp_data: Dict[str, Dict[str, Dict[str, str]]],
+    panelapp_data: Dict[str, Dict[str, Union[str, bool]]],
 ):
     """
 
@@ -215,10 +227,10 @@ def apply_moi_to_variants(
         if analysis_variant.class_4_only() or not analysis_variant.is_classified():
             continue
 
-        if gene not in panelapp_data['panel_data']:
+        if gene not in panelapp_data:
             logging.error("How did this gene creep in? %s", gene)
             continue
-        moi = panelapp_data['panel_data'][gene].get('moi')
+        moi = get_simple_moi(panelapp_data[gene].get('moi'))
         for sample, reason, _variants in moi_lookup[moi].run(
             principal_var=analysis_variant, comp_hets=comp_het_lookup
         ):
