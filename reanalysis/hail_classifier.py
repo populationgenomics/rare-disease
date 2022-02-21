@@ -28,6 +28,26 @@ MISSING_FLOAT_LO = hl.float64(0.0)
 MISSING_FLOAT_HI = hl.float64(1.0)
 
 
+def annotate_mane(matrix: hl.MatrixTable) -> hl.MatrixTable:
+    """
+    annotates into each row whether there was a MANE transcript present
+    (only one of the transcripts has to have a MANE equivalent)
+    :param matrix:
+    :return:
+    """
+
+    return matrix.annotate_rows(
+        mane_tx_present=hl.if_else(
+            hl.delimit(
+                hl.flatten(matrix.vep.transcript_consequences.consequence_terms),
+                delimiter='|',
+            ).contains('NM'),
+            ONE_INT,
+            MISSING_INT,
+        )
+    )
+
+
 def annotate_class_1(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.MatrixTable:
     """
     applies the Class1 flag where appropriate
@@ -299,20 +319,22 @@ def apply_consequence_filters(
     )
 
     # filter out Benign Clinvars
-    # require either MANE or high impact consequences
+    # filter out non-Mane transcript if the variant has at least one MANE annotation
+    # require high impact consequences
     # enough csq impact is 'at least 1 csq outside useless set'
     matrix = matrix.filter_rows(
         (matrix.info.clinvar_sig.lower().contains('benign'))
         | (
             (hl.is_missing(matrix.vep.transcript_consequences.mane_select))
-            & (
-                hl.len(
-                    hl.set(
-                        matrix.vep.transcript_consequences.consequence_terms
-                    ).difference(useless_csq)
+            & (matrix.mane_tx_present == 1)
+        )
+        | (
+            hl.len(
+                hl.set(matrix.vep.transcript_consequences.consequence_terms).difference(
+                    useless_csq
                 )
-                == 0
             )
+            == 0
         ),
         keep=False,
     )
@@ -517,6 +539,9 @@ def main(mt_path: str, panelapp_path: str, config_path: str, out_vcf: str):
     # of rows back down. Hard filtering on MANE is a bit...
     # and NOT doing that means that the less stringent categories
     # can have 10 repetitions of the same variant
+
+    # maybe if a gene has a locus has a mane transcript, crush it
+    # if it doesn't, then don't
 
     # filter to class-annotated only prior to export
     logging.info('Filter variants to leave only classified')
