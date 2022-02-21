@@ -174,7 +174,7 @@ def get_panel_changes(
             # if so, store the old and new MOI
             if prev_moi != latest_moi:
                 latest_content[gene_ensg]['changed'] = True
-                latest_content[gene_ensg]['old_moi'] = latest_moi
+                latest_content[gene_ensg]['old_moi'] = prev_moi
 
 
 @click.command()
