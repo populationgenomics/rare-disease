@@ -302,7 +302,7 @@ def apply_consequence_filters(
     # require either MANE or high impact consequences
     # enough csq impact is 'at least 1 csq outside useless set'
     matrix = matrix.filter_rows(
-        (matrix.clinvar_sig.lower().contains('benign'))
+        (matrix.info.clinvar_sig.lower().contains('benign'))
         | (
             (hl.is_missing(matrix.vep.transcript_consequences.mane_select))
             & (
