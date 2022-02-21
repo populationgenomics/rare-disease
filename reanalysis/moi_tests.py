@@ -27,6 +27,7 @@ from typing import Dict, List, Optional, Tuple
 from reanalysis.utils import (
     AnalysisVariant,
     PedPerson,
+    ReportedVariant,
     string_format_variant,
 )
 
@@ -110,16 +111,21 @@ class MOIRunner:
         else:
             raise Exception(f'MOI type {target_moi} is not addressed in MOI')
 
-    def run(self, principal_var, comp_hets: Dict[str, Dict[str, AnalysisVariant]]):
+    def run(
+        self, principal_var, comp_hets: Dict[str, Dict[str, AnalysisVariant]], ensg: str
+    ) -> List[ReportedVariant]:
         """
         run method - triggers each relevant inheritance model
         :param principal_var: the variant we are focused on
         :param comp_hets: all compound hets
+        :param ensg: the specific gene ID we're looking at
+            this can be pulled from the annotations, but could be required
+            if we stop splitting out each consequence into a new VCF row
         :return:
         """
         moi_matched = []
         for model in self.filter_list:
-            moi_matched.extend(model.run(principal_var, comp_hets))
+            moi_matched.extend(model.run(principal_var, comp_hets, ensg))
         return moi_matched
 
     def send_it(self):
@@ -150,9 +156,13 @@ class BaseMoi:
         self,
         principal_var: AnalysisVariant,
         comp_hets: Dict[str, Dict[str, AnalysisVariant]],
-    ) -> Tuple[str, str, Tuple[AnalysisVariant]]:
+        ensg: str,
+    ) -> List[ReportedVariant]:
         """
         run over all the applicable inheritance patterns and finds good fits
+        :param principal_var:
+        :param comp_hets:
+        :param ensg:
         :return:
         """
 
@@ -194,7 +204,7 @@ class DominantAutosomal(BaseMoi):
         self,
         pedigree: Dict[str, PedPerson],
         ad_threshold: float,
-        applied_moi: str = 'Autosomal_Dominant',
+        applied_moi: str = 'Autosomal Dominant',
     ):
         """
 
@@ -209,13 +219,15 @@ class DominantAutosomal(BaseMoi):
         self,
         principal_var: AnalysisVariant,
         comp_hets: Dict[str, Dict[str, AnalysisVariant]],
-    ) -> List[Tuple[str, str, Tuple[AnalysisVariant]]]:
+        ensg: str,
+    ) -> List[ReportedVariant]:
         """
         simplest
         if variant is present and sufficiently rare, we take it
 
         :param principal_var:
         :param comp_hets:
+        :param ensg:
         :return:
         """
 
@@ -225,13 +237,19 @@ class DominantAutosomal(BaseMoi):
         if principal_var.var.INFO.get('gnomad_af') >= self.ad_thresh:
             return classifications
 
-        # autosomal dominant doesn't care about support
-        # for all the samples which are affected
-        # assumption that probands are affected
+        # autosomal dominant doesn't require support
         for sample_id in [
             sam for sam in principal_var.het_samples if self.is_affected(sam)
         ]:
-            classifications.append((sample_id, 'Autosomal Dominant', (principal_var,)))
+            classifications.append(
+                ReportedVariant(
+                    sample=sample_id,
+                    gene=ensg,
+                    var_data=principal_var,
+                    reasons={self.applied_moi},
+                    supported=False,
+                )
+            )
 
         return classifications
 
@@ -241,7 +259,7 @@ class RecessiveAutosomal(BaseMoi):
     pass
     """
 
-    def __init__(self, pedigree, applied_moi: str = 'Autosomal_Recessive'):
+    def __init__(self, pedigree, applied_moi: str = 'Autosomal Recessive'):
         """ """
         super().__init__(pedigree, applied_moi)
 
@@ -249,13 +267,15 @@ class RecessiveAutosomal(BaseMoi):
         self,
         principal_var: AnalysisVariant,
         comp_hets: Dict[str, Dict[str, AnalysisVariant]],
-    ) -> List[Tuple[str, str, Tuple[AnalysisVariant]]]:
+        ensg: str,
+    ) -> List[ReportedVariant]:
         """
-        valid if present as hom, or comound het
+        valid if present as hom, or compound het
         counts as being phased if a compound het is split between parents
         Clarify if we want to consider a homozygous variant as 2 hets
         :param principal_var:
         :param comp_hets:
+        :param ensg:
         :return:
         """
 
@@ -268,7 +288,13 @@ class RecessiveAutosomal(BaseMoi):
 
             # # check for either parent being unaffected - skip this sample
             classifications.append(
-                (sample_id, 'Autosomal Homozygous', (principal_var,))
+                ReportedVariant(
+                    sample=sample_id,
+                    gene=ensg,
+                    var_data=principal_var,
+                    reasons={f'{self.applied_moi} Homozygous'},
+                    supported=False,
+                )
             )
 
         # if hets are present, try and find support
@@ -280,7 +306,14 @@ class RecessiveAutosomal(BaseMoi):
             if passes:
                 logging.info('comp-het found: %s', {repr(partner)})
                 classifications.append(
-                    (sample_id, 'Autosomal Compound-Het', (principal_var, partner))
+                    ReportedVariant(
+                        sample=sample_id,
+                        gene=ensg,
+                        var_data=principal_var,
+                        reasons={f'{self.applied_moi} Compound-Het'},
+                        supported=True,
+                        support_var=partner,
+                    )
                 )
 
         return classifications
@@ -309,12 +342,14 @@ class XDominant(BaseMoi):
         self,
         principal_var: AnalysisVariant,
         comp_hets: Dict[str, Dict[str, AnalysisVariant]],
-    ) -> List[Tuple[str, str, Tuple[AnalysisVariant]]]:
+        ensg: str,
+    ) -> List[ReportedVariant]:
         """
         if variant is present and sufficiently rare, we take it
 
         :param principal_var:
         :param comp_hets:
+        :param ensg:
         :return:
         """
         classifications = []
@@ -345,13 +380,18 @@ class XDominant(BaseMoi):
         # assumption that probands are affected
         for sample_id in males + het_females:
             if self.pedigree.get(sample_id).male:
-                reason = 'X-Hemi Male'
+                reason = f'{self.applied_moi} Male'
             else:
-                reason = 'X-Het Female'
+                reason = f'{self.applied_moi} Female'
             classifications.append(
-                (sample_id, f'{reason}, Autosomal Dominant', (principal_var,))
+                ReportedVariant(
+                    sample=sample_id,
+                    gene=ensg,
+                    var_data=principal_var,
+                    reasons={reason},
+                    supported=False,
+                )
             )
-
         return classifications
 
 
@@ -369,11 +409,13 @@ class XRecessive(BaseMoi):
         self,
         principal_var: AnalysisVariant,
         comp_hets: Dict[str, Dict[str, AnalysisVariant]],
-    ) -> List[Tuple[str, str, Tuple[AnalysisVariant]]]:
+        ensg: str,
+    ) -> List[ReportedVariant]:
         """
 
         :param principal_var:
         :param comp_hets:
+        :param ensg:
         :return:
         """
 
@@ -400,10 +442,18 @@ class XRecessive(BaseMoi):
         # assumption that the sample can only be hom if female?
         for sample_id in males + hom_females:
             if self.pedigree.get(sample_id).male:
-                reason = 'X-Hemi Male'
+                reason = f'{self.applied_moi} Male'
             else:
-                reason = 'X-Hom Female'
-            classifications.append((sample_id, reason, (principal_var,)))
+                reason = f'{self.applied_moi} Female'
+            classifications.append(
+                ReportedVariant(
+                    sample=sample_id,
+                    gene=ensg,
+                    var_data=principal_var,
+                    reasons={reason},
+                    supported=False,
+                )
+            )
 
         # if het females are present, try and find support
         for sample_id in het_females:
@@ -411,7 +461,14 @@ class XRecessive(BaseMoi):
             passes, partner = check_for_second_hit(principal_var, comp_hets, sample_id)
             if passes:
                 classifications.append(
-                    (sample_id, 'X-Hom Compound-Het Female', (principal_var, partner))
+                    ReportedVariant(
+                        sample=sample_id,
+                        gene=ensg,
+                        var_data=principal_var,
+                        reasons={f'{self.applied_moi} Compound-Het Female'},
+                        supported=True,
+                        support_var=partner,
+                    )
                 )
         return classifications
 
@@ -437,11 +494,13 @@ class YHemi(BaseMoi):
         self,
         principal_var: AnalysisVariant,
         comp_hets: Dict[str, Dict[str, AnalysisVariant]],
-    ) -> List[Tuple[str, str, Tuple[AnalysisVariant]]]:
+        ensg: str,
+    ) -> List[ReportedVariant]:
         """
         flag calls on Y which are Hom (maybe ok?) or female (bit weird)
         :param principal_var:
         :param comp_hets:
+        :param ensg:
         :return:
         """
         classifications = []
@@ -460,6 +519,14 @@ class YHemi(BaseMoi):
             if not self.pedigree.get(sample_id).male:
                 logging.error('Sample %s is a female with call on Y', sample_id)
 
-            classifications.append((sample_id, 'Y-Chrom Het Male', (principal_var,)))
+            classifications.append(
+                ReportedVariant(
+                    sample=sample_id,
+                    gene=ensg,
+                    var_data=principal_var,
+                    reasons={self.applied_moi},
+                    supported=False,
+                )
+            )
 
         return classifications

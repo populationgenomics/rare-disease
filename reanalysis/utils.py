@@ -6,7 +6,6 @@ which may be shared across reanalysis components
 
 from typing import Dict, List, Optional, Set, Tuple
 from dataclasses import dataclass
-from enum import Enum
 from csv import DictReader
 
 from cyvcf2 import Variant
@@ -148,6 +147,26 @@ class AnalysisVariant:
             ]
         )
 
+    def get_class_ints(self) -> List[int]:
+        """
+        get a list of ints representing the classes present on this variant
+        for each numerical class, append that number if the class is present
+        :return:
+        """
+        return [
+            integer
+            for integer, class_bool in enumerate(
+                [
+                    self.class_1,
+                    self.class_2,
+                    self.class_3,
+                    self.class_4,
+                ],
+                1,
+            )
+            if class_bool
+        ]
+
 
 def get_non_ref_samples(
     variant: Variant, samples: List[str]
@@ -192,32 +211,11 @@ class ReportedVariant:
     """
     an attempt to describe a model variant
     all the details required for a report
-    :return:
     """
 
-
-class SimpleMOI(Enum):
-    """
-    enumeration to simplify the panelapp MOIs
-    """
-
-    BOTH = 'Mono_And_Biallelic'
-    BIALLELIC = 'Biallelic'
-    MONOALLELIC = 'Monoallelic'
-    X_MONO = 'Hemi_Mono_In_Female'
-    X_BI = 'Hemi_Bi_In_Female'
-    Y_MONO = 'Y_Chrom_Variant'
-    UNKNOWN = 'Unknown'
-
-
-class AppliedMoi(Enum):
-    """
-    the different inheritance patterns to apply
-    assumed complete penetrance only for now
-    """
-
-    AUTO_DOM = 'Autosomal_Dominant'
-    AUTO_REC = 'Autosomal_Recessive'
-    X_DOM = 'X_Dominant'
-    X_REC = 'X_Recessive'
-    Y_HEMI = 'Y_Hemi'
+    sample: str
+    gene: str
+    var_data: AnalysisVariant
+    reasons: Set[str]
+    supported: bool
+    support_var: Optional[AnalysisVariant] = None

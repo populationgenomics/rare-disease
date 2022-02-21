@@ -84,3 +84,12 @@ This component brings in the PanelApp, Classification VCF, and Compound-Het VCF
 
 1. Digest the compound-het VCF, and store as a lookup of `Sample -> Variant -> Pair`
 2. Digest the PanelApp data, storing a representation of the MOI to apply to each gene
+3. Iterate over each variant in the Classified VCF
+   1. If the variant has a Class 2 flag:
+      1. Check that the gene is newly green in Panel, or
+      2. Check that the new MOI has passes more MOI checks than the previous one
+      3. If neither of these checks pass, remove Class 2 flag
+   2. If the variant is Class 4 only, skip it (in silico alone is not sufficient evidence)
+   3. Apply all MOI filters relevant to the gene's PanelApp MOI. If the variant passes filters, store the result
+ 
+Then process all the 'confirmed results', and find a way to present the data neatly

@@ -18,7 +18,6 @@ from reanalysis.utils import (
     get_simple_moi,
     parse_ped_simple,
     PedPerson,
-    string_format_variant,
 )
 from reanalysis.moi_tests import MOIRunner
 
@@ -231,16 +230,18 @@ def apply_moi_to_variants(
             logging.error("How did this gene creep in? %s", gene)
             continue
         moi = get_simple_moi(panelapp_data[gene].get('moi'))
-        for sample, reason, _variants in moi_lookup[moi].run(
-            principal_var=analysis_variant, comp_hets=comp_het_lookup
-        ):
-            print(
-                gene,
-                sample,
-                reason,
-                # get_class_1_2_3_4(variant),
-                string_format_variant(variant),
-            )
+        reportable_variant_list = moi_lookup[moi].run(
+            principal_var=analysis_variant, comp_hets=comp_het_lookup, ensg=gene
+        )
+        if reportable_variant_list:
+            print(reportable_variant_list)
+            # print(
+            #     gene,
+            #     sample,
+            #     reason,
+            #     # get_class_1_2_3_4(variant),
+            #     string_format_variant(variant),
+            # )
     return results
 
 
