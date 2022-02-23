@@ -15,13 +15,13 @@ Similar to hail_classifier.py script, but no exploding
 """
 
 from typing import Any, Dict, Optional
+import json
 import logging
 import sys
 
 import click
 import hail as hl
-
-from reanalysis.reanalysis_wrapper import read_json_dict_from_path, check_file_exists
+from google.cloud import storage
 
 
 # set some Hail constants
@@ -30,6 +30,46 @@ MISSING_INT = hl.int32(0)
 ONE_INT = hl.int32(1)
 MISSING_FLOAT_LO = hl.float64(0.0)
 MISSING_FLOAT_HI = hl.float64(1.0)
+
+
+def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
+    """
+    take a GCP bucket path to a JSON file, read into an object
+    this loop can read config files, or data
+    :param bucket_path:
+    :return:
+    """
+
+    # split the full path to get the bucket and file path
+    bucket = bucket_path.replace('gs://', '').split('/')[0]
+    path = bucket_path.replace('gs://', '').split('/', maxsplit=1)[1]
+
+    # create a client
+    g_client = storage.Client()
+
+    # obtain the blob of the data
+    json_blob = g_client.get_bucket(bucket).get_blob(path)
+
+    # the download_as_bytes method isn't available; but this returns bytes?
+    return json.loads(json_blob.download_as_string())
+
+
+def check_file_exists(filepath: str) -> bool:
+    """
+    used to allow for the skipping of long running process
+    if data already exists
+
+    - for novel analysis runs, might need a force parameter
+    if output folder is the same as a prev. run
+    :param filepath:
+    :return:
+    """
+    bucket = filepath.replace('gs://', '').split('/')[0]
+    path = filepath.replace('gs://', '').split('/', maxsplit=1)[1]
+
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket)
+    return storage.Blob(bucket=bucket, name=path).exists(storage_client)
 
 
 def annotate_mane(matrix: hl.MatrixTable) -> hl.MatrixTable:
@@ -527,8 +567,8 @@ def main(
     # read the parsed panelapp data from a bucket path
     panelapp = read_json_dict_from_path(panelapp_path)
 
-    # cast panel data keys (green genes) as a set(str)
-    green_genes = set(panelapp.keys())
+    # cast panel data keys (green genes) as a set(str), minus the metadata key
+    green_genes = set(panelapp.keys()) - {'panel_metadata'}
     green_gene_set_expression = hl.literal(green_genes)
     logging.info('Extracted %d green genes', len(green_genes))
 

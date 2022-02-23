@@ -106,7 +106,7 @@ def get_panel_green(
     if version is None:
         logging.info('Current panel version: %s', panel_version)
 
-    gene_dict = {'current_version': panel_version}
+    gene_dict = {'panel_metadata': {'current_version': panel_version}}
 
     for gene in panel_json["genes"]:
 
@@ -165,7 +165,9 @@ def get_panel_changes(
 
     # iterate over the latest content
     # skip over the metadata keys
-    for gene_ensg in [ensg for ensg in latest_content.keys() if '_' not in ensg]:
+    for gene_ensg in [
+        ensg for ensg in latest_content.keys() if ensg != 'panel_metadata'
+    ]:
 
         value = latest_content[gene_ensg]
 
@@ -211,11 +213,11 @@ def main(panel_id: str, out_path: str, since: Optional[str] = None):
     panel_dict = get_panel_green(panel_id=panel_id)
 
     if since is not None:
-        since = datetime.strptime(since, "%Y-%m-%d")
-        if since > datetime.today():
+        since_datetime = datetime.strptime(since, "%Y-%m-%d")
+        if since_datetime > datetime.today():
             raise ValueError(f'The specified date {since} cannot be in the future')
 
-        early_version = get_previous_version(panel_id=panel_id, since=since)
+        early_version = get_previous_version(panel_id=panel_id, since=since_datetime)
         logging.info('Previous panel version: %s', early_version)
         logging.info('Previous version date: %s', since)
         get_panel_changes(
@@ -223,8 +225,8 @@ def main(panel_id: str, out_path: str, since: Optional[str] = None):
             panel_id=panel_id,
             latest_content=panel_dict,
         )
-        panel_dict['previous_version'] = early_version
-        panel_dict['previous_date'] = since
+        panel_dict['panel_metadata']['previous_version'] = early_version
+        panel_dict['panel_metadata']['previous_date'] = since
 
     logging.info('Writing output JSON file to %s', out_path)
     with open(out_path, 'w', encoding='utf-8') as handle:

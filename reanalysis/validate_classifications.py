@@ -93,7 +93,6 @@ def parse_comp_hets(vcf_path: str) -> Dict[str, Dict[str, AnalysisVariant]]:
             ] = AnalysisVariant(variant, samples)
 
     logging.info('%d samples contain a compound het', len(comp_het_lookup))
-    print(comp_het_lookup)
     # for sample in comp_het_lookup.values():
     #     for variant in sample.values():
     #         print(repr(variant.var), variant.get_class_ints())
