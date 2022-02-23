@@ -100,7 +100,13 @@ def get_panel_green(
     panel_response.raise_for_status()
     panel_json = panel_response.json()
 
-    gene_dict = {'current_version': panel_json.get('version')}
+    panel_version = panel_json.get('version')
+
+    # pop the version in logging if not manually defined
+    if version is None:
+        logging.info('Current panel version: %s', panel_version)
+
+    gene_dict = {'current_version': panel_version}
 
     for gene in panel_json["genes"]:
 
@@ -158,8 +164,8 @@ def get_panel_changes(
     previous_content = get_panel_green(panel_id=panel_id, version=previous_version)
 
     # iterate over the latest content
-    current_genes = list(latest_content.keys())
-    for gene_ensg in current_genes:
+    # skip over the metadata keys
+    for gene_ensg in [ensg for ensg in latest_content.keys() if '_' not in ensg]:
 
         value = latest_content[gene_ensg]
 
@@ -211,6 +217,7 @@ def main(panel_id: str, out_path: str, since: Optional[str] = None):
 
         early_version = get_previous_version(panel_id=panel_id, since=since)
         logging.info('Previous panel version: %s', early_version)
+        logging.info('Previous version date: %s', since)
         get_panel_changes(
             previous_version=early_version,
             panel_id=panel_id,
