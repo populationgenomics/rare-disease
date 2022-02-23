@@ -91,8 +91,7 @@ def get_panel_green(
     :return:
     """
 
-    gene_dict = {}
-
+    # prepare the query URL
     panel_app_genes_url = PANEL_CONTENT.format(panel_id=panel_id)
     if version is not None:
         panel_app_genes_url += f"?version={version}"
@@ -100,6 +99,8 @@ def get_panel_green(
     panel_response = requests.get(panel_app_genes_url)
     panel_response.raise_for_status()
     panel_json = panel_response.json()
+
+    gene_dict = {'current_version': panel_json.get('version')}
 
     for gene in panel_json["genes"]:
 
@@ -215,6 +216,8 @@ def main(panel_id: str, out_path: str, since: Optional[str] = None):
             panel_id=panel_id,
             latest_content=panel_dict,
         )
+        panel_dict['previous_version'] = early_version
+        panel_dict['previous_date'] = since
 
     logging.info('Writing output JSON file to %s', out_path)
     with open(out_path, 'w', encoding='utf-8') as handle:

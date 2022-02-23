@@ -6,7 +6,8 @@ wrapper for reanalysis process
 """
 
 
-from typing import Union
+from typing import Any, Dict, Union
+import json
 import logging
 import os
 
@@ -33,9 +34,31 @@ AR_REPO = 'australia-southeast1-docker.pkg.dev/cpg-common/images'
 SLIVAR_TAG = 'slivar:v0.2.7'
 SLIVAR_IMAGE = f'{AR_REPO}/{SLIVAR_TAG}'
 
-HAIL_SCRIPT = os.path.join(os.path.dirname(__file__), "hail_classifier.py")
+HAIL_SCRIPT = os.path.join(os.path.dirname(__file__), "hail_array_classifier.py")
 PANELAPP_SCRIPT = os.path.join(os.path.dirname(__file__), "panelapp_extraction.py")
 RESULTS_SCRIPT = os.path.join(os.path.dirname(__file__), "validate_classifications.py")
+
+
+def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
+    """
+    take a GCP bucket path to a JSON file, read into an object
+    this loop can read config files, or data
+    :param bucket_path:
+    :return:
+    """
+
+    # split the full path to get the bucket and file path
+    bucket = bucket_path.replace('gs://', '').split('/')[0]
+    path = bucket_path.replace('gs://', '').split('/', maxsplit=1)[1]
+
+    # create a client
+    g_client = storage.Client()
+
+    # obtain the blob of the data
+    json_blob = g_client.get_bucket(bucket).get_blob(path)
+
+    # the download_as_bytes method isn't available; but this returns bytes?
+    return json.loads(json_blob.download_as_string())
 
 
 def check_file_exists(filepath: str) -> bool:
@@ -140,14 +163,24 @@ def handle_hail_job(
 
 
 def handle_slivar_job(
-    batch: hb.Batch, local_vcf: str, local_ped: str, prior_job: hb.batch.job
+    batch: hb.Batch,
+    local_vcf: str,
+    local_ped: str,
+    prior_job: hb.batch.job,
+    config_dict: Dict[str, Any],
 ) -> hb.batch.job:
     """
     set up the slivar job
+    use PED and VCF as hail resource files
+    tabix input resource file
+    run comp-het discovery on the file
+    creates new VCF  exclusively containing comp-hets
+
     :param batch:
     :param local_vcf:
     :param local_ped:
     :param prior_job:
+    :param config_dict:
     :return:
     """
     slivar_job = batch.new_job(name='slivar_reanalysis_stage')
@@ -156,15 +189,12 @@ def handle_slivar_job(
 
     slivar_job.depends_on(prior_job)
 
-    # use PED and VCF as hail resource files
-    # tabix input resource file
-    # run comp-het discovery on the file
-    # creates new VCF  exclusively containing comp-hets
-
     # reheader the VCF using BCFtools and sed
     desc = '##INFO=<ID=COMPOUND_CSQ,Number=1,Type=String,Description="'
     # add this new line for Slivar
-    new_format = r"Format: 'Gene\|Transcript\|Consequence'"
+
+    conf_csq = config_dict.get('csq_string').replace('|', r'\|')
+    new_format = rf"Format: '{conf_csq}'"
 
     slivar_job.command(
         (
@@ -193,7 +223,10 @@ def handle_slivar_job(
     default='gs://cpg-acute-care-test/reanalysis/reanalysis_conf.json',
 )
 @click.option('--ped', 'ped_file', help='ped file for this analysis')
-def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
+def main(
+    matrix_path: str, panelapp_date: str, config_json: str, ped_file: str
+):  # pylint: disable=too-many-locals
+
     """
     Description
     :param matrix_path:
@@ -201,6 +234,8 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
     :param config_json:
     :param ped_file:
     """
+
+    config_dict = read_json_dict_from_path(config_json)
 
     service_backend = hb.ServiceBackend(
         billing_project=os.getenv('HAIL_BILLING_PROJECT'),
@@ -250,6 +285,7 @@ def main(matrix_path: str, panelapp_date: str, config_json: str, ped_file: str):
         local_vcf=hail_output_in_batch['vcf'],
         local_ped=ped_in_batch,
         prior_job=prior_job,
+        config_dict=config_dict,
     )
 
     batch.write_output(slivar_job.out_vcf, COMP_HET_VCF_OUT)

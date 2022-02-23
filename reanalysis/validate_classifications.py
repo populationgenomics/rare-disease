@@ -12,16 +12,18 @@ import json
 import os
 import click
 from cyvcf2 import VCFReader
+
+from reanalysis.moi_tests import MOIRunner
+from reanalysis.results_builder import HTMLBuilder
 from reanalysis.utils import (
     AnalysisVariant,
-    COMP_HET_TEMPLATE,
+    VARIANT_STRING_TEMPLATE,
     COMP_HET_VALUES,
     get_simple_moi,
     parse_ped_simple,
     PedPerson,
     ReportedVariant,
 )
-from reanalysis.moi_tests import MOIRunner
 
 
 def read_json_dictionary(json_path: str) -> Any:
@@ -66,13 +68,24 @@ def parse_comp_hets(vcf_path: str) -> Dict[str, Dict[str, AnalysisVariant]]:
             row_dict = dict(zip(COMP_HET_VALUES, var_info.split('/')))
 
             # create a string
-            paired_var_string = COMP_HET_TEMPLATE.format(
+            paired_var_string = VARIANT_STRING_TEMPLATE.format(
                 row_dict.get('chrom').replace('chr', ''),
                 row_dict.get('pos'),
                 row_dict.get('ref'),
                 row_dict.get('alt'),
-                variant.INFO.get('transcript_id'),
             )
+
+            # don't allow a 'pair' with the current variant
+            if (
+                int(row_dict['pos']) == variant.POS
+                and row_dict['ref'] == variant.REF
+                and row_dict['alt'] == variant.ALT[0]
+            ):
+                # logging.error(
+                #     'Found a variant forming a comp-het with itself: %s',
+                #     paired_var_string,
+                # )
+                continue
 
             # noinspection PyTypeChecker
             comp_het_lookup.setdefault(row_dict.get('sample'), {})[
@@ -80,6 +93,10 @@ def parse_comp_hets(vcf_path: str) -> Dict[str, Dict[str, AnalysisVariant]]:
             ] = AnalysisVariant(variant, samples)
 
     logging.info('%d samples contain a compound het', len(comp_het_lookup))
+    print(comp_het_lookup)
+    # for sample in comp_het_lookup.values():
+    #     for variant in sample.values():
+    #         print(repr(variant.var), variant.get_class_ints())
 
     # noinspection PyTypeChecker
     return comp_het_lookup
@@ -104,7 +121,11 @@ def set_up_inheritance_filters(
     ad_threshold = config.get('gnomad_dominant')
 
     # iterate over all genes
-    for gene_data in panelapp_data.values():
+    for key, gene_data in panelapp_data.items():
+
+        # skip over the stored metadata
+        if '_version' in key:
+            continue
 
         # extract the per-gene MOI, and SIMPLIFY
         gene_moi = get_simple_moi(gene_data.get('moi'))
@@ -153,35 +174,45 @@ def validate_class_2(
 
     # check there are more classifying events now than previously
     elif panel_gene_data.get('changed'):
-        old_moi = get_simple_moi(panel_gene_data.get('old_moi'))
-        new_moi = get_simple_moi(panel_gene_data.get('moi'))
 
-        # get successful tiering modes for the new and old MOIs
-        # collected into a set of Strings
-        old_moi_passes = set(
-            chain.from_iterable(
-                [
-                    result.reasons
-                    for result in moi_lookup[old_moi].run(
-                        principal_var=variant, comp_hets=comp_het_lookup, ensg=gene
-                    )
-                ]
-            )
-        )
-        new_moi_passes = set(
-            chain.from_iterable(
-                [
-                    result.reasons
-                    for result in moi_lookup[new_moi].run(
-                        principal_var=variant, comp_hets=comp_het_lookup, ensg=gene
-                    )
-                ]
-            )
-        )
+        # the 'simplified' MOI for 'Unknown' is 'search for both mono and biallelic inheritance'
+        # if we use the simplified version, we fail to identify older MOI being unpopulated
+        # e.g, Unknown -> Monoallelic
+        # this situation could actually return more results as "Unknown", given that it's
+        # evaluated as Dominant and Recessive
+        if panel_gene_data.get('old_moi') == 'Unknown':
+            retain = True
 
-        # require at least one using current MOI,
-        # and a difference between old and new
-        retain = len(new_moi_passes - old_moi_passes) > 0
+        else:
+            old_moi = get_simple_moi(panel_gene_data.get('old_moi'))
+            new_moi = get_simple_moi(panel_gene_data.get('moi'))
+
+            # get successful tiering modes for the new and old MOIs
+            # collected into a set of Strings
+            old_moi_passes = set(
+                chain.from_iterable(
+                    [
+                        result.reasons
+                        for result in moi_lookup[old_moi].run(
+                            principal_var=variant, comp_hets=comp_het_lookup, ensg=gene
+                        )
+                    ]
+                )
+            )
+            new_moi_passes = set(
+                chain.from_iterable(
+                    [
+                        result.reasons
+                        for result in moi_lookup[new_moi].run(
+                            principal_var=variant, comp_hets=comp_het_lookup, ensg=gene
+                        )
+                    ]
+                )
+            )
+
+            # require at least one using current MOI,
+            # and a difference between old and new
+            retain = len(new_moi_passes - old_moi_passes) > 0
 
     return retain
 
@@ -237,6 +268,7 @@ def apply_moi_to_variants(
 
         # we never use a C4-only variant as a principal variant
         # and we don't consider a variant with no assigned classes
+        # if not analysis_variant.is_classified():
         if analysis_variant.class_4_only() or not analysis_variant.is_classified():
             continue
 
@@ -249,11 +281,15 @@ def apply_moi_to_variants(
     return results
 
 
-def clean_initial_results(result_list: List[ReportedVariant]):
+def clean_initial_results(
+    result_list: List[ReportedVariant],
+) -> Dict[str, Dict[str, ReportedVariant]]:
     """
     There was a possibility that a single variant can be
     classified in different ways. This method cleans those
     down to unique
+
+    Join all possible classes for the condensed variants
     :param result_list:
     :return:
     """
@@ -343,14 +379,31 @@ def main(
         panelapp_data=panelapp_data,
     )
 
+    # remove duplicates of the same variant
     cleaned_results = clean_initial_results(results)
-    total_results = 0
-    for varlist in cleaned_results.values():
-        total_results += len(varlist)
 
-    print(cleaned_results)
-    print(total_results)
-    print(out_path)
+    # use the config file to select the relevant CPG to Seqr ID JSON file
+    seqr_data = read_json_dictionary(config_dict.get('seqr_lookup'))
+
+    # generate some html
+    html_maker = HTMLBuilder(
+        results_dict=cleaned_results, seqr_lookup=seqr_data, panelapp_data=panelapp_data
+    )
+    html_tables, class_2_genes = html_maker.create_html_tables()
+
+    class_2_table = html_maker.class_2_table(class_2_genes)
+
+    with open(out_path, 'w', encoding='utf-8') as handle:
+        handle.write('<head>\n</head>\n<body>\n')
+        handle.write('<h3>MOI changes used for Class 2</h3>')
+        handle.write(class_2_table)
+        handle.write('<br/>')
+
+        handle.write('<h1>Per Sample Results</h1>')
+        for sample, table in html_tables.items():
+            handle.write(fr'<h3>{sample}</h3>')
+            handle.write(table)
+        handle.write('\n</body>')
 
 
 if __name__ == '__main__':
