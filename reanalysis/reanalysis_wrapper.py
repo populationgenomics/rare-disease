@@ -27,6 +27,7 @@ import click
 PANELAPP_JSON_OUT = output_path('panelapp_137_data.json')
 HAIL_VCF_OUT = output_path("hail_classified.vcf.bgz")
 COMP_HET_VCF_OUT = output_path("hail_comp_het.vcf.bgz")
+MT_OUT_PATH = output_path('hail_105_ac.mt')
 
 
 # location of the Slivar Docker image
@@ -142,7 +143,8 @@ def handle_hail_job(
         f'--mt {matrix} '
         f'--pap {PANELAPP_JSON_OUT} '
         f'--config {config} '
-        f'--output {HAIL_VCF_OUT}',
+        f'--output {HAIL_VCF_OUT} '
+        f'--mt_out {MT_OUT_PATH}',
         max_age='8h',
         init=[
             'gs://cpg-reference/hail_dataproc/install_common.sh',

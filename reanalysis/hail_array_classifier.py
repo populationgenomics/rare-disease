@@ -14,7 +14,7 @@ Similar to hail_classifier.py script, but no exploding
 - write as VCF
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 import json
 import logging
 import sys
@@ -512,7 +512,20 @@ def write_matrix_to_vcf(matrix: hl.MatrixTable, output_path: str):
 @click.option('--pap', 'panelapp_path', help='bucket path containing panelapp JSON')
 @click.option('--config', 'config_path', help='path to a config dict')
 @click.option('--output', 'out_vcf', help='VCF path to export results')
-def main(mt_path: str, panelapp_path: str, config_path: str, out_vcf: str):
+@click.option(
+    '--mt_out',
+    'mt_out',
+    help='MT path to export annotated MT to',
+    required=False,
+    default=None,
+)
+def main(
+    mt_path: str,
+    panelapp_path: str,
+    config_path: str,
+    out_vcf: str,
+    mt_out: Optional[str] = None,
+):
     """
     Read the MT from disk, do filtering and class annotation
     Export as a VCF
@@ -521,6 +534,7 @@ def main(mt_path: str, panelapp_path: str, config_path: str, out_vcf: str):
     :param panelapp_path: path to the panelapp data dump
     :param config_path: path to the config json
     :param out_vcf: path to write the VCF out to
+    :param mt_out:
     """
 
     logging.info('Reading config dict from "%s"', config_path)
@@ -553,6 +567,10 @@ def main(mt_path: str, panelapp_path: str, config_path: str, out_vcf: str):
     # re-annotate using VEP
     logging.info('Annotating variants')
     matrix = annotate_using_vep(matrix_data=matrix)
+
+    # if a path is provided, dump the MT
+    if mt_out is not None:
+        matrix.write(mt_out, overwrite=True)
 
     # filter on consequence-independent row annotations
     # temp - dump this with and without filtering
