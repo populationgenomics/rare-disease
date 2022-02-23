@@ -38,6 +38,6 @@
   "transcript_ablation",
   "splice_donor"
  ],
- "csq_string": "Allele|Consequence|SYMBOL|Gene|Feature|BIOTYPE|EXON|HGVSc|HGVSp|cDNA_position|CDS_position|Protein_position|Amino_acids|Codons|ALLELE_NUM|VARIANT_CLASS|MINIMISED|TSL|APPRIS|CCDS|ENSP|SWISSPROT|TREMBL|UNIPARC|GENE_PHENO|SIFT|PolyPhen|HGVS_OFFSET|HIGH_INF_POS|LoF|LoF_filter|LoF_flags|LoF_info",
+ "csq_string": "Allele|Consequence|SYMBOL|Gene|Feature|BIOTYPE|EXON|HGVSc|HGVSp|cDNA_position|CDS_position|Protein_position|Amino_acids|Codons|ALLELE_NUM|VARIANT_CLASS|TSL|APPRIS|CCDS|ENSP|SWISSPROT|TREMBL|UNIPARC|GENE_PHENO|SIFT|PolyPhen||LoF|LoF_filter|LoF_flags",
  "seqr_lookup": "reanalysis/parsed_seqr.json"
 }

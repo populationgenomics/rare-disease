@@ -163,7 +163,7 @@ def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     applies the Class3 flag where appropriate
     - Critical protein consequence on at least one transcript
     - rare in Gnomad
-    - either predicted NMD (Loftee not in the data yet) or
+    - either predicted NMD or
     - any star Pathogenic or Likely_pathogenic in Clinvar
 
     currently this class is a bit baggy, as LOF confirmation doesn't exist in Hail-VEP
@@ -174,6 +174,7 @@ def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
 
     critical_consequences = hl.set(config.get('critical_csq'))
     clinvar_pathogenic_terms = hl.set(config.get('clinvar_path'))
+    loftee_high_confidence = hl.str('HC')
 
     return matrix.annotate_rows(
         info=matrix.info.annotate(
@@ -188,7 +189,14 @@ def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
                         > 0
                     )
                 )
-                & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig)),
+                & (
+                    (
+                        matrix.vep.transcript_consequences.any(
+                            lambda x: x.lof == loftee_high_confidence
+                        )
+                    )
+                    | (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
+                ),
                 ONE_INT,
                 MISSING_INT,
             )
@@ -393,31 +401,25 @@ def vep_struct_to_csq(
                     else ""
                 ),
                 "variant_class": vep_expr.variant_class,
-            }
-        )
-
-        # Only interested in transcripts for now
-        fields.update(
-            {
-                "canonical": hl.cond(element.canonical == 1, "YES", ""),
+                "canonical": hl.if_else(element.canonical == 1, "YES", ""),
                 "ensp": element.protein_id,
                 "gene": element.gene_id,
                 "symbol": element.gene_symbol,
                 "symbol_source": element.gene_symbol_source,
                 "cdna_position": hl.str(element.cdna_start)
-                + hl.cond(
+                + hl.if_else(
                     element.cdna_start == element.cdna_end,
                     "",
                     "-" + hl.str(element.cdna_end),
                 ),
                 "cds_position": hl.str(element.cds_start)
-                + hl.cond(
+                + hl.if_else(
                     element.cds_start == element.cds_end,
                     "",
                     "-" + hl.str(element.cds_end),
                 ),
                 "protein_position": hl.str(element.protein_start)
-                + hl.cond(
+                + hl.if_else(
                     element.protein_start == element.protein_end,
                     "",
                     "-" + hl.str(element.protein_end),
@@ -613,8 +615,8 @@ def main(
     # add Classes to the MT
     logging.info('Applying classes to variant consequences')
     matrix = annotate_class_1(matrix, config_dict)
-    matrix = annotate_class_3(matrix, config_dict)
     matrix = annotate_class_2(matrix, config_dict)
+    matrix = annotate_class_3(matrix, config_dict)
     matrix = annotate_class_4(matrix, config_dict)
 
     # possibly add a background class here for interesting, but only
