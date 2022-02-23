@@ -15,14 +15,13 @@ Similar to hail_classifier.py script, but no exploding
 """
 
 from typing import Any, Dict, Optional
-import json
 import logging
 import sys
 
 import click
-
-from google.cloud import storage
 import hail as hl
+
+from reanalysis.reanalysis_wrapper import read_json_dict_from_path, check_file_exists
 
 
 # set some Hail constants
@@ -71,8 +70,7 @@ def annotate_class_1(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
         info=matrix.info.annotate(
             Class1=hl.if_else(
                 (matrix.info.clinvar_stars > 0)
-                & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
-                & (matrix.info.gnomad_af < config.get('gnomad_semi_rare')),
+                & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig)),
                 ONE_INT,
                 MISSING_INT,
             )
@@ -112,8 +110,7 @@ def annotate_class_2(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
                 | (
                     (matrix.info.cadd > config.get('cadd'))
                     & (matrix.info.revel > config.get('revel'))
-                )
-                & (matrix.info.gnomad_af < config.get('gnomad_semi_rare')),
+                ),
                 ONE_INT,
                 MISSING_INT,
             )
@@ -151,8 +148,7 @@ def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
                         > 0
                     )
                 )
-                & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
-                & (matrix.info.gnomad_af < config.get('gnomad_semi_rare')),
+                & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig)),
                 ONE_INT,
                 MISSING_INT,
             )
@@ -166,6 +162,7 @@ def annotate_class_4(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     - rare in Gnomad, and
     - CADD & REVEL above threshold (switched to consensus), or
     - Massive cross-tool consensus
+    - polyphen and sift are evaluated per-consequence
     :param matrix:
     :param config:
     :return:
@@ -174,50 +171,35 @@ def annotate_class_4(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     return matrix.annotate_rows(
         info=matrix.info.annotate(
             Class4=hl.if_else(
-                (matrix.info.gnomad_af < config.get('gnomad_semi_rare'))
-                & (
+                (
+                    (matrix.info.cadd > config.get('cadd'))
+                    & (matrix.info.revel > config.get('revel'))
+                )
+                | (
                     (
-                        (matrix.info.cadd > config.get('cadd'))
-                        & (matrix.info.revel > config.get('revel'))
-                    )
-                    | (
-                        (matrix.info.sift_score < config.get('sift'))
-                        & (matrix.info.polyphen_score >= config.get('polyphen'))
-                        & (
-                            (matrix.info.mutationtaster.contains("D"))
-                            | (matrix.info.mutationtaster == "missing")
+                        matrix.vep.transcript_consequences.any(
+                            lambda x: hl.or_else(x.sift_score, MISSING_FLOAT_HI)
+                            < config.get('sift')
                         )
-                        & (matrix.info.gerp_rs >= config.get('gerp'))
-                        & (matrix.info.eigen_phred > config.get('eigen'))
                     )
+                    & (
+                        matrix.vep.transcript_consequences.any(
+                            lambda x: hl.or_else(x.polyphen_score, MISSING_FLOAT_LO)
+                            > config.get('polyphen')
+                        )
+                    )
+                    & (
+                        (matrix.info.mutationtaster.contains("D"))
+                        | (matrix.info.mutationtaster == "missing")
+                    )
+                    & (matrix.info.gerp_rs >= config.get('gerp'))
+                    & (matrix.info.eigen_phred > config.get('eigen'))
                 ),
                 ONE_INT,
                 MISSING_INT,
             )
         )
     )
-
-
-def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
-    """
-    take a GCP bucket path to a JSON file, read into an object
-    this loop can read config files, or data
-    :param bucket_path:
-    :return:
-    """
-
-    # split the full path to get the bucket and file path
-    bucket = bucket_path.replace('gs://', '').split('/')[0]
-    path = bucket_path.replace('gs://', '').split('/', maxsplit=1)[1]
-
-    # create a client
-    g_client = storage.Client()
-
-    # obtain the blob of the data
-    json_blob = g_client.get_bucket(bucket).get_blob(path)
-
-    # the download_as_bytes method isn't available; but this returns bytes?
-    return json.loads(json_blob.download_as_string())
 
 
 def hard_filter_before_annotation(
@@ -556,24 +538,29 @@ def main(
     # initiate Hail with the specified reference
     hl.init(default_reference=config_dict.get('ref_genome'), quiet=True)
 
-    logging.info('Loading MT from "%s"', mt_path)
-    # load MT in
-    matrix = hl.read_matrix_table(mt_path)
+    # if we already generated the annotated output, load instead
+    if check_file_exists(mt_out.rstrip('/') + '/'):
+        logging.info('Loading annotated MT from "%s"', mt_out)
+        matrix = hl.read_matrix_table(mt_out)
 
-    # hard filter entries in the MT prior to annotation
-    logging.info('Hard filtering variants')
-    matrix = hard_filter_before_annotation(matrix_data=matrix, config=config_dict)
+    else:
+        logging.info('Loading MT from "%s"', mt_path)
+        # load MT in
+        matrix = hl.read_matrix_table(mt_path)
 
-    # re-annotate using VEP
-    logging.info('Annotating variants')
-    matrix = annotate_using_vep(matrix_data=matrix)
+        # hard filter entries in the MT prior to annotation
+        logging.info('Hard filtering variants')
+        matrix = hard_filter_before_annotation(matrix_data=matrix, config=config_dict)
 
-    # if a path is provided, dump the MT
-    if mt_out is not None:
-        matrix.write(mt_out, overwrite=True)
+        # re-annotate using VEP
+        logging.info('Annotating variants')
+        matrix = annotate_using_vep(matrix_data=matrix)
+
+        # if a path is provided, dump the MT
+        if mt_out is not None:
+            matrix.write(mt_out, overwrite=True)
 
     # filter on consequence-independent row annotations
-    # temp - dump this with and without filtering
     logging.info('Filtering Variant rows')
     matrix = filter_mt_rows(
         matrix=matrix, config=config_dict, green_genes=green_gene_set_expression
