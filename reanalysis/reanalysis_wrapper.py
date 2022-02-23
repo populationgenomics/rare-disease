@@ -148,12 +148,11 @@ def handle_hail_job(
             'gs://cpg-reference/hail_dataproc/install_common.sh',
             'gs://cpg-reference/vep/vep-GRCh38.sh',  # install and configure VEP 105
         ],
-        job_name='run_vep',
+        job_name='run hail reanalysis stage',
         num_secondary_workers=10,
         num_workers=2,
-        cluster_name='run vep',
+        cluster_name='hail_reanalysis_stage',
     )
-    # required?
     set_job_resources(hail_job)
 
     # don't start unless prior step is successful
@@ -263,6 +262,7 @@ def main(
     # ----------------------- #
     # retain dependency flow if we skip the hail job
     prior_job = panelapp_job
+
     if not check_file_exists(HAIL_VCF_OUT):
         hail_job = handle_hail_job(
             batch=batch,
