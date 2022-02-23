@@ -191,7 +191,7 @@ def handle_slivar_job(
     slivar_job.depends_on(prior_job)
 
     # reheader the VCF using BCFtools and sed
-    desc = '##INFO=<ID=COMPOUND_CSQ,Number=1,Type=String,Description="'
+    desc = '##INFO=<ID=CSQ,Number=.,Type=String,Description="'
     # add this new line for Slivar
 
     conf_csq = config_dict.get('csq_string').replace('|', r'\|')
@@ -199,6 +199,7 @@ def handle_slivar_job(
 
     slivar_job.command(
         (
+            'set -ex; '
             f'bcftools view -h {local_vcf} | sed \'s/'
             f'{desc}">/{desc}{new_format}">/\' > new_header; '
             f'bcftools reheader -h new_header --threads 4 -o new.vcf.bgz {local_vcf}; '
