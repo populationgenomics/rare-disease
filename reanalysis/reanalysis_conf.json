@@ -16,7 +16,8 @@
  "eigen": 0.25,
  "clinvar_path": [
   "Pathogenic",
-  "Likely_pathogenic"
+  "Likely_pathogenic",
+  "Pathogenic/Likely_pathogenic"
  ],
  "useless_csq": [
   "upstream_gene_variant",

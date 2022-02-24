@@ -174,7 +174,7 @@ def handle_reheader_job(
     config_dict: Dict[str, Any],
 ) -> hb.batch.job:
     """
-    runs the bcftools reheadering
+    runs the bcftools re-header process
     :param batch:
     :param local_vcf:
     :param prior_job:
@@ -182,7 +182,7 @@ def handle_reheader_job(
     :return:
     """
 
-    bcftools_job = batch.new_job(name='slivar_reanalysis_stage')
+    bcftools_job = batch.new_job(name='bcftools_reheader_stage')
     set_job_resources(bcftools_job)
     bcftools_job.image(BCFTOOLS_IMAGE)
 

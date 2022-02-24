@@ -92,26 +92,40 @@ def annotate_mane(matrix: hl.MatrixTable) -> hl.MatrixTable:
     )
 
 
-def annotate_class_1(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.MatrixTable:
+def annotate_class_1(matrix: hl.MatrixTable) -> hl.MatrixTable:
     """
     applies the Class1 flag where appropriate
     semi-rare in Gnomad
     at least one Clinvar star
     either Pathogenic or Likely_pathogenic in Clinvar
     Assign 1 or 0, depending on presence
+
+    Didn't handle "Pathogenic/Likely_pathogenic"
+    Changing to 'contains pathogenic and not conflicting'
+
+    I'm sure there's some simple logic for negating a boolean somewhere
+    for now... if there is a confident pathogenic..
+        - also test for the presence of conflicting
+        - pass first, fail second = Class 1
     :param matrix:
-    :param config:
     :return:
     """
 
-    clinvar_pathogenic_terms = hl.set(config.get('clinvar_path'))
+    pathogenic = hl.str('pathogenic')
+    conflicting = hl.str('conflicting')
 
     return matrix.annotate_rows(
         info=matrix.info.annotate(
             Class1=hl.if_else(
-                (matrix.info.clinvar_stars > 0)
-                & (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig)),
-                ONE_INT,
+                (
+                    (matrix.info.clinvar_stars > 0)
+                    & (matrix.info.clinvar_sig.lower().contains(pathogenic))
+                ),
+                hl.if_else(
+                    matrix.info.clinvar_sig.lower().contains(conflicting),
+                    MISSING_INT,
+                    ONE_INT,
+                ),
                 MISSING_INT,
             )
         )
@@ -614,7 +628,7 @@ def main(
 
     # add Classes to the MT
     logging.info('Applying classes to variant consequences')
-    matrix = annotate_class_1(matrix, config_dict)
+    matrix = annotate_class_1(matrix)
     matrix = annotate_class_2(matrix, config_dict)
     matrix = annotate_class_3(matrix, config_dict)
     matrix = annotate_class_4(matrix, config_dict)
