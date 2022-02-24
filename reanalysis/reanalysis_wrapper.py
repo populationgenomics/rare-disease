@@ -26,14 +26,18 @@ import click
 # used to provide all VEP105 consequences, silences Slivar errors
 PANELAPP_JSON_OUT = output_path('panelapp_137_data.json')
 HAIL_VCF_OUT = output_path("hail_classified.vcf.bgz")
+REHEADERED_OUT = output_path("hail_classes_reheadered.vcf.bgz")
 COMP_HET_VCF_OUT = output_path("hail_comp_het.vcf.bgz")
 MT_OUT_PATH = output_path('hail_105_ac.mt')
+RESULTS_HTML = output_path('summary_output.html')
 
 
 # location of the Slivar Docker image
 AR_REPO = 'australia-southeast1-docker.pkg.dev/cpg-common/images'
 SLIVAR_TAG = 'slivar:v0.2.7'
+BCFTOOLS_TAG = 'bcftools:1.10.2--h4f4756c_2'
 SLIVAR_IMAGE = f'{AR_REPO}/{SLIVAR_TAG}'
+BCFTOOLS_IMAGE = f'{AR_REPO}/{BCFTOOLS_TAG}'
 
 HAIL_SCRIPT = os.path.join(os.path.dirname(__file__), "hail_array_classifier.py")
 PANELAPP_SCRIPT = os.path.join(os.path.dirname(__file__), "panelapp_extraction.py")
@@ -163,12 +167,52 @@ def handle_hail_job(
     return hail_job
 
 
-def handle_slivar_job(
+def handle_reheader_job(
     batch: hb.Batch,
     local_vcf: str,
-    local_ped: str,
     prior_job: hb.batch.job,
     config_dict: Dict[str, Any],
+) -> hb.batch.job:
+    """
+    runs the bcftools reheadering
+    :param batch:
+    :param local_vcf:
+    :param prior_job:
+    :param config_dict:
+    :return:
+    """
+
+    bcftools_job = batch.new_job(name='slivar_reanalysis_stage')
+    set_job_resources(bcftools_job)
+    bcftools_job.image(BCFTOOLS_IMAGE)
+
+    bcftools_job.depends_on(prior_job)
+
+    bcftools_job.declare_resource_group(
+        vcf={'vcf': '{root}.vcf.bgz', 'vcf.tbi': '{root}.vcf.bgz.tbi'}
+    )
+
+    # reheader the VCF using BCFtools and sed
+    desc = '##INFO=<ID=CSQ,Number=.,Type=String,Description="'
+
+    conf_csq = config_dict.get('csq_string').replace('|', r'\|')
+    new_format = rf"Format: '{conf_csq}'"
+
+    bcftools_job.command(
+        'set -ex; '
+        f'bcftools view -h {local_vcf} | sed \'s/'
+        f'{desc}">/{desc}{new_format}">/\' > new_header; '
+        f'bcftools reheader -h new_header --threads 4 -o {bcftools_job.vcf["vcf"]} {local_vcf}; '
+        f'tabix {bcftools_job.vcf["vcf"]}; '
+    )
+    return bcftools_job
+
+
+def handle_slivar_job(
+    batch: hb.Batch,
+    reheadered_vcf: str,
+    local_ped: str,
+    prior_job: hb.batch.job,
 ) -> hb.batch.job:
     """
     set up the slivar job
@@ -177,11 +221,12 @@ def handle_slivar_job(
     run comp-het discovery on the file
     creates new VCF  exclusively containing comp-hets
 
+    Maybe do reheadering as a separate job? CSQ field could be broadly useful
+
     :param batch:
-    :param local_vcf:
+    :param reheadered_vcf:
     :param local_ped:
     :param prior_job:
-    :param config_dict:
     :return:
     """
     slivar_job = batch.new_job(name='slivar_reanalysis_stage')
@@ -190,26 +235,13 @@ def handle_slivar_job(
 
     slivar_job.depends_on(prior_job)
 
-    # reheader the VCF using BCFtools and sed
-    desc = '##INFO=<ID=CSQ,Number=.,Type=String,Description="'
-    # add this new line for Slivar
-
-    conf_csq = config_dict.get('csq_string').replace('|', r'\|')
-    new_format = rf"Format: '{conf_csq}'"
-
     slivar_job.command(
-        (
-            'set -ex; '
-            f'bcftools view -h {local_vcf} | sed \'s/'
-            f'{desc}">/{desc}{new_format}">/\' > new_header; '
-            f'bcftools reheader -h new_header --threads 4 -o new.vcf.bgz {local_vcf}; '
-            'tabix new.vcf.bgz; '
-            'CSQ_FIELD="COMPOUND_CSQ" slivar compound-hets '
-            '--allow-non-trios '
-            f'--ped {local_ped} '
-            f'-v new.vcf.bgz | '
-            f'bgzip -c -@ 4 > {slivar_job.out_vcf};'
-        )
+        'export SLIVAR_QUIET="true"; '
+        'slivar compound-hets '
+        '--allow-non-trios '
+        f'--ped {local_ped} '
+        f'-v {reheadered_vcf} | '
+        f'bgzip -c -@ 4 > {slivar_job.out_vcf};'
     )
     return slivar_job
 
@@ -280,15 +312,26 @@ def main(
         **{'vcf': HAIL_VCF_OUT, 'vcf.tbi': HAIL_VCF_OUT + '.tbi'}
     )
 
-    # ------------------------------------------- #
-    # slivar compound het check & class 4 removal #
-    # ------------------------------------------- #
-    slivar_job = handle_slivar_job(
+    # --------------------------------- #
+    # bcftools re-headering of hail VCF #
+    # --------------------------------- #
+    bcftools_job = handle_reheader_job(
         batch=batch,
         local_vcf=hail_output_in_batch['vcf'],
-        local_ped=ped_in_batch,
         prior_job=prior_job,
         config_dict=config_dict,
+    )
+
+    batch.write_output(bcftools_job.vcf, REHEADERED_OUT)
+
+    # ------------------------- #
+    # slivar compound het check #
+    # ------------------------- #
+    slivar_job = handle_slivar_job(
+        batch=batch,
+        reheadered_vcf=bcftools_job.vcf['vcf'],
+        local_ped=ped_in_batch,
+        prior_job=prior_job,
     )
 
     batch.write_output(slivar_job.out_vcf, COMP_HET_VCF_OUT)
@@ -307,7 +350,7 @@ def main(
         'micromamba install -y cyvcf2 --prefix $MAMBA_ROOT_PREFIX -c bioconda -c conda-forge && '
         f'PYTHONPATH=$(pwd) python3 {RESULTS_SCRIPT} '
         f'--conf {conf_in_batch} '
-        f'--class_vcf {hail_output_in_batch["vcf"]} '
+        f'--class_vcf {bcftools_job.vcf["vcf"]} '
         f'--comp_het {slivar_job.out_vcf} '
         f'--pap {panelapp_job.panel_json} '
         f'--ped {ped_in_batch} '
@@ -317,6 +360,9 @@ def main(
 
     results_job.command(results_command)
     results_job.image(os.getenv('DRIVER_IMAGE'))
+
+    # write the final results file to an HTML
+    batch.write_output(results_job.ofile, RESULTS_HTML)
 
     # run the batch
     batch.run(wait=False)

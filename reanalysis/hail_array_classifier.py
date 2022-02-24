@@ -149,7 +149,7 @@ def annotate_class_2(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
                 | (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
                 | (
                     (matrix.info.cadd > config.get('cadd'))
-                    & (matrix.info.revel > config.get('revel'))
+                    | (matrix.info.revel > config.get('revel'))
                 ),
                 ONE_INT,
                 MISSING_INT,
@@ -627,9 +627,11 @@ def main(
     matrix = filter_to_classified(matrix)
 
     # obtain the massive CSQ string using method stolen from the Broad's Gnomad library
+    # also take the single gene_id (from the exploded attribute)
     matrix = matrix.annotate_rows(
         info=matrix.info.annotate(
-            CSQ=vep_struct_to_csq(matrix.vep, csq_fields=config_dict.get('csq_string'))
+            CSQ=vep_struct_to_csq(matrix.vep, csq_fields=config_dict.get('csq_string')),
+            gene_id=matrix.geneIds,
         )
     )
 

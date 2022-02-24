@@ -12,6 +12,7 @@ import json
 import os
 import click
 from cyvcf2 import VCFReader
+from google.cloud import storage
 
 from reanalysis.moi_tests import MOIRunner
 from reanalysis.results_builder import HTMLBuilder
@@ -24,6 +25,28 @@ from reanalysis.utils import (
     PedPerson,
     ReportedVariant,
 )
+
+
+def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
+    """
+    take a GCP bucket path to a JSON file, read into an object
+    this loop can read config files, or data
+    :param bucket_path:
+    :return:
+    """
+
+    # split the full path to get the bucket and file path
+    bucket = bucket_path.replace('gs://', '').split('/')[0]
+    path = bucket_path.replace('gs://', '').split('/', maxsplit=1)[1]
+
+    # create a client
+    g_client = storage.Client()
+
+    # obtain the blob of the data
+    json_blob = g_client.get_bucket(bucket).get_blob(path)
+
+    # the download_as_bytes method isn't available; but this returns bytes?
+    return json.loads(json_blob.download_as_string())
 
 
 def read_json_dictionary(json_path: str) -> Any:
@@ -245,6 +268,14 @@ def apply_moi_to_variants(
 
         gene = variant.INFO.get('gene_id')
 
+        # #  allow for multiple genes here?
+        # # e.g. iterate over all possible genes
+        # # store class 2 status, check for _this gene_, then reset at the start of the loop
+        # c2_status = analysis_variant.class_2
+        # for gene_id in gene:
+        #     analysis_variant.class_2 = c2_status
+        #     # then do C2 test, and follow with MOI test
+
         # one variant appears to be retained here, in a red gene
         # possibly overlapping with a Green gene?
         if gene not in panelapp_data:
@@ -382,7 +413,7 @@ def main(
     cleaned_results = clean_initial_results(results)
 
     # use the config file to select the relevant CPG to Seqr ID JSON file
-    seqr_data = read_json_dictionary(config_dict.get('seqr_lookup'))
+    seqr_data = read_json_dict_from_path(config_dict.get('seqr_lookup'))
 
     # generate some html
     html_maker = HTMLBuilder(
