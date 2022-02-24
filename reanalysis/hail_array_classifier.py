@@ -195,28 +195,23 @@ def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
             Class3=hl.if_else(
                 (
                     (
-                        hl.len(
-                            critical_consequences.intersection(
-                                hl.set(
-                                    matrix.vep.transcript_consequences.consequence_terms
+                        matrix.vep.transcript_consequences.any(
+                            lambda x: hl.len(
+                                critical_consequences.intersection(
+                                    hl.set(x.consequence_terms)
                                 )
                             )
+                            > 0
                         )
-                        > 0
                     )
                     & (
                         (
-                            (
-                                matrix.vep.transcript_consequences.lof
-                                == loftee_high_confidence
-                            )
-                            | hl.is_missing(matrix.vep.transcript_consequences.lof)
-                        )
-                        | (
-                            matrix.clinvar.clinical_significance.lower().contains(
-                                pathogenic
+                            matrix.vep.transcript_consequences.any(
+                                lambda x: (x.lof == loftee_high_confidence)
+                                | (hl.is_missing(x.lof))
                             )
                         )
+                        | (matrix.info.clinvar_sig.lower().contains(pathogenic))
                     )
                 ),
                 ONE_INT,
@@ -475,7 +470,7 @@ def vep_struct_to_csq(
     return hl.or_missing(hl.len(csq) > 0, csq)
 
 
-def extract_broad_annotations(matrix: hl.MatrixTable) -> hl.MatrixTable:
+def extract_annotations(matrix: hl.MatrixTable) -> hl.MatrixTable:
     """
     pull out select fields which aren't per-consequence
     store these in INFO (required to be included in VCF export)
@@ -632,7 +627,7 @@ def main(
 
     # pull annotations into info (not vep)
     logging.info('Pulling VEP annotations into INFO field')
-    matrix = extract_broad_annotations(matrix)
+    matrix = extract_annotations(matrix)
 
     # add Classes to the MT
     logging.info('Applying classes to variant consequences')
