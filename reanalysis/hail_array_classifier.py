@@ -145,7 +145,7 @@ def annotate_class_2(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     """
 
     critical_consequences = hl.set(config.get('critical_csq'))
-    clinvar_pathogenic_terms = hl.set(config.get('clinvar_path'))
+    pathogenic = hl.str('pathogenic')
 
     return matrix.annotate_rows(
         info=matrix.info.annotate(
@@ -160,7 +160,7 @@ def annotate_class_2(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
                         > 0
                     )
                 )
-                | (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
+                | (matrix.info.clinvar_sig.lower().contains(pathogenic))
                 | (
                     (matrix.info.cadd > config.get('cadd'))
                     | (matrix.info.revel > config.get('revel'))
@@ -187,29 +187,37 @@ def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     """
 
     critical_consequences = hl.set(config.get('critical_csq'))
-    clinvar_pathogenic_terms = hl.set(config.get('clinvar_path'))
+    pathogenic = hl.str('pathogenic')
     loftee_high_confidence = hl.str('HC')
 
     return matrix.annotate_rows(
         info=matrix.info.annotate(
             Class3=hl.if_else(
                 (
-                    matrix.vep.transcript_consequences.any(
-                        lambda x: hl.len(
+                    (
+                        hl.len(
                             critical_consequences.intersection(
-                                hl.set(x.consequence_terms)
+                                hl.set(
+                                    matrix.vep.transcript_consequences.consequence_terms
+                                )
                             )
                         )
                         > 0
                     )
-                )
-                & (
-                    (
-                        matrix.vep.transcript_consequences.any(
-                            lambda x: x.lof == loftee_high_confidence
+                    & (
+                        (
+                            (
+                                matrix.vep.transcript_consequences.lof
+                                == loftee_high_confidence
+                            )
+                            | hl.is_missing(matrix.vep.transcript_consequences.lof)
+                        )
+                        | (
+                            matrix.clinvar.clinical_significance.lower().contains(
+                                pathogenic
+                            )
                         )
                     )
-                    | (clinvar_pathogenic_terms.contains(matrix.info.clinvar_sig))
                 ),
                 ONE_INT,
                 MISSING_INT,

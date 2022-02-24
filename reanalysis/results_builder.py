@@ -82,6 +82,7 @@ class HTMLBuilder:
                                 )
                             )
                         ),
+                        'symbol': self.panelapp.get(variant.gene).get('symbol'),
                         'gene': variant.gene,
                         'csq': variant.var_data.var.INFO.get('csq'),
                         'gnomad': GNOMAD_TEMPLATE.format(
@@ -90,7 +91,8 @@ class HTMLBuilder:
                         ),
                         'MOIs': ','.join(variant.reasons),
                         'support': self.make_seqr_link(
-                            var_string=var_string, sample=sample
+                            var_string=string_format_variant(variant.support_var.var),
+                            sample=sample,
                         )
                         if variant.supported
                         else 'N/A',
