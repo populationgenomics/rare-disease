@@ -117,10 +117,8 @@ def annotate_class_1(matrix: hl.MatrixTable) -> hl.MatrixTable:
     return matrix.annotate_rows(
         info=matrix.info.annotate(
             Class1=hl.if_else(
-                (
-                    (matrix.info.clinvar_stars > 0)
-                    & (matrix.info.clinvar_sig.lower().contains(pathogenic))
-                ),
+                (matrix.info.clinvar_stars > 0)
+                & (matrix.info.clinvar_sig.lower().contains(pathogenic)),
                 hl.if_else(
                     matrix.info.clinvar_sig.lower().contains(conflicting),
                     MISSING_INT,
@@ -194,25 +192,23 @@ def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
         info=matrix.info.annotate(
             Class3=hl.if_else(
                 (
+                    matrix.vep.transcript_consequences.any(
+                        lambda x: hl.len(
+                            critical_consequences.intersection(
+                                hl.set(x.consequence_terms)
+                            )
+                        )
+                        > 0
+                    )
+                )
+                & (
                     (
                         matrix.vep.transcript_consequences.any(
-                            lambda x: hl.len(
-                                critical_consequences.intersection(
-                                    hl.set(x.consequence_terms)
-                                )
-                            )
-                            > 0
+                            lambda x: (x.lof == loftee_high_confidence)
+                            | (hl.is_missing(x.lof))
                         )
                     )
-                    & (
-                        (
-                            matrix.vep.transcript_consequences.any(
-                                lambda x: (x.lof == loftee_high_confidence)
-                                | (hl.is_missing(x.lof))
-                            )
-                        )
-                        | (matrix.info.clinvar_sig.lower().contains(pathogenic))
-                    )
+                    | (matrix.info.clinvar_sig.lower().contains(pathogenic))
                 ),
                 ONE_INT,
                 MISSING_INT,

@@ -218,15 +218,18 @@ def main(panel_id: str, out_path: str, since: Optional[str] = None):
             raise ValueError(f'The specified date {since} cannot be in the future')
 
         early_version = get_previous_version(panel_id=panel_id, since=since_datetime)
-        logging.info('Previous panel version: %s', early_version)
-        logging.info('Previous version date: %s', since)
-        get_panel_changes(
-            previous_version=early_version,
-            panel_id=panel_id,
-            latest_content=panel_dict,
-        )
-        panel_dict['panel_metadata']['previous_version'] = early_version
-        panel_dict['panel_metadata']['previous_date'] = since
+
+        # only continue if the versions are different
+        if early_version != panel_dict["panel_metadata"].get('current_version'):
+            logging.info('Previous panel version: %s', early_version)
+            logging.info('Previous version date: %s', since)
+            get_panel_changes(
+                previous_version=early_version,
+                panel_id=panel_id,
+                latest_content=panel_dict,
+            )
+            panel_dict['panel_metadata']['previous_version'] = early_version
+            panel_dict['panel_metadata']['previous_date'] = since
 
     logging.info('Writing output JSON file to %s', out_path)
     with open(out_path, 'w', encoding='utf-8') as handle:

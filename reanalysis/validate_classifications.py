@@ -286,9 +286,11 @@ def apply_moi_to_variants(
         # get the panelapp differences
         if analysis_variant.class_2:
 
+            # if there was only one panel version, definitely skip
             # if we don't have a _new_ MOI to use, or a new gene, skip
-            # this is tripling the work done in MOI tests
-            if not validate_class_2(
+            if panelapp_data["panel_metadata"].get(
+                "previous_version"
+            ) is None or not validate_class_2(
                 panelapp_data=panelapp_data,
                 moi_lookup=moi_lookup,
                 variant=analysis_variant,

@@ -3,6 +3,5 @@
 /workspace.xml
 .DS_Store
 .pytest_cache
-.idea
 reanalysis/input
 reanalysis/local_results

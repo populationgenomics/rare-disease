@@ -113,8 +113,17 @@ class HTMLBuilder:
         :param class_2_variants:
         :return:
         """
-        current_key = f'MOI in v{self.panelapp.get("current_version")}'
-        previous_key = f'MOI in v{self.panelapp.get("previous_version")}'
+        current_key = (
+            f'MOI in v{self.panelapp["panel_metadata"].get("current_version")}'
+        )
+        previous_key = (
+            f'MOI in v{self.panelapp["panel_metadata"].get("previous_version")}'
+        )
+
+        # if we don't have version differences, don't do anything
+        if previous_key is None:
+            return ''
+
         gene_dicts = []
         for gene in class_2_variants:
             gene_data = self.panelapp.get(gene)
