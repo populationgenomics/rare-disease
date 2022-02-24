@@ -31,13 +31,13 @@
   "NMD_transcript_variant"
  ],
  "critical_csq": [
-  "stop_gained",
-  "frameshift",
+  "frameshift_variant",
+  "splice_acceptor_variant",
+  "splice_donor_variant",
   "start_lost",
+  "stop_gained",
   "stop_lost",
-  "splice_acceptor",
-  "transcript_ablation",
-  "splice_donor"
+  "transcript_ablation"
  ],
  "csq_string": "Allele|Consequence|SYMBOL|Gene|Feature|BIOTYPE|EXON|HGVSc|HGVSp|cDNA_position|CDS_position|Protein_position|Amino_acids|Codons|ALLELE_NUM|VARIANT_CLASS|TSL|APPRIS|CCDS|ENSP|SWISSPROT|TREMBL|UNIPARC|GENE_PHENO|SIFT|PolyPhen||LoF|LoF_filter|LoF_flags",
  "seqr_lookup": "gs://cpg-acute-care-test/reanalysis/parsed_seqr.json"
