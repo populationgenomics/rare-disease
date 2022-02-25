@@ -94,10 +94,10 @@ def main(project: str, singles: bool, output: str):
     pedigree_dicts: List[Dict[str, str]] = FamilyApi().get_pedigree(project=project)
 
     # endpoint gives list of lists e.g. [['A1234567_proband', 'CPG12341']]
-    sample_to_cpg_dict: Dict[
-        str, str
-    ] = ParticipantApi().get_external_participant_id_to_internal_sample_id(
-        project='acute-care'
+    sample_to_cpg_dict: Dict[str, str] = dict(
+        ParticipantApi().get_external_participant_id_to_internal_sample_id(
+            project='acute-care'
+        )
     )
 
     clean_pedigree = get_clean_pedigree(
