@@ -34,7 +34,6 @@ Broad consequence-based filtering:
 * Variants are Rare in Gnomad and Exac (default threshold is 1%)
 * Consequences rated as `LOW` in VEP
 * Clinvar Benign with at least one `star`
-* If the variant has a MANE transcript consequence, filter to only retain that csq
 
 Classification steps:
 
@@ -58,23 +57,31 @@ Class 2:
 
 Class 3: 
 * VEP High Impact consequence
-* Supported by Loftee, or 
-* Clinvar annotation Pathogenic/Likely Pathogenic (any stars) 
-* *pending refinement, Loftee data currently not populated in the Hail data model
+* Hi-Confidence Loftee, or Clinvar Pathogenic/Likely Pathogenic (any stars) 
 
 Class 4: 
 * Rare, and either 
 * CADD and Revel consensus damaging prediction, or
 * Predicted damaging consensus across [MutationTaster, Sift, Polyphen, Gerp, Eigen]
 
-NB. class assignments are done independently of MOI and genotype, as those filters are applied outside of Hail
+NB. class assignments are done independently of MOI 
+and genotype, as those filters are applied outside of Hail
 
 ---
 
 ### Compound Het checks
 
-To assist the downstream MOI check, the VCF containing all variants of interest is analysed using Slivar, identifying all variant pairs forming an intra-genic compound-het. 
-This 3rd party tool is preferred to creating a custom solution; for singleton analysis the check is trivial, but Slivar has already been built to recognise phased inheritance in arbitrary family structures - this is a plug-in we can easily use from the start, and transition from singleton to familial analysis without skipping a beat
+To assist the downstream MOI check, the VCF containing 
+all variants of interest is analysed using Slivar, 
+identifying all variant pairs forming an intra-genic 
+compound-het.
+
+This 3rd party tool is preferred to creating a custom 
+solution; for singleton analysis the check is trivial, 
+but Slivar has already been built to recognise phased 
+inheritance in arbitrary family structures - this is a 
+plug-in we can easily use from the start, and transition 
+from singleton to familial analysis without skipping a beat
 
 ---
 
@@ -82,8 +89,8 @@ This 3rd party tool is preferred to creating a custom solution; for singleton an
 
 This component brings in the PanelApp, Classification VCF, and Compound-Het VCF
 
-1. Digest the compound-het VCF, and store as a lookup of `Sample -> Variant -> Pair`
-2. Digest the PanelApp data, storing a representation of the MOI to apply to each gene
+1. Digest compound-het VCF; store lookup of `Sample -> Variant -> Pair`
+2. Digest PanelApp data, store the MOI for each gene
 3. Iterate over each variant in the Classified VCF
    1. If the variant has a Class 2 flag:
       1. Check that the gene is newly green in Panel, or

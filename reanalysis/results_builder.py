@@ -83,8 +83,8 @@ class HTMLBuilder:
                             )
                         ),
                         'symbol': self.panelapp.get(variant.gene).get('symbol'),
-                        'gene': variant.gene,
-                        'csq': variant.var_data.var.INFO.get('csq'),
+                        # 'gene': variant.gene,
+                        # 'csq': variant.var_data.var.INFO.get('csq'),
                         'gnomad': GNOMAD_TEMPLATE.format(
                             variant=var_string,
                             value=float(variant.var_data.var.INFO.get('gnomad_af')),

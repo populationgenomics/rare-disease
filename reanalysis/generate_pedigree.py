@@ -1,0 +1,113 @@
+"""
+generate a ped file on the fly using the sample-metadata api client
+
+"""
+
+
+from typing import Dict, List
+from sample_metadata.apis import FamilyApi, ParticipantApi
+
+import click
+
+
+PED_KEYS = [
+    'family_id',
+    'individual_id',
+    'paternal_id',
+    'maternal_id',
+    'sex',
+    'affected',
+]
+
+
+def get_clean_pedigree(
+    pedigree_dicts: List[Dict[str, str]],
+    sample_to_cpg_dict: Dict[str, str],
+    singles: bool,
+) -> List[Dict[str, str]]:
+    """
+    maybe use dictwriter?
+    """
+
+    new_entries = []
+
+    for ped_entry in pedigree_dicts:
+
+        if ped_entry['individual_id'] not in sample_to_cpg_dict:
+            continue
+
+        # update the sample IDs
+        ped_entry['individual_id'] = sample_to_cpg_dict.get(ped_entry['individual_id'])
+        ped_entry['paternal_id'] = (
+            sample_to_cpg_dict.get(ped_entry['paternal_id']) or ''
+        )
+        ped_entry['maternal_id'] = (
+            sample_to_cpg_dict.get(ped_entry['maternal_id']) or ''
+        )
+
+        # remove parents and assign an individual sample ID
+        if singles:
+            ped_entry['paternal_id'] = ''
+            ped_entry['maternal_id'] = ''
+            ped_entry['family_id'] = 'individual_id'
+
+        new_entries.append(ped_entry)
+
+    return new_entries
+
+
+def write_pedigree(clean_pedigree: List[Dict[str, str]], output: str):
+    """
+    stick it in a file
+    """
+    with open(output, 'w', encoding='utf-8') as handle:
+        handle.write('\t'.join(PED_KEYS) + '\n')
+        for entry in clean_pedigree:
+            handle.write('\t'.join([str(entry.get(key)) for key in PED_KEYS]) + '\n')
+
+
+@click.command()
+@click.option(
+    '--project',
+    help='the name of the project to use in API queries',
+)
+@click.option(
+    '--singles',
+    default=False,
+    is_flag=True,
+    help='remake the pedigree as singletons',
+)
+@click.option(
+    '--output',
+    help='WRITE',
+)
+def main(project: str, singles: bool, output: str):
+    """
+
+    :param project:
+    :param singles:
+    :param output:
+    :return:
+    """
+
+    # get the list of all pedigree members
+    pedigree_dicts: List[Dict[str, str]] = FamilyApi().get_pedigree(project=project)
+
+    # endpoint gives list of lists e.g. [['A1234567_proband', 'CPG12341']]
+    sample_to_cpg_dict: Dict[
+        str, str
+    ] = ParticipantApi().get_external_participant_id_to_internal_sample_id(
+        project='acute-care'
+    )
+
+    clean_pedigree = get_clean_pedigree(
+        pedigree_dicts=pedigree_dicts,
+        sample_to_cpg_dict=sample_to_cpg_dict,
+        singles=singles,
+    )
+
+    write_pedigree(clean_pedigree, output)
+
+
+if __name__ == '__main__':
+    main()  # pylint: disable=E1120
