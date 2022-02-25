@@ -335,8 +335,8 @@ def filter_mt_rows(
     # remove all clinvar benign, decent level of support
     benign = hl.str('benign')
     matrix = matrix.filter_rows(
-        (matrix.clinvar.clinical_significance.lower().contains(benign))
-        & (matrix.clinvar.gold_stars > 0),
+        (matrix.info.clinvar_sig.lower().contains(benign))
+        & (matrix.info.clinvar_stars > 0),
         keep=False,
     )
 
@@ -615,15 +615,21 @@ def main(
         if mt_out is not None:
             matrix.write(mt_out, overwrite=True)
 
-    # filter on consequence-independent row annotations
+    # pull annotations into info and update if missing
+    # conditional logic in hail seems difficult without negation
+    # e.g. filter out rows where X == Y, unless X is missing
+    # replacement with default values seems necessary
+    # i.e. filters were failing, missing clinvar data was failing
+    # test for 'discard rows where clinvar == benign'
+    logging.info('Pulling VEP annotations into INFO field')
+    matrix = extract_annotations(matrix)
+
+    # filter on row annotations
     logging.info('Filtering Variant rows')
     matrix = filter_mt_rows(
         matrix=matrix, config=config_dict, green_genes=green_gene_set_expression
     )
 
-    # pull annotations into info (not vep)
-    logging.info('Pulling VEP annotations into INFO field')
-    matrix = extract_annotations(matrix)
 
     # add Classes to the MT
     logging.info('Applying classes to variant consequences')
