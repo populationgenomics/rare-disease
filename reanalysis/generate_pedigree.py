@@ -1,6 +1,6 @@
 """
 generate a ped file on the fly using the sample-metadata api client
-
+additional (optional) argument will remove all family associations
 """
 
 
@@ -79,18 +79,18 @@ def write_pedigree(clean_pedigree: List[Dict[str, str]], output: str):
 )
 @click.option(
     '--output',
-    help='WRITE',
+    help='write the new PED file here',
 )
 def main(project: str, singles: bool, output: str):
     """
 
-    :param project:
-    :param singles:
-    :param output:
-    :return:
+    :param project: may be able to retrieve this from the environment
+    :param singles: whether to split the pedigree(s) into singletons
+    :param output: path to write new PED file to
     """
 
     # get the list of all pedigree members
+    # this returns a list of dictionaries
     pedigree_dicts: List[Dict[str, str]] = FamilyApi().get_pedigree(project=project)
 
     # endpoint gives list of lists e.g. [['A1234567_proband', 'CPG12341']]

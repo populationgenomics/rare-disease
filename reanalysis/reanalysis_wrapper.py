@@ -44,12 +44,11 @@ PANELAPP_SCRIPT = os.path.join(os.path.dirname(__file__), "panelapp_extraction.p
 RESULTS_SCRIPT = os.path.join(os.path.dirname(__file__), "validate_classifications.py")
 
 
-def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
+def get_gcp_blob(bucket_path: str) -> storage.blob:
     """
-    take a GCP bucket path to a JSON file, read into an object
-    this loop can read config files, or data
+    take a GCP bucket path to a file, read into a blob object
     :param bucket_path:
-    :return:
+    :return: a blob representing the data
     """
 
     # split the full path to get the bucket and file path
@@ -60,13 +59,48 @@ def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
     g_client = storage.Client()
 
     # obtain the blob of the data
-    json_blob = g_client.get_bucket(bucket).get_blob(path)
+    return g_client.get_bucket(bucket).get_blob(path)
 
-    # the download_as_bytes method isn't available; but this returns bytes?
+
+def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
+    """
+    take a GCP bucket path to a JSON file, read into an object
+    this loop can read config files, or data
+    :param bucket_path:
+    :return:
+    """
+
+    json_blob = get_gcp_blob(bucket_path)
+
+    # download_as_bytes method isn't available; but this returns bytes?
     return json.loads(json_blob.download_as_string())
 
 
-def check_file_exists(filepath: str) -> bool:
+def set_html_blob_metadata(filepath: str):
+    """
+    takes a path to an HTML file, and sets appropriate metadata
+    """
+    blob = get_gcp_blob(filepath)
+    if not blob.exists():
+        logging.error('File %s doesn\'t exist, cannot set metadata', filepath)
+        return
+
+    # if some metadata is already populated, add/update
+    if isinstance(blob.metadata, dict):
+        blob.metadata['Content-Type'] = 'html'
+
+    # otherwise create the dictionary
+    else:
+        blob.metadata = {'Content-Type': 'html'}
+
+    # set the main ACL attribute (determines browser access)
+    blob.acl.blob.content_type = 'html'
+    blob.patch()
+
+    logging.info('HTML metadata attributes have been added to %s', filepath)
+
+
+def check_blob_exists(filepath: str) -> bool:
     """
     used to allow for the skipping of long running process
     if data already exists
@@ -76,12 +110,8 @@ def check_file_exists(filepath: str) -> bool:
     :param filepath:
     :return:
     """
-    bucket = filepath.replace('gs://', '').split('/')[0]
-    path = filepath.replace('gs://', '').split('/', maxsplit=1)[1]
-
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket)
-    return storage.Blob(bucket=bucket, name=path).exists(storage_client)
+    blob = get_gcp_blob(filepath)
+    return blob.exists()
 
 
 def set_job_resources(job: Union[hb.batch.job.BashJob, hb.batch.job.Job], git=False):
@@ -298,7 +328,7 @@ def main(
     # retain dependency flow if we skip the hail job
     prior_job = panelapp_job
 
-    if not check_file_exists(HAIL_VCF_OUT):
+    if not check_blob_exists(HAIL_VCF_OUT):
         hail_job = handle_hail_job(
             batch=batch,
             matrix=matrix_path,
@@ -366,6 +396,9 @@ def main(
 
     # run the batch
     batch.run(wait=False)
+
+    # update the file attributes (users won't need to download)
+    set_html_blob_metadata(RESULTS_HTML)
 
 
 if __name__ == '__main__':

@@ -355,11 +355,14 @@ def filter_mt_rows(
     useless_csq = hl.set(config.get('useless_csq'))
 
     # reduce consequences to overlap with per-variant green geneIDs (pre-filtered)
+    # added another condition to state that the tx biotype needs to be protein_coding,
+    # unless the row also has an attached MANE transcript
     matrix = matrix.annotate_rows(
         vep=matrix.vep.annotate(
             transcript_consequences=matrix.vep.transcript_consequences.filter(
                 lambda x: (matrix.geneIds == x.gene_id)
-                & (hl.len(hl.set(x.consequence_terms).difference(useless_csq)) != 0)
+                & (hl.len(hl.set(x.consequence_terms).difference(useless_csq)) > 0)
+                & ((x.biotype == 'protein_coding') | (x.mane_select.contains('NM')))
             )
         )
     )
@@ -629,7 +632,6 @@ def main(
     matrix = filter_mt_rows(
         matrix=matrix, config=config_dict, green_genes=green_gene_set_expression
     )
-
 
     # add Classes to the MT
     logging.info('Applying classes to variant consequences')
