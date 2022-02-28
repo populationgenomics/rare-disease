@@ -304,7 +304,6 @@ class RecessiveAutosomal(BaseMoi):
 
             passes, partner = check_for_second_hit(principal_var, comp_hets, sample_id)
             if passes:
-                logging.info('comp-het found: %s', {repr(partner)})
                 classifications.append(
                     ReportedVariant(
                         sample=sample_id,
