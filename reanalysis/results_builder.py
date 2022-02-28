@@ -97,13 +97,13 @@ class HTMLBuilder:
             sample_c_3 = 0
 
             # iterate over the variants
-            for variant in sample_variants:
+            for variant in sample_variants.values():
 
                 # find all classes associated with this variant
                 variant_ints = variant.var_data.get_class_ints()
 
                 # get the string representation
-                var_string = string_format_variant(variant.var_data)
+                var_string = string_format_variant(variant.var_data.var)
 
                 # update the set of all unique variants
                 all_var_strings.add(var_string)
