@@ -40,16 +40,32 @@ class HTMLBuilder:
         results_dict: Dict[str, Dict[str, ReportedVariant]],
         seqr_lookup: Dict[str, str],
         panelapp_data: Dict[str, Dict[str, str]],
+        csq_string: str,
     ):
         """
 
         :param results_dict:
         :param seqr_lookup:
         :param panelapp_data:
+        :param csq_string:
         """
         self.results = results_dict
         self.seqr = seqr_lookup
         self.panelapp = panelapp_data
+        self.csq_entries = csq_string.split('|')
+
+    def get_csq_from_variant(self, variant: ReportedVariant) -> str:
+        """
+        populates a single string of all relevant consequences
+        """
+
+        csq_set = set()
+        csq_info = variant.var_data.var.INFO.get('CSQ')
+
+        for each_csq in csq_info.split(','):
+            csq_dict = dict(zip(self.csq_entries, each_csq.split('|')))
+            csq_set.update(set(csq_dict['Consequence'].split('&')))
+        return ', '.join(csq_set)
 
     def create_html_tables(self):
         """
@@ -84,7 +100,7 @@ class HTMLBuilder:
                         ),
                         'symbol': self.panelapp.get(variant.gene).get('symbol'),
                         # 'gene': variant.gene,
-                        # 'csq': variant.var_data.var.INFO.get('csq'),
+                        'csq': self.get_csq_from_variant(variant),
                         'gnomad': GNOMAD_TEMPLATE.format(
                             variant=var_string,
                             value=float(variant.var_data.var.INFO.get('gnomad_af')),

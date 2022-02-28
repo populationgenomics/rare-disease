@@ -168,6 +168,7 @@ def validate_class_2(
     variant: AnalysisVariant,
     moi_lookup: Dict[str, MOIRunner],
     comp_het_lookup: Dict[str, Dict[str, AnalysisVariant]],
+    new_only: bool = False,
 ) -> bool:
     """
     Test for class 2 variant
@@ -177,6 +178,7 @@ def validate_class_2(
     :param variant:
     :param moi_lookup:
     :param comp_het_lookup:
+    :param new_only: if true, only use newly green values in a Class 2 test
     :return: boolean, whether to bother analysing
     """
 
@@ -193,6 +195,10 @@ def validate_class_2(
     # might need some more digging here to clarify logic **
     if panel_gene_data.get('new'):
         retain = True
+
+    # if we're only interested in fully NEW green genes, skip MOI tests
+    elif new_only:
+        retain = False
 
     # check there are more classifying events now than previously
     elif panel_gene_data.get('changed'):
@@ -245,6 +251,7 @@ def apply_moi_to_variants(
     comp_het_lookup: Dict[str, Dict[str, AnalysisVariant]],
     moi_lookup: Dict[str, MOIRunner],
     panelapp_data: Dict[str, Dict[str, Union[str, bool]]],
+    class_2_new_only: bool = True,
 ) -> List[ReportedVariant]:
     """
 
@@ -252,6 +259,7 @@ def apply_moi_to_variants(
     :param comp_het_lookup:
     :param moi_lookup:
     :param panelapp_data:
+    :param class_2_new_only:
     :return:
     """
 
@@ -295,6 +303,7 @@ def apply_moi_to_variants(
                 moi_lookup=moi_lookup,
                 variant=analysis_variant,
                 comp_het_lookup=comp_het_lookup,
+                new_only=class_2_new_only,  # document/add a switch
             ):
                 analysis_variant.class_2 = False
 
@@ -403,12 +412,16 @@ def main(
         panelapp_data=panelapp_data, pedigree=pedigree_digest, config=config_dict
     )
 
+    # boolean the config; whether to ignore retrospective MOI change test
+    class_2_new_only = config_dict.get('class_2_new_only') or True
+
     # find classification events
     results = apply_moi_to_variants(
         classified_variant_source=classified_vcf,
         comp_het_lookup=comp_het_digest,
         moi_lookup=moi_lookup,
         panelapp_data=panelapp_data,
+        class_2_new_only=class_2_new_only,
     )
 
     # remove duplicates of the same variant
@@ -419,7 +432,10 @@ def main(
 
     # generate some html
     html_maker = HTMLBuilder(
-        results_dict=cleaned_results, seqr_lookup=seqr_data, panelapp_data=panelapp_data
+        results_dict=cleaned_results,
+        seqr_lookup=seqr_data,
+        panelapp_data=panelapp_data,
+        csq_string=config_dict.get('csq_string'),
     )
     html_tables, class_2_genes = html_maker.create_html_tables()
 

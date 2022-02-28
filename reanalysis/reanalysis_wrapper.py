@@ -116,7 +116,7 @@ def check_blob_exists(filepath: str) -> bool:
 
 def set_job_resources(job: Union[hb.batch.job.BashJob, hb.batch.job.Job], git=False):
     """
-    returns a new, appropriately resourced job
+    applied resources to the job
     :param job:
     :param git:
     """
@@ -144,7 +144,6 @@ def handle_panelapp_job(batch: hb.Batch, date: str) -> hb.batch.job.Job:
     set_job_resources(panelapp_job, git=True)
     panelapp_command = (
         f'python3 {PANELAPP_SCRIPT} '
-        f'--id 137 '
         f'--out {panelapp_job.panel_json} '
         f'--date {date}'
     )

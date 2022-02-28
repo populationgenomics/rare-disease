@@ -40,5 +40,6 @@
   "transcript_ablation"
  ],
  "csq_string": "Allele|Consequence|SYMBOL|Gene|Feature|BIOTYPE|EXON|HGVSc|HGVSp|cDNA_position|CDS_position|Protein_position|Amino_acids|Codons|ALLELE_NUM|VARIANT_CLASS|TSL|APPRIS|CCDS|ENSP|SWISSPROT|TREMBL|UNIPARC|GENE_PHENO|SIFT|PolyPhen||LoF|LoF_filter|LoF_flags",
- "seqr_lookup": "gs://cpg-acute-care-test/reanalysis/parsed_seqr.json"
+ "seqr_lookup": "gs://cpg-acute-care-test/reanalysis/parsed_seqr.json",
+ "class_2_new_only": true
 }
