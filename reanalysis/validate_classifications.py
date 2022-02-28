@@ -433,7 +433,9 @@ def main(
         seqr_lookup=seqr_data,
         panelapp_data=panelapp_data,
         csq_string=config_dict.get('csq_string'),
+        pedigree=pedigree_digest,
     )
+    summary_table = html_maker.get_summary_stats()
     html_tables, class_2_genes = html_maker.create_html_tables()
 
     class_2_table = html_maker.class_2_table(class_2_genes)
@@ -444,9 +446,13 @@ def main(
         handle.write(class_2_table)
         handle.write('<br/>')
 
+        handle.write('<h3>Per-Class summary</h3>')
+        handle.write(summary_table)
+        handle.write('<br/>')
+
         handle.write('<h1>Per Sample Results</h1>')
         for sample, table in html_tables.items():
-            handle.write(fr'<h3>{sample}</h3>')
+            handle.write(fr'<h3>Sample: {sample}</h3>')
             handle.write(table)
         handle.write('\n</body>')
 

@@ -72,26 +72,6 @@ def check_file_exists(filepath: str) -> bool:
     return storage.Blob(bucket=bucket, name=path).exists(storage_client)
 
 
-def annotate_mane(matrix: hl.MatrixTable) -> hl.MatrixTable:
-    """
-    annotates into each row whether there was a MANE transcript present
-    (only one of the transcripts has to have a MANE equivalent)
-    :param matrix:
-    :return:
-    """
-
-    return matrix.annotate_rows(
-        mane_tx_present=hl.if_else(
-            hl.delimit(
-                hl.flatten(matrix.vep.transcript_consequences.consequence_terms),
-                delimiter='|',
-            ).contains('NM'),
-            ONE_INT,
-            MISSING_INT,
-        )
-    )
-
-
 def annotate_class_1(matrix: hl.MatrixTable) -> hl.MatrixTable:
     """
     applies the Class1 flag where appropriate
@@ -102,11 +82,6 @@ def annotate_class_1(matrix: hl.MatrixTable) -> hl.MatrixTable:
 
     Didn't handle "Pathogenic/Likely_pathogenic"
     Changing to 'contains pathogenic and not conflicting'
-
-    I'm sure there's some simple logic for negating a boolean somewhere
-    for now... if there is a confident pathogenic..
-        - also test for the presence of conflicting
-        - pass first, fail second = Class 1
     :param matrix:
     :return:
     """
@@ -118,12 +93,9 @@ def annotate_class_1(matrix: hl.MatrixTable) -> hl.MatrixTable:
         info=matrix.info.annotate(
             Class1=hl.if_else(
                 (matrix.info.clinvar_stars > 0)
-                & (matrix.info.clinvar_sig.lower().contains(pathogenic)),
-                hl.if_else(
-                    matrix.info.clinvar_sig.lower().contains(conflicting),
-                    MISSING_INT,
-                    ONE_INT,
-                ),
+                & (matrix.info.clinvar_sig.lower().contains(pathogenic))
+                & ~(matrix.info.clinvar_sig.lower().contains(conflicting)),
+                ONE_INT,
                 MISSING_INT,
             )
         )
@@ -177,8 +149,6 @@ def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     - rare in Gnomad
     - either predicted NMD or
     - any star Pathogenic or Likely_pathogenic in Clinvar
-
-    currently this class is a bit baggy, as LOF confirmation doesn't exist in Hail-VEP
     :param matrix:
     :param config:
     :return:
@@ -554,8 +524,7 @@ def write_matrix_to_vcf(matrix: hl.MatrixTable, output_path: str):
 @click.option('--output', 'out_vcf', help='VCF path to export results')
 @click.option(
     '--mt_out',
-    'mt_out',
-    help='MT path to export annotated MT to',
+    help='path to export annotated MT to',
     required=False,
     default=None,
 )

@@ -6,7 +6,7 @@ from typing import Dict, Set
 
 import pandas as pd
 
-from reanalysis.utils import ReportedVariant, string_format_variant
+from reanalysis.utils import PedPerson, ReportedVariant, string_format_variant
 
 SEQR_TEMPLATE = (
     '<a href="https://seqr.populationgenomics.org.au/variant_search/'
@@ -41,18 +41,109 @@ class HTMLBuilder:
         seqr_lookup: Dict[str, str],
         panelapp_data: Dict[str, Dict[str, str]],
         csq_string: str,
-    ):
+        pedigree: Dict[str, PedPerson],
+    ):  # pylint: disable=too-many-arguments
         """
 
         :param results_dict:
         :param seqr_lookup:
         :param panelapp_data:
         :param csq_string:
+        :param pedigree:
         """
         self.results = results_dict
         self.seqr = seqr_lookup
         self.panelapp = panelapp_data
         self.csq_entries = csq_string.split('|')
+        self.pedigree = pedigree
+
+    def get_summary_stats(self) -> str:  # pylint: disable=too-many-locals
+        """
+        run the numbers across all variant categories
+        """
+
+        class_1 = []
+        class_2 = []
+        class_3 = []
+        all_var_strings = set()
+        class_1_strings = set()
+        class_2_strings = set()
+        class_3_strings = set()
+        total_count = []
+        num_samples = 0
+        num_with_variants = 0
+
+        for sample, entity in self.pedigree.items():
+            if not entity.affected:
+                continue
+            num_samples += 1
+            if sample not in self.results.keys():
+                class_1.append(0)
+                class_2.append(0)
+                class_3.append(0)
+                total_count.append(0)
+                continue
+
+            num_with_variants += 1
+
+            # get variants for this sample
+            sample_variants = self.results.get(sample)
+
+            # how many variants were attached to this sample?
+            total_count.append(len(sample_variants))
+
+            sample_c_1 = 0
+            sample_c_2 = 0
+            sample_c_3 = 0
+
+            # iterate over the variants
+            for variant in sample_variants:
+
+                # find all classes associated with this variant
+                variant_ints = variant.var_data.get_class_ints()
+
+                # get the string representation
+                var_string = string_format_variant(variant.var_data)
+
+                # update the set of all unique variants
+                all_var_strings.add(var_string)
+
+                # for each class, add to corresponding list and set
+                if 1 in variant_ints:
+                    sample_c_1 += 1
+                    class_1_strings.add(var_string)
+                if 2 in variant_ints:
+                    sample_c_2 += 1
+                    class_2_strings.add(var_string)
+                if 3 in variant_ints:
+                    sample_c_3 += 1
+                    class_3_strings.add(var_string)
+
+            # update the global lists with per-sample counts
+            class_1.append(sample_c_1)
+            class_2.append(sample_c_2)
+            class_3.append(sample_c_3)
+
+        summary_dicts = []
+
+        # turn results into a list of dicts
+        for title, deets, unique in [
+            ('Total', total_count, all_var_strings),
+            ('Class1', class_1, class_1_strings),
+            ('Class2', class_2, class_2_strings),
+            ('Class3', class_3, class_3_strings),
+        ]:
+            summary_dicts.append(
+                {
+                    'Category': title,
+                    'Total': sum(deets),
+                    'Unique': len(unique),
+                    'Peak #/sample': max(deets),
+                    'Mean/sample': sum(deets) / len(deets),
+                }
+            )
+
+        return pd.DataFrame(summary_dicts).to_html(index=False, escape=False)
 
     def get_csq_from_variant(self, variant: ReportedVariant) -> str:
         """
