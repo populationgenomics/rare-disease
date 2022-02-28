@@ -81,7 +81,7 @@ def set_html_blob_metadata(filepath: str):
     takes a path to an HTML file, and sets appropriate metadata
     """
     blob = get_gcp_blob(filepath)
-    if not blob.exists():
+    if blob is None or not blob.exists():
         logging.error('File %s doesn\'t exist, cannot set metadata', filepath)
         return
 
@@ -398,11 +398,12 @@ def main(
     # write the final results file to an HTML
     batch.write_output(results_job.ofile, RESULTS_HTML)
 
+    # add a new job here just to overwrite the HTML metadata
+    metadata_job = batch.new_python_job()
+    metadata_job.call(set_html_blob_metadata, RESULTS_HTML)
+
     # run the batch
     batch.run(wait=False)
-
-    # update the file attributes (users won't need to download)
-    set_html_blob_metadata(RESULTS_HTML)
 
 
 if __name__ == '__main__':
