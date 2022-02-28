@@ -73,11 +73,14 @@ class HTMLBuilder:
         num_samples = 0
         num_with_variants = 0
 
+        samples_with_no_variants = []
+
         for sample, entity in self.pedigree.items():
             if not entity.affected:
                 continue
             num_samples += 1
             if sample not in self.results.keys():
+                samples_with_no_variants.append(sample)
                 class_1.append(0)
                 class_2.append(0)
                 class_3.append(0)
@@ -143,7 +146,10 @@ class HTMLBuilder:
                 }
             )
 
-        return pd.DataFrame(summary_dicts).to_html(index=False, escape=False)
+        return (
+            pd.DataFrame(summary_dicts).to_html(index=False, escape=False),
+            samples_with_no_variants,
+        )
 
     def get_csq_from_variant(self, variant: ReportedVariant) -> str:
         """

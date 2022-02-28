@@ -435,7 +435,7 @@ def main(
         csq_string=config_dict.get('csq_string'),
         pedigree=pedigree_digest,
     )
-    summary_table = html_maker.get_summary_stats()
+    summary_table, zero_classified_samples = html_maker.get_summary_stats()
     html_tables, class_2_genes = html_maker.create_html_tables()
 
     class_2_table = html_maker.class_2_table(class_2_genes)
@@ -444,6 +444,13 @@ def main(
         handle.write('<head>\n</head>\n<body>\n')
         handle.write('<h3>MOI changes used for Class 2</h3>')
         handle.write(class_2_table)
+        handle.write('<br/>')
+
+        handle.write(
+            f'<h3>Samples without Classified Variants ({len(zero_classified_samples)})</h3>'
+        )
+        if len(zero_classified_samples) > 0:
+            handle.write(f'<h5>{", ".join(zero_classified_samples)}</h3>')
         handle.write('<br/>')
 
         handle.write('<h3>Per-Class summary</h3>')
