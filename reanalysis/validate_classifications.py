@@ -392,7 +392,6 @@ def main(
     :param pedigree:
     :param panelapp:
     :param out_path:
-    :return:
     """
 
     # parse the pedigree from the file
@@ -413,15 +412,13 @@ def main(
     )
 
     # boolean the config; whether to ignore retrospective MOI change test
-    class_2_new_only = config_dict.get('class_2_new_only') or True
-
     # find classification events
     results = apply_moi_to_variants(
         classified_variant_source=classified_vcf,
         comp_het_lookup=comp_het_digest,
         moi_lookup=moi_lookup,
         panelapp_data=panelapp_data,
-        class_2_new_only=class_2_new_only,
+        class_2_new_only=config_dict.get('class_2_new_only') or True,
     )
 
     # remove duplicates of the same variant

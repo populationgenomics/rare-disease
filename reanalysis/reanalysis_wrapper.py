@@ -111,6 +111,9 @@ def check_blob_exists(filepath: str) -> bool:
     :return:
     """
     blob = get_gcp_blob(filepath)
+
+    if blob is None:
+        return False
     return blob.exists()
 
 
@@ -327,6 +330,8 @@ def main(
     # retain dependency flow if we skip the hail job
     prior_job = panelapp_job
 
+    # complete absence of the VCF will cause an exception to be thrown
+    # handled in method for now
     if not check_blob_exists(HAIL_VCF_OUT):
         hail_job = handle_hail_job(
             batch=batch,
