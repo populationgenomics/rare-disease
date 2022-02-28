@@ -398,9 +398,9 @@ def main(
     # write the final results file to an HTML
     batch.write_output(results_job.ofile, RESULTS_HTML)
 
-    # add a new job here just to overwrite the HTML metadata
-    metadata_job = batch.new_python_job()
-    metadata_job.call(set_html_blob_metadata, RESULTS_HTML)
+    # # add a new job here just to overwrite the HTML metadata
+    # metadata_job = batch.new_python_job()
+    # metadata_job.call(set_html_blob_metadata, RESULTS_HTML)
 
     # run the batch
     batch.run(wait=False)
