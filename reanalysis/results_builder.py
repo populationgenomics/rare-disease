@@ -64,8 +64,9 @@ class HTMLBuilder:
         """
         run the numbers across all variant categories
         """
-        class_count = {1: [], 2: [], 3: [], 'all': []}
-        class_strings = {1: set(), 2: set(), 3: set(), 'all': set()}
+
+        class_count = {'1': [], '2': [], '3': [], 'all': []}
+        class_strings = {'1': set(), '2': set(), '3': set(), 'all': set()}
 
         samples_with_no_variants = []
 
@@ -74,10 +75,10 @@ class HTMLBuilder:
                 continue
             if sample not in self.results.keys():
                 samples_with_no_variants.append(sample)
-                class_count[1].append(0)
-                class_count[2].append(0)
-                class_count[3].append(0)
-                class_count['all'].append(0)
+
+                # update all indices; 0 variants for this sample
+                for class_list in class_count.values():
+                    class_list.append(0)
                 continue
 
             # get variants for this sample
@@ -86,30 +87,23 @@ class HTMLBuilder:
             # how many variants were attached to this sample?
             class_count['all'].append(len(sample_variants))
 
-            sample_count = {1: [], 2: [], 3: []}
+            # create a per-sample object to track variants for each class
+            sample_count = {'1': [], '2': [], '3': []}
 
             # iterate over the variants
             for variant in sample_variants.values():
 
-                # find all classes associated with this variant
-                variant_ints = variant.var_data.get_class_ints()
-
                 # get the string representation
                 var_string = string_format_variant(variant.var_data.var)
 
+                # find all classes associated with this variant
+                # for each class, add to corresponding list and set
+                for class_value in list(map(str, variant.var_data.get_class_ints())):
+                    sample_count[class_value] += 1
+                    class_strings[class_value].add(var_string)
+
                 # update the set of all unique variants
                 class_strings['all'].add(var_string)
-
-                # for each class, add to corresponding list and set
-                if 1 in variant_ints:
-                    sample_count[1] += 1
-                    class_strings[1].add(var_string)
-                if 2 in variant_ints:
-                    sample_count[2] += 1
-                    class_strings[2].add(var_string)
-                if 3 in variant_ints:
-                    sample_count[3] += 1
-                    class_strings[3].add(var_string)
 
             # update the global lists with per-sample counts
             for key, value in sample_count.items():
@@ -125,9 +119,9 @@ class HTMLBuilder:
             }
             for title, key in [
                 ('Total', 'all'),
-                ('Class1', 1),
-                ('Class2', 2),
-                ('Class3', 3),
+                ('Class1', '1'),
+                ('Class2', '2'),
+                ('Class3', '3'),
             ]
         ]
 
