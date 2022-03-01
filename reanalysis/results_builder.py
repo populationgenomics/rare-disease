@@ -261,7 +261,9 @@ class HTMLBuilder:
                                 )
                             )
                         ),
-                        'symbol': self.panelapp.get(variant.gene).get('symbol'),
+                        'symbol': PANELAPP_TEMPLATE.format(
+                            symbol=self.panelapp.get(variant.gene).get('symbol')
+                        ),
                         'csq': csq_string,
                         'mane_select': mane_string,
                         'gnomad': GNOMAD_TEMPLATE.format(
