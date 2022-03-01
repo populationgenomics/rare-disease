@@ -88,7 +88,7 @@ class HTMLBuilder:
             class_count['all'].append(len(sample_variants))
 
             # create a per-sample object to track variants for each class
-            sample_count = {'1': [], '2': [], '3': []}
+            sample_count = {'1': 0, '2': 0, '3': 0}
 
             # iterate over the variants
             for variant in sample_variants.values():
@@ -99,6 +99,8 @@ class HTMLBuilder:
                 # find all classes associated with this variant
                 # for each class, add to corresponding list and set
                 for class_value in list(map(str, variant.var_data.get_class_ints())):
+                    if class_value == '4':
+                        continue
                     sample_count[class_value] += 1
                     class_strings[class_value].add(var_string)
 
