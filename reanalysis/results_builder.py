@@ -1,12 +1,13 @@
 """
-All the content relating to presenting the results
+Methods for taking the final output and generating static report content
 """
 
-from typing import Dict, Set
+from typing import Dict, List, Set, Tuple
 
 import pandas as pd
 
 from reanalysis.utils import PedPerson, ReportedVariant, string_format_variant
+
 
 SEQR_TEMPLATE = (
     '<a href="https://seqr.populationgenomics.org.au/variant_search/'
@@ -57,47 +58,35 @@ class HTMLBuilder:
         self.csq_entries = csq_string.split('|')
         self.pedigree = pedigree
 
-    def get_summary_stats(self) -> str:  # pylint: disable=too-many-locals
+    def get_summary_stats(
+        self,
+    ) -> Tuple[str, List[str]]:  # pylint: disable=too-many-locals
         """
         run the numbers across all variant categories
         """
-
-        class_1 = []
-        class_2 = []
-        class_3 = []
-        all_var_strings = set()
-        class_1_strings = set()
-        class_2_strings = set()
-        class_3_strings = set()
-        total_count = []
-        num_samples = 0
-        num_with_variants = 0
+        class_count = {1: [], 2: [], 3: [], 'all': []}
+        class_strings = {1: set(), 2: set(), 3: set(), 'all': set()}
 
         samples_with_no_variants = []
 
         for sample, entity in self.pedigree.items():
             if not entity.affected:
                 continue
-            num_samples += 1
             if sample not in self.results.keys():
                 samples_with_no_variants.append(sample)
-                class_1.append(0)
-                class_2.append(0)
-                class_3.append(0)
-                total_count.append(0)
+                class_count[1].append(0)
+                class_count[2].append(0)
+                class_count[3].append(0)
+                class_count['all'].append(0)
                 continue
-
-            num_with_variants += 1
 
             # get variants for this sample
             sample_variants = self.results.get(sample)
 
             # how many variants were attached to this sample?
-            total_count.append(len(sample_variants))
+            class_count['all'].append(len(sample_variants))
 
-            sample_c_1 = 0
-            sample_c_2 = 0
-            sample_c_3 = 0
+            sample_count = {1: [], 2: [], 3: []}
 
             # iterate over the variants
             for variant in sample_variants.values():
@@ -109,47 +98,76 @@ class HTMLBuilder:
                 var_string = string_format_variant(variant.var_data.var)
 
                 # update the set of all unique variants
-                all_var_strings.add(var_string)
+                class_strings['all'].add(var_string)
 
                 # for each class, add to corresponding list and set
                 if 1 in variant_ints:
-                    sample_c_1 += 1
-                    class_1_strings.add(var_string)
+                    sample_count[1] += 1
+                    class_strings[1].add(var_string)
                 if 2 in variant_ints:
-                    sample_c_2 += 1
-                    class_2_strings.add(var_string)
+                    sample_count[2] += 1
+                    class_strings[2].add(var_string)
                 if 3 in variant_ints:
-                    sample_c_3 += 1
-                    class_3_strings.add(var_string)
+                    sample_count[3] += 1
+                    class_strings[3].add(var_string)
 
             # update the global lists with per-sample counts
-            class_1.append(sample_c_1)
-            class_2.append(sample_c_2)
-            class_3.append(sample_c_3)
+            for key, value in sample_count.items():
+                class_count[key].append(value)
 
-        summary_dicts = []
-
-        # turn results into a list of dicts
-        for title, deets, unique in [
-            ('Total', total_count, all_var_strings),
-            ('Class1', class_1, class_1_strings),
-            ('Class2', class_2, class_2_strings),
-            ('Class3', class_3, class_3_strings),
-        ]:
-            summary_dicts.append(
-                {
-                    'Category': title,
-                    'Total': sum(deets),
-                    'Unique': len(unique),
-                    'Peak #/sample': max(deets),
-                    'Mean/sample': sum(deets) / len(deets),
-                }
-            )
+        summary_dicts = [
+            {
+                'Category': title,
+                'Total': sum(class_count[key]),
+                'Unique': len(class_strings[key]),
+                'Peak #/sample': max(class_count[key]),
+                'Mean/sample': sum(class_count[key]) / len(class_count[key]),
+            }
+            for title, key in [
+                ('Total', 'all'),
+                ('Class1', 1),
+                ('Class2', 2),
+                ('Class3', 3),
+            ]
+        ]
 
         return (
             pd.DataFrame(summary_dicts).to_html(index=False, escape=False),
             samples_with_no_variants,
         )
+
+    def write_html(self, output_path: str):
+        """
+        uses the class objects to create the HTML tables
+        writes all content to the output path
+        """
+
+        summary_table, zero_classified_samples = self.get_summary_stats()
+        html_tables, class_2_genes = self.create_html_tables()
+        class_2_table = self.class_2_table(class_2_genes)
+
+        with open(output_path, 'w', encoding='utf-8') as handle:
+            handle.write('<head>\n</head>\n<body>\n')
+            handle.write('<h3>MOI changes used for Class 2</h3>')
+            handle.write(class_2_table)
+            handle.write('<br/>')
+
+            handle.write(
+                f'<h3>Samples without Classified Variants ({len(zero_classified_samples)})</h3>'
+            )
+            if len(zero_classified_samples) > 0:
+                handle.write(f'<h5>{", ".join(zero_classified_samples)}</h3>')
+            handle.write('<br/>')
+
+            handle.write('<h3>Per-Class summary</h3>')
+            handle.write(summary_table)
+            handle.write('<br/>')
+
+            handle.write('<h1>Per Sample Results</h1>')
+            for sample, table in html_tables.items():
+                handle.write(fr'<h3>Sample: {sample}</h3>')
+                handle.write(table)
+            handle.write('\n</body>')
 
     def get_csq_from_variant(self, variant: ReportedVariant) -> str:
         """
@@ -196,7 +214,6 @@ class HTMLBuilder:
                             )
                         ),
                         'symbol': self.panelapp.get(variant.gene).get('symbol'),
-                        # 'gene': variant.gene,
                         'csq': self.get_csq_from_variant(variant),
                         'gnomad': GNOMAD_TEMPLATE.format(
                             variant=var_string,

@@ -53,7 +53,6 @@ def get_simple_moi(moi: str) -> str:
             panel_app_moi = 'Hemi_Bi_In_Female'
         else:
             panel_app_moi = 'Hemi_Mono_In_Female'
-    # Y
 
     return panel_app_moi
 

@@ -435,33 +435,35 @@ def main(
         csq_string=config_dict.get('csq_string'),
         pedigree=pedigree_digest,
     )
-    summary_table, zero_classified_samples = html_maker.get_summary_stats()
-    html_tables, class_2_genes = html_maker.create_html_tables()
 
-    class_2_table = html_maker.class_2_table(class_2_genes)
-
-    with open(out_path, 'w', encoding='utf-8') as handle:
-        handle.write('<head>\n</head>\n<body>\n')
-        handle.write('<h3>MOI changes used for Class 2</h3>')
-        handle.write(class_2_table)
-        handle.write('<br/>')
-
-        handle.write(
-            f'<h3>Samples without Classified Variants ({len(zero_classified_samples)})</h3>'
-        )
-        if len(zero_classified_samples) > 0:
-            handle.write(f'<h5>{", ".join(zero_classified_samples)}</h3>')
-        handle.write('<br/>')
-
-        handle.write('<h3>Per-Class summary</h3>')
-        handle.write(summary_table)
-        handle.write('<br/>')
-
-        handle.write('<h1>Per Sample Results</h1>')
-        for sample, table in html_tables.items():
-            handle.write(fr'<h3>Sample: {sample}</h3>')
-            handle.write(table)
-        handle.write('\n</body>')
+    html_maker.write_html(output_path=out_path)
+    # summary_table, zero_classified_samples = html_maker.get_summary_stats()
+    # html_tables, class_2_genes = html_maker.create_html_tables()
+    #
+    # class_2_table = html_maker.class_2_table(class_2_genes)
+    #
+    # with open(out_path, 'w', encoding='utf-8') as handle:
+    #     handle.write('<head>\n</head>\n<body>\n')
+    #     handle.write('<h3>MOI changes used for Class 2</h3>')
+    #     handle.write(class_2_table)
+    #     handle.write('<br/>')
+    #
+    #     handle.write(
+    #         f'<h3>Samples without Classified Variants ({len(zero_classified_samples)})</h3>'
+    #     )
+    #     if len(zero_classified_samples) > 0:
+    #         handle.write(f'<h5>{", ".join(zero_classified_samples)}</h3>')
+    #     handle.write('<br/>')
+    #
+    #     handle.write('<h3>Per-Class summary</h3>')
+    #     handle.write(summary_table)
+    #     handle.write('<br/>')
+    #
+    #     handle.write('<h1>Per Sample Results</h1>')
+    #     for sample, table in html_tables.items():
+    #         handle.write(fr'<h3>Sample: {sample}</h3>')
+    #         handle.write(table)
+    #     handle.write('\n</body>')
 
 
 if __name__ == '__main__':

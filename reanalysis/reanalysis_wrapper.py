@@ -23,13 +23,14 @@ from analysis_runner.git import (
 import click
 
 
-# used to provide all VEP105 consequences, silences Slivar errors
+# static paths to write outputs
 PANELAPP_JSON_OUT = output_path('panelapp_137_data.json')
 HAIL_VCF_OUT = output_path("hail_classified.vcf.bgz")
 REHEADERED_OUT = output_path("hail_classes_reheadered.vcf.bgz")
 COMP_HET_VCF_OUT = output_path("hail_comp_het.vcf.bgz")
 MT_OUT_PATH = output_path('hail_105_ac.mt')
 RESULTS_HTML = output_path('summary_output.html')
+WEB_HTML = output_path('summary_output.html', 'web')
 
 
 # location of the Slivar Docker image
@@ -398,12 +399,18 @@ def main(
     # write the final results file to an HTML
     batch.write_output(results_job.ofile, RESULTS_HTML)
 
+    # write the same report to the dedicated WEB bucket
+    batch.write_output(results_job.ofile, WEB_HTML)
+
     # # add a new job here just to overwrite the HTML metadata
+    # # abandoned this approach... update runs before the batch completes
     # metadata_job = batch.new_python_job()
     # metadata_job.call(set_html_blob_metadata, RESULTS_HTML)
 
-    # run the batch
-    batch.run(wait=False)
+    # run the batch, and wait, so that the result metadata updates
+    batch.run()
+    set_html_blob_metadata(RESULTS_HTML)
+    set_html_blob_metadata(WEB_HTML)
 
 
 if __name__ == '__main__':
