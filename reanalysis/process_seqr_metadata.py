@@ -1,9 +1,11 @@
 """
 A method for constructing a dictionary of CPG sample ID to Seqr Family ID
 
-_THIS_ is using the developer console in the browser to monitor the data
-loaded by Seqr, save the response data, and parse it in static form
-dumping the result out as a dictionary
+use the developer console in a browser
+load a page in seqr with the network tab open
+note the `details` API call
+save the response as JSON, and parse the file
+pass the result back as a dictionary
 
 Seqr doesn't directly expose an API to access this data
 
@@ -13,7 +15,6 @@ Plan ... whatever, would be to do this
 """
 
 from typing import Dict
-
 import json
 import os
 
