@@ -173,8 +173,8 @@ class HTMLBuilder:
             handle.write(
                 '<br/>Note: "csq" shows all unique csq from all protein_coding txs'
             )
-            handle.write('Any black "csq" appear on a MANE transcript')
-            handle.write('Any red "csq" don\'t appear on a MANE transcript<br/>')
+            handle.write('<br/>Any black "csq" appear on a MANE transcript')
+            handle.write('<br/>Any red "csq" don\'t appear on a MANE transcript<br/>')
 
             for sample, table in html_tables.items():
                 handle.write(fr'<h3>Sample: {sample}</h3>')
