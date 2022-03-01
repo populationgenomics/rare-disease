@@ -219,7 +219,7 @@ class HTMLBuilder:
             csq_set.update(row_csq)
 
         # we only ever expect one... but this would make the addition of plus_clinical easy
-        mane_string = STRONG_STRING.format(content=', '.join(mane_csq))
+        mane_string = STRONG_STRING.format(content=', '.join(mane_transcript))
 
         return self.colour_csq(csq_set, mane_csq), mane_string
 
