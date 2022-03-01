@@ -408,9 +408,9 @@ def main(
     # metadata_job.call(set_html_blob_metadata, RESULTS_HTML)
 
     # run the batch, and wait, so that the result metadata updates
-    batch.run()
-    set_html_blob_metadata(RESULTS_HTML)
-    set_html_blob_metadata(WEB_HTML)
+    batch.run(wait=False)
+    # set_html_blob_metadata(RESULTS_HTML)
+    # set_html_blob_metadata(WEB_HTML)
 
 
 if __name__ == '__main__':
