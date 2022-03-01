@@ -2,7 +2,7 @@
 Methods for taking the final output and generating static report content
 """
 
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Union
 
 import pandas as pd
 
@@ -23,12 +23,8 @@ PANELAPP_TEMPLATE = (
     ' target="_blank">{symbol}</a>'
 )
 
-ClassColours = {
-    1: '<span style="color: #C70039">Class1</span>',
-    2: '<span style="color: #FF5733">Class2</span>',
-    3: '<span style="color: #FFA533">Class3</span>',
-    4: '<span style="color: #33E8FF">Class4</span>',
-}
+STRONG_STRING = '<strong>{content}</strong>'
+COLOUR_STRING = '<span style="color: {colour}">{content}</span>'
 
 
 class HTMLBuilder:
@@ -43,6 +39,7 @@ class HTMLBuilder:
         panelapp_data: Dict[str, Dict[str, str]],
         csq_string: str,
         pedigree: Dict[str, PedPerson],
+        config: Dict[str, Union[str, Dict[str, str]]],
     ):  # pylint: disable=too-many-arguments
         """
 
@@ -51,12 +48,27 @@ class HTMLBuilder:
         :param panelapp_data:
         :param csq_string:
         :param pedigree:
+        :param config:
         """
         self.results = results_dict
         self.seqr = seqr_lookup
         self.panelapp = panelapp_data
         self.csq_entries = csq_string.split('|')
         self.pedigree = pedigree
+        self.config = config
+        self.colours = self.set_up_colours()
+
+    def set_up_colours(self):
+        """
+        generates the dictionary of colour strings
+        """
+
+        return {
+            key: COLOUR_STRING.format(
+                colour=value, content=STRONG_STRING.format(content=f'Class{key}')
+            )
+            for key, value in self.config["colours"].items()
+        }
 
     def get_summary_stats(
         self,
@@ -165,18 +177,53 @@ class HTMLBuilder:
                 handle.write(table)
             handle.write('\n</body>')
 
-    def get_csq_from_variant(self, variant: ReportedVariant) -> str:
+    def colour_csq(self, all_csq: Set[str], mane_csq: Set[str]) -> str:
+        """
+        takes the collection of all consequences, and MANE csqs
+        if a CSQ occurs on MANE, write in bold,
+        if non-MANE, write in red
+        return the concatenated string
+        """
+        csq_strings = []
+        for csq in all_csq:
+            # bold, in Black
+            if csq in mane_csq:
+                csq_strings.append(STRONG_STRING.format(content=csq))
+            # bold, and red
+            else:
+                csq_strings.append(
+                    self.colours["red_consequence"].replace('Classred_consequence', csq)
+                )
+
+        return ", ".join(csq_strings)
+
+    def get_csq_details(self, variant: ReportedVariant) -> Tuple[str, str]:
         """
         populates a single string of all relevant consequences
+        UPDATE - take MANE into account
         """
 
         csq_set = set()
+        mane_transcript = set()
+        mane_csq = set()
         csq_info = variant.var_data.var.INFO.get('CSQ')
 
+        # iterate over all consequences, special care for MANE
         for each_csq in csq_info.split(','):
             csq_dict = dict(zip(self.csq_entries, each_csq.split('|')))
-            csq_set.update(set(csq_dict['Consequence'].split('&')))
-        return ', '.join(csq_set)
+            row_csq = set(csq_dict['Consequence'].split('&'))
+
+            # record the transcript ID(s), and CSQ(s)
+            # we only expect 1, but set operations are useful
+            if csq_dict.get('MANE_select') != '':
+                mane_csq.update(row_csq)
+                mane_transcript.add(csq_dict.get('MANE_select'))
+            csq_set.update(row_csq)
+
+        # we only ever expect one... but this would make the addition of plus_clinical easy
+        mane_string = STRONG_STRING.format(content=', '.join(mane_csq))
+
+        return self.colour_csq(csq_set, mane_csq), mane_string
 
     def create_html_tables(self):
         """
@@ -196,6 +243,7 @@ class HTMLBuilder:
                     class_2_genes.add(variant.gene)
 
                 var_string = string_format_variant(variant.var_data.var)
+                csq_string, mane_string = self.get_csq_details(variant)
                 candidate_dictionaries.setdefault(variant.sample, []).append(
                     {
                         'variant': self.make_seqr_link(
@@ -204,13 +252,14 @@ class HTMLBuilder:
                         'classes': ', '.join(
                             list(
                                 map(
-                                    lambda x: ClassColours[x],
+                                    lambda x: self.colours[str(x)],
                                     variant_class_ints,
                                 )
                             )
                         ),
                         'symbol': self.panelapp.get(variant.gene).get('symbol'),
-                        'csq': self.get_csq_from_variant(variant),
+                        'csq': csq_string,
+                        'mane_select': mane_string,
                         'gnomad': GNOMAD_TEMPLATE.format(
                             variant=var_string,
                             value=float(variant.var_data.var.INFO.get('gnomad_af')),

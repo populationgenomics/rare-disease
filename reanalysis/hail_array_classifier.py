@@ -418,6 +418,7 @@ def vep_struct_to_csq(
                 + "("
                 + hl.format("%.3f", element.polyphen_score)
                 + ")",
+                "mane_select": element.mane_select,
             }
         )
 
