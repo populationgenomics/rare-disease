@@ -37,25 +37,23 @@ class HTMLBuilder:
         results_dict: Dict[str, Dict[str, ReportedVariant]],
         seqr_lookup: Dict[str, str],
         panelapp_data: Dict[str, Dict[str, str]],
-        csq_string: str,
-        pedigree: Dict[str, PedPerson],
         config: Dict[str, Union[str, Dict[str, str]]],
+        pedigree: Dict[str, PedPerson],
     ):  # pylint: disable=too-many-arguments
         """
 
         :param results_dict:
         :param seqr_lookup:
         :param panelapp_data:
-        :param csq_string:
-        :param pedigree:
         :param config:
+        :param pedigree:
         """
         self.results = results_dict
         self.seqr = seqr_lookup
         self.panelapp = panelapp_data
-        self.csq_entries = csq_string.split('|')
-        self.pedigree = pedigree
         self.config = config
+        self.csq_entries = config.get('csq_string').split('|')
+        self.pedigree = pedigree
         self.colours = self.set_up_colours()
 
     def set_up_colours(self):

@@ -436,8 +436,8 @@ def main(
         results_dict=cleaned_results,
         seqr_lookup=seqr_data,
         panelapp_data=panelapp_data,
-        csq_string=config_dict.get('csq_string'),
         pedigree=pedigree_digest,
+        config=config_dict,
     )
 
     html_maker.write_html(output_path=out_path)
