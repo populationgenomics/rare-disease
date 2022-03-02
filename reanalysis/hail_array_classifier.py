@@ -9,12 +9,12 @@ Similar to hail_classifier.py script, but no exploding
 - consequence filter
 - remove all rows with no interesting GREEN consequences
 - extract vep data into CSQ string(s)
-- annotate with classes
+- annotate with classes 1, 2, 3, and 4
 - remove all un-classified variants
 - write as VCF
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 import json
 import logging
 import sys
@@ -102,15 +102,23 @@ def annotate_class_1(matrix: hl.MatrixTable) -> hl.MatrixTable:
     )
 
 
-def annotate_class_2(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.MatrixTable:
+def annotate_class_2(
+    matrix: hl.MatrixTable, config: Dict[str, Any], new_genes: hl.SetExpression
+) -> hl.MatrixTable:
     """
-    Provisional class, requires a panelapp check
+    - Gene is new in PanelApp
     - Rare in Gnomad, and
     - Clinvar, or
     - Critical protein consequence on at least one transcript
     - High in silico consequence
+
+    New update! this is now restricted to the NEW genes only
+    This means that these are now confident Class2, and we
+    only have a MOI test remaining
+
     :param matrix:
     :param config:
+    :param new_genes: the new genes in this panelapp content
     :return:
     """
 
@@ -120,20 +128,23 @@ def annotate_class_2(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     return matrix.annotate_rows(
         info=matrix.info.annotate(
             Class2=hl.if_else(
-                (
-                    matrix.vep.transcript_consequences.any(
-                        lambda x: hl.len(
-                            critical_consequences.intersection(
-                                hl.set(x.consequence_terms)
+                (new_genes.contains(matrix.geneIds))
+                & (
+                    (
+                        matrix.vep.transcript_consequences.any(
+                            lambda x: hl.len(
+                                critical_consequences.intersection(
+                                    hl.set(x.consequence_terms)
+                                )
                             )
+                            > 0
                         )
-                        > 0
                     )
-                )
-                | (matrix.info.clinvar_sig.lower().contains(pathogenic))
-                | (
-                    (matrix.info.cadd > config.get('cadd'))
-                    | (matrix.info.revel > config.get('revel'))
+                    | (matrix.info.clinvar_sig.lower().contains(pathogenic))
+                    | (
+                        (matrix.info.cadd > config.get('cadd'))
+                        | (matrix.info.revel > config.get('revel'))
+                    )
                 ),
                 ONE_INT,
                 MISSING_INT,
@@ -493,7 +504,7 @@ def extract_annotations(matrix: hl.MatrixTable) -> hl.MatrixTable:
 
 def filter_to_classified(matrix: hl.MatrixTable) -> hl.MatrixTable:
     """
-    filters to only rows which have an associated class
+    Filter to rows tagged with a class
     :param matrix:
     :return: input matrix, minus rows without Classes applied
     """
@@ -507,15 +518,37 @@ def filter_to_classified(matrix: hl.MatrixTable) -> hl.MatrixTable:
 
 def write_matrix_to_vcf(matrix: hl.MatrixTable, output_path: str):
     """
-
+    write the remaining MatrixTable content to file as a VCF
     :param matrix:
-    :param output_path: where to write the VCF
+    :param output_path: where to write
     """
     hl.export_vcf(
         matrix,
         output_path,
         tabix=True,
     )
+
+
+def green_and_new_from_panelapp(
+    panel_data: Dict[str, Dict[str, str]]
+) -> Tuple[hl.SetExpression, hl.SetExpression]:
+    """
+    Pull all ENSGs from PanelApp data relating to Green Genes
+    Also identify the subset of those genes which relate to NEW in panel
+    :param panel_data:
+    :return: two set expressions, green genes and new genes
+    """
+
+    # take all the green genes, remove the metadata
+    green_genes = set(panel_data.keys()) - {'panel_metadata'}
+    logging.info('Extracted %d green genes', len(green_genes))
+    green_gene_set_expression = hl.literal(green_genes)
+
+    new_genes = {gene for gene in green_genes if panel_data[gene].get('new')}
+    logging.info('Extracted %d NEW genes', len(new_genes))
+    new_gene_set_expression = hl.literal(new_genes)
+
+    return green_gene_set_expression, new_gene_set_expression
 
 
 @click.command()
@@ -537,10 +570,11 @@ def main(
     mt_out: Optional[str] = None,
 ):
     """
-    Read the MT from disk, do filtering and class annotation
+    Read the MT from disk
+    Do filtering and class annotation
     Export as a VCF
 
-    :param mt_path: path to the MT dump
+    :param mt_path: path to the MT directory
     :param panelapp_path: path to the panelapp data dump
     :param config_path: path to the config json
     :param out_vcf: path to write the VCF out to
@@ -555,10 +589,8 @@ def main(
     # read the parsed panelapp data from a bucket path
     panelapp = read_json_dict_from_path(panelapp_path)
 
-    # cast panel data keys (green genes) as a set(str), minus the metadata key
-    green_genes = set(panelapp.keys()) - {'panel_metadata'}
-    green_gene_set_expression = hl.literal(green_genes)
-    logging.info('Extracted %d green genes', len(green_genes))
+    # pull green and new genes from the panelapp data
+    green_expression, new_expression = green_and_new_from_panelapp(panelapp)
 
     logging.info(
         'Starting Hail with reference genome "%s"', config_dict.get('ref_genome')
@@ -600,13 +632,13 @@ def main(
     # filter on row annotations
     logging.info('Filtering Variant rows')
     matrix = filter_mt_rows(
-        matrix=matrix, config=config_dict, green_genes=green_gene_set_expression
+        matrix=matrix, config=config_dict, green_genes=green_expression
     )
 
     # add Classes to the MT
     logging.info('Applying classes to variant consequences')
     matrix = annotate_class_1(matrix)
-    matrix = annotate_class_2(matrix, config_dict)
+    matrix = annotate_class_2(matrix, config_dict, new_expression)
     matrix = annotate_class_3(matrix, config_dict)
     matrix = annotate_class_4(matrix, config_dict)
 

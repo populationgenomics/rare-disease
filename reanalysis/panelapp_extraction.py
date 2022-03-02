@@ -28,7 +28,6 @@ import click
 
 
 # panelapp URL constants
-# double check pagination
 PANELAPP_ROOT = 'https://panelapp.agha.umccr.org/api/v1'
 PANEL_ROOT = f'{PANELAPP_ROOT}/panels'
 PANEL_CONTENT = f'{PANEL_ROOT}/{{panel_id}}'
@@ -162,7 +161,6 @@ def get_panel_changes(
 
     # get the full content for the specified panel version
     previous_content = get_panel_green(panel_id=panel_id, version=previous_version)
-
     # iterate over the latest content
     # skip over the metadata keys
     for gene_ensg in [

@@ -22,16 +22,16 @@ SINGLE_VAR = os.path.join(INPUT, 'single_var.vcf.bgz')
 # string value will be equivalent to the repr() of cyvcf2.Variant
 expected_output = {
     'CPG54445': {
-        '8-143919896-G-A-ENST00000322810': 'Variant(chr8:143925556 C/T)',
-        '8-143925556-C-T-ENST00000322810': 'Variant(chr8:143919896 G/A)',
+        '8-143919896-G-A': 'Variant(chr8:143925556 C/T)',
+        '8-143925556-C-T': 'Variant(chr8:143919896 G/A)',
     },
     'CPG54569': {
-        '2-177663913-G-A-ENST00000286063': 'Variant(chr2:178071545 T/C)',
-        '2-178071545-T-C-ENST00000286063': 'Variant(chr2:177663913 G/A)',
+        '2-177663913-G-A': 'Variant(chr2:178071545 T/C)',
+        '2-178071545-T-C': 'Variant(chr2:177663913 G/A)',
     },
     'CPG11510': {
-        '7-139875609-C-T-ENST00000336425': 'Variant(chr7:140020029 C/T)',
-        '7-140020029-C-T-ENST00000336425': 'Variant(chr7:139875609 C/T)',
+        '7-139875609-C-T': 'Variant(chr7:140020029 C/T)',
+        '7-140020029-C-T': 'Variant(chr7:139875609 C/T)',
     },
 }
 
