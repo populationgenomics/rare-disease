@@ -4,6 +4,7 @@ test class for the class validation class
 import os
 import pytest
 import cyvcf2
+
 from reanalysis.validate_classifications import (
     parse_comp_hets,
     read_json_dictionary,
@@ -48,7 +49,7 @@ def test_read_json():
 
 def test_comp_het_gather():
     """
-    check that we gather the right data from the compt het vcf
+    check that we gather the right data from the comphet het vcf
     :return:
     """
     result = parse_comp_hets(COMP_HET)

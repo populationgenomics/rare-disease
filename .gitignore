@@ -5,3 +5,4 @@
 .pytest_cache
 reanalysis/input
 reanalysis/local_results
+*.log

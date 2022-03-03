@@ -5,6 +5,8 @@ reads in all compound het pairs
 reads in all panelapp details
 for each variant in each participant, check MOI
 """
+
+
 import logging
 from typing import Any, Dict, List, Union
 from itertools import chain
@@ -61,18 +63,20 @@ def read_json_dictionary(json_path: str) -> Any:
     return json_content
 
 
-def parse_comp_hets(vcf_path: str) -> Dict[str, Dict[str, AnalysisVariant]]:
+def parse_comp_hets(
+    vcf_path: str, config: Dict[str, Any]
+) -> Dict[str, Dict[str, AnalysisVariant]]:
     """
     iterate over variants, and associate samples with variant pairs
     check source code, but slivar should only pair on same transcript
     {
       sample: {
-        'chr-pos-ref-alt-transcript': paired_variant,
+        'chr-pos-ref-alt': paired_variant,
       }
     }
 
     :param vcf_path:
-    :return:
+    :param config:
     """
     comp_het_lookup = {}
 
@@ -83,9 +87,12 @@ def parse_comp_hets(vcf_path: str) -> Dict[str, Dict[str, AnalysisVariant]]:
     # iterate over all variants
     for variant in var_source:
 
+        # create a variant object instance
+        a_variant = AnalysisVariant(variant, samples, config=config)
+
         # get all comp-het annotations matching this position
         # expect one, allow for surprises
-        for var_info in variant.INFO.get('slivar_comphet').split(','):
+        for var_info in a_variant.info.get('slivar_comphet').split(','):
 
             # cast info into a dictionary
             row_dict = dict(zip(COMP_HET_VALUES, var_info.split('/')))
@@ -99,26 +106,15 @@ def parse_comp_hets(vcf_path: str) -> Dict[str, Dict[str, AnalysisVariant]]:
             )
 
             # don't allow a 'pair' with the current variant
-            if (
-                int(row_dict['pos']) == variant.POS
-                and row_dict['ref'] == variant.REF
-                and row_dict['alt'] == variant.ALT[0]
-            ):
-                # logging.error(
-                #     'Found a variant forming a comp-het with itself: %s',
-                #     paired_var_string,
-                # )
+            if paired_var_string == a_variant.string:
                 continue
 
             # noinspection PyTypeChecker
             comp_het_lookup.setdefault(row_dict.get('sample'), {})[
                 f'{paired_var_string}'
-            ] = AnalysisVariant(variant, samples)
+            ] = a_variant
 
     logging.info('%d samples contain a compound het', len(comp_het_lookup))
-    # for sample in comp_het_lookup.values():
-    #     for variant in sample.values():
-    #         print(repr(variant.var), variant.get_class_ints())
 
     # noinspection PyTypeChecker
     return comp_het_lookup
@@ -185,7 +181,7 @@ def validate_class_2(
     # start with the assumption we will discard
     retain = False
 
-    gene = variant.var.INFO.get('gene_id')
+    gene = variant.info.get('gene_id')
 
     # get relevant panelapp contents
     panel_gene_data = panelapp_data.get(gene)
@@ -251,7 +247,7 @@ def apply_moi_to_variants(
     comp_het_lookup: Dict[str, Dict[str, AnalysisVariant]],
     moi_lookup: Dict[str, MOIRunner],
     panelapp_data: Dict[str, Dict[str, Union[str, bool]]],
-    class_2_new_only: bool = True,
+    config: Dict[str, Any],
 ) -> List[ReportedVariant]:
     """
 
@@ -259,9 +255,13 @@ def apply_moi_to_variants(
     :param comp_het_lookup:
     :param moi_lookup:
     :param panelapp_data:
-    :param class_2_new_only:
+    :param config:
     :return:
     """
+
+    # parse from config... should we use NEW only for Cat. 2?
+    # alternative is considering both NEW and changed MOI
+    class_2_new_only = config.get("class_2_new_only", True)
 
     results = []
 
@@ -272,17 +272,9 @@ def apply_moi_to_variants(
     for variant in variant_source:
 
         # cast as an analysis variant
-        analysis_variant = AnalysisVariant(variant, samples=vcf_samples)
+        analysis_variant = AnalysisVariant(variant, samples=vcf_samples, config=config)
 
         gene = variant.INFO.get('gene_id')
-
-        # #  allow for multiple genes here?
-        # # e.g. iterate over all possible genes
-        # # store class 2 status, check for _this gene_, then reset at the start of the loop
-        # c2_status = analysis_variant.class_2
-        # for gene_id in gene:
-        #     analysis_variant.class_2 = c2_status
-        #     # then do C2 test, and follow with MOI test
 
         # one variant appears to be retained here, in a red gene
         # possibly overlapping with a Green gene?
@@ -303,14 +295,14 @@ def apply_moi_to_variants(
                 moi_lookup=moi_lookup,
                 variant=analysis_variant,
                 comp_het_lookup=comp_het_lookup,
-                new_only=class_2_new_only,  # document/add a switch
+                new_only=class_2_new_only,
             ):
                 analysis_variant.class_2 = False
 
         # we never use a C4-only variant as a principal variant
         # and we don't consider a variant with no assigned classes
         # if not analysis_variant.is_classified():
-        if analysis_variant.class_4_only() or not analysis_variant.is_classified():
+        if analysis_variant.class_4_only or not analysis_variant.is_classified:
             continue
 
         results.extend(
@@ -339,12 +331,12 @@ def clean_initial_results(
 
     for each_instance in result_list:
         support_id = (
-            repr(each_instance.support_var.var)
-            if each_instance.support_var is not None
-            else 'Unsupported'
+            'Unsupported'
+            if not each_instance.supported
+            else each_instance.support_var.string
         )
         var_uid = (
-            f'{repr(each_instance.var_data.var)}__'
+            f'{each_instance.var_data.string}__'
             f'{each_instance.gene}__'
             f'{support_id}'
         )
@@ -397,14 +389,14 @@ def main(
     # parse the pedigree from the file
     pedigree_digest = parse_ped_simple(pedigree)
 
-    # find all the Compound Hets from CH VCF
-    comp_het_digest = parse_comp_hets(compound_het)
-
     # parse panelapp data from dict
     panelapp_data = read_json_dictionary(panelapp)
 
     # get the runtime configuration
     config_dict = read_json_dictionary(config_path)
+
+    # find all the Compound Hets from CH VCF
+    comp_het_digest = parse_comp_hets(compound_het, config=config_dict)
 
     # set up the inheritance checks
     moi_lookup = set_up_inheritance_filters(
@@ -418,7 +410,7 @@ def main(
         comp_het_lookup=comp_het_digest,
         moi_lookup=moi_lookup,
         panelapp_data=panelapp_data,
-        class_2_new_only=config_dict.get('class_2_new_only') or True,
+        config=config_dict,
     )
 
     # remove duplicates of the same variant

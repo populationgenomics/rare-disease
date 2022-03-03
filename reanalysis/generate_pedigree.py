@@ -38,18 +38,20 @@ def get_clean_pedigree(
 
         # update the sample IDs
         ped_entry['individual_id'] = sample_to_cpg_dict.get(ped_entry['individual_id'])
-        ped_entry['paternal_id'] = (
-            sample_to_cpg_dict.get(ped_entry['paternal_id']) or ''
-        )
-        ped_entry['maternal_id'] = (
-            sample_to_cpg_dict.get(ped_entry['maternal_id']) or ''
-        )
 
         # remove parents and assign an individual sample ID
         if singles:
             ped_entry['paternal_id'] = ''
             ped_entry['maternal_id'] = ''
-            ped_entry['family_id'] = 'individual_id'
+            ped_entry['family_id'] = ped_entry['individual_id']
+
+        else:
+            ped_entry['paternal_id'] = sample_to_cpg_dict.get(
+                ped_entry['paternal_id'], ''
+            )
+            ped_entry['maternal_id'] = sample_to_cpg_dict.get(
+                ped_entry['maternal_id'], ''
+            )
 
         new_entries.append(ped_entry)
 
@@ -64,6 +66,28 @@ def write_pedigree(clean_pedigree: List[Dict[str, str]], output: str):
         handle.write('\t'.join(PED_KEYS) + '\n')
         for entry in clean_pedigree:
             handle.write('\t'.join([str(entry.get(key)) for key in PED_KEYS]) + '\n')
+
+
+def get_pedigree_for_project(project: str) -> List[Dict[str, str]]:
+    """
+    fetches the project pedigree from sample-metadata
+    one list entry for each participant
+    :param project:
+    :return:
+    """
+    return FamilyApi().get_pedigree(project=project)
+
+
+def ext_to_int_sample_map(project: str) -> Dict[str, str]:
+    """
+    fetches the mapping dictionary, so external IDs can be
+    translated to the corresponding CPG ID
+    :param project:
+    :return:
+    """
+    return ParticipantApi().get_external_participant_id_to_internal_sample_id(
+        project=project
+    )
 
 
 @click.command()
@@ -89,16 +113,11 @@ def main(project: str, singles: bool, output: str):
     :param output: path to write new PED file to
     """
 
-    # get the list of all pedigree members
-    # this returns a list of dictionaries
-    pedigree_dicts: List[Dict[str, str]] = FamilyApi().get_pedigree(project=project)
+    # get the list of all pedigree members as list of dictionaries
+    pedigree_dicts = get_pedigree_for_project(project=project)
 
     # endpoint gives list of lists e.g. [['A1234567_proband', 'CPG12341']]
-    sample_to_cpg_dict: Dict[str, str] = dict(
-        ParticipantApi().get_external_participant_id_to_internal_sample_id(
-            project='acute-care'
-        )
-    )
+    sample_to_cpg_dict = ext_to_int_sample_map(project=project)
 
     clean_pedigree = get_clean_pedigree(
         pedigree_dicts=pedigree_dicts,

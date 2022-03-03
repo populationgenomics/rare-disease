@@ -24,12 +24,7 @@ from abc import abstractmethod
 from typing import Dict, List, Optional, Tuple
 
 
-from reanalysis.utils import (
-    AnalysisVariant,
-    PedPerson,
-    ReportedVariant,
-    string_format_variant,
-)
+from reanalysis.utils import AnalysisVariant, PedPerson, ReportedVariant
 
 
 def check_for_second_hit(
@@ -49,14 +44,11 @@ def check_for_second_hit(
     if sample not in comp_hets.keys():
         return response
 
-    # find the string repr of this variant
-    variant_string = string_format_variant(first_variant.var)
-
-    # search for a partner-hit
-    if variant_string in comp_hets.get(sample):
-        paired_variant = comp_hets[sample][variant_string]
+    # search for a partner-hit using the string-format of this variant
+    if first_variant.string in comp_hets.get(sample):
+        paired_variant = comp_hets[sample][first_variant.string]
         # check that the class combination is supported
-        if all([first_variant.class_4_only(), paired_variant.class_4_only()]):
+        if all([first_variant.class_4_only, paired_variant.class_4_only]):
             logging.info(
                 'Variant pairing discarded as both sides of comp-het were C4 only'
             )
@@ -234,7 +226,7 @@ class DominantAutosomal(BaseMoi):
         classifications = []
 
         # apply a more stringent AF threshold for dominant
-        if principal_var.var.INFO.get('gnomad_af') >= self.ad_thresh:
+        if principal_var.info.get('gnomad_af') >= self.ad_thresh:
             return classifications
 
         # autosomal dominant doesn't require support
@@ -353,13 +345,13 @@ class XDominant(BaseMoi):
         """
         classifications = []
 
-        if principal_var.var.CHROM.replace('chr', '').lower() != 'x':
+        if principal_var.chrom.replace('chr', '').lower() != 'x':
             logging.error(
-                'X-Chromosome MOI given for variant on %s', principal_var.var.CHROM
+                'X-Chromosome MOI given for variant on %s', principal_var.chrom
             )
 
         # apply a more stringent AF threshold for dominant
-        if principal_var.var.INFO.get('gnomad_af') >= self.ad_thresh:
+        if principal_var.info.get('gnomad_af') >= self.ad_thresh:
             return classifications
 
         # due to legacy caller issues, we expect wrongly called HOM Males
@@ -376,7 +368,7 @@ class XDominant(BaseMoi):
 
         # dominant doesn't care about support
         # for all the samples which are affected
-        # assumption that probands are affected
+        # (assumption that probands are affected)
         for sample_id in males + het_females:
             if self.pedigree.get(sample_id).male:
                 reason = f'{self.applied_moi} Male'
@@ -505,7 +497,7 @@ class YHemi(BaseMoi):
         classifications = []
 
         # check that the variant is rare enough to be Dominant
-        if principal_var.var.INFO.get('gnomad_af') >= self.ad_thresh:
+        if principal_var.info.get('gnomad_af') >= self.ad_thresh:
             return classifications
 
         # y chrom... called as hom? Shouldn't be possible

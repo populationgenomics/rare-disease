@@ -298,7 +298,7 @@ def filter_mt_rows(
     :param matrix:
     :param config:
     :param green_genes:
-    :return:
+    :return: reduced matrix
     """
 
     # exac and gnomad must be below threshold or missing
@@ -471,6 +471,9 @@ def extract_annotations(matrix: hl.MatrixTable) -> hl.MatrixTable:
             gnomad_ex_af=hl.or_else(matrix.gnomad_exomes.AF, MISSING_FLOAT_LO),
             gnomad_cov=hl.or_else(matrix.gnomad_genome_coverage, MISSING_FLOAT_LO),
             gnomad_af=hl.or_else(matrix.gnomad_genomes.AF, MISSING_FLOAT_LO),
+            gnomad_an=hl.or_else(matrix.gnomad_genomes.AN, MISSING_INT),
+            gnomad_ac=hl.or_else(matrix.gnomad_genomes.AC, MISSING_INT),
+            gnomad_hom=hl.or_else(matrix.gnomad_genomes.HOM, MISSING_INT),
             splice_ai_delta=hl.or_else(matrix.splice_ai.delta_score, MISSING_FLOAT_LO),
             splice_ai_csq=hl.or_else(
                 matrix.splice_ai.splice_consequence, MISSING_STRING

@@ -209,6 +209,7 @@ def main(panel_id: str, out_path: str, date: Optional[str] = None):
     # get latest panel data
     panel_dict = get_panel_green(panel_id=panel_id)
 
+    # migrate more of this into a method to test
     if date is not None:
         since_datetime = datetime.strptime(date, "%Y-%m-%d")
         if since_datetime > datetime.today():

@@ -6,7 +6,7 @@ from typing import Dict, List, Set, Tuple, Union
 
 import pandas as pd
 
-from reanalysis.utils import PedPerson, ReportedVariant, string_format_variant
+from reanalysis.utils import PedPerson, ReportedVariant
 
 
 SEQR_TEMPLATE = (
@@ -103,19 +103,16 @@ class HTMLBuilder:
             # iterate over the variants
             for variant in sample_variants.values():
 
-                # get the string representation
-                var_string = string_format_variant(variant.var_data.var)
-
                 # find all classes associated with this variant
                 # for each class, add to corresponding list and set
-                for class_value in list(map(str, variant.var_data.get_class_ints())):
+                for class_value in list(map(str, variant.var_data.class_ints)):
                     if class_value == '4':
                         continue
                     sample_count[class_value] += 1
-                    class_strings[class_value].add(var_string)
+                    class_strings[class_value].add(variant.var_data.string)
 
                 # update the set of all unique variants
-                class_strings['all'].add(var_string)
+                class_strings['all'].add(variant.var_data.string)
 
             # update the global lists with per-sample counts
             for key, value in sample_count.items():
@@ -187,6 +184,11 @@ class HTMLBuilder:
         if a CSQ occurs on MANE, write in bold,
         if non-MANE, write in red
         return the concatenated string
+
+        NOTE: I really hate how I've implemented this
+        :param all_csq:
+        :param mane_csq:
+        :return: the string filling the consequence box in the HTML
         """
         csq_strings = []
         for csq in all_csq:
@@ -210,18 +212,17 @@ class HTMLBuilder:
         csq_set = set()
         mane_transcript = set()
         mane_csq = set()
-        csq_info = variant.var_data.var.INFO.get('CSQ')
 
         # iterate over all consequences, special care for MANE
-        for each_csq in csq_info.split(','):
-            csq_dict = dict(zip(self.csq_entries, each_csq.split('|')))
-            row_csq = set(csq_dict['Consequence'].split('&'))
+        for each_csq in variant.var_data.info.get("transcript_consequences", []):
+            row_csq = set(each_csq['consequence'].split('&'))
 
             # record the transcript ID(s), and CSQ(s)
             # we only expect 1, but set operations are useful
-            if csq_dict.get('MANE_select') != '':
+            mane_trans = each_csq.get('mane_select', '')
+            if mane_trans != '':
                 mane_csq.update(row_csq)
-                mane_transcript.add(csq_dict.get('MANE_select'))
+                mane_transcript.add(mane_trans)
             csq_set.update(row_csq)
 
         # we only ever expect one... but this would make the addition of plus_clinical easy
@@ -241,17 +242,16 @@ class HTMLBuilder:
 
         for sample, variants in self.results.items():
             for variant in variants.values():
-                variant_class_ints = variant.var_data.get_class_ints()
+                variant_class_ints = variant.var_data.class_ints
 
                 if 2 in variant_class_ints:
                     class_2_genes.add(variant.gene)
 
-                var_string = string_format_variant(variant.var_data.var)
                 csq_string, mane_string = self.get_csq_details(variant)
                 candidate_dictionaries.setdefault(variant.sample, []).append(
                     {
                         'variant': self.make_seqr_link(
-                            var_string=var_string, sample=sample
+                            var_string=variant.var_data.string, sample=sample
                         ),
                         'classes': ', '.join(
                             list(
@@ -267,12 +267,12 @@ class HTMLBuilder:
                         'csq': csq_string,
                         'mane_select': mane_string,
                         'gnomad': GNOMAD_TEMPLATE.format(
-                            variant=var_string,
-                            value=float(variant.var_data.var.INFO.get('gnomad_af')),
+                            variant=variant.var_data.string,
+                            value=float(variant.var_data.info.get('gnomad_af')),
                         ),
                         'MOIs': ','.join(variant.reasons),
                         'support': self.make_seqr_link(
-                            var_string=string_format_variant(variant.support_var.var),
+                            var_string=variant.support_var.string,
                             sample=sample,
                         )
                         if variant.supported

@@ -4,7 +4,7 @@ which may be shared across reanalysis components
 """
 
 
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from dataclasses import dataclass
 from csv import DictReader
 
@@ -80,6 +80,7 @@ class PedPerson:
     """
     holds attributes about a single PED file entry
     this will need to be enhanced for family analysis
+    a prototype already exists in the prototype folder
     """
 
     sample: str
@@ -103,68 +104,6 @@ def parse_ped_simple(ped: str) -> Dict[str, PedPerson]:
                 line['Individual ID'], line['Sex'] == '1', line['Affected'] == '2'
             )
     return ped_dict
-
-
-class AnalysisVariant:
-    """
-    create a variant object with auto-incrementing ID
-    """
-
-    def __init__(self, var: Variant, samples: List[str]):
-        # full multi-sample variant
-        self.var: Variant = var
-
-        # set the class attributes
-        self.class_1 = var.INFO.get('Class1') == 1
-        self.class_2 = var.INFO.get('Class2') == 1
-        self.class_3 = var.INFO.get('Class3') == 1
-        self.class_4 = var.INFO.get('Class4') == 1
-
-        # get all zygosities once per variant
-        # abstraction avoids pulling per-sample calls again later
-        self.het_samples, self.hom_samples = get_non_ref_samples(
-            variant=var, samples=samples
-        )
-
-    def is_classified(self) -> bool:
-        """
-        check that the variant has at least one assigned class
-        :return:
-        """
-        return any([self.class_1, self.class_2, self.class_3, self.class_4])
-
-    def class_4_only(self) -> bool:
-        """
-        checks that the variant was only class 4
-        :return:
-        """
-        return self.class_4 and not any(
-            [
-                self.class_1,
-                self.class_2,
-                self.class_3,
-            ]
-        )
-
-    def get_class_ints(self) -> List[int]:
-        """
-        get a list of ints representing the classes present on this variant
-        for each numerical class, append that number if the class is present
-        :return:
-        """
-        return [
-            integer
-            for integer, class_bool in enumerate(
-                [
-                    self.class_1,
-                    self.class_2,
-                    self.class_3,
-                    self.class_4,
-                ],
-                1,
-            )
-            if class_bool
-        ]
 
 
 def get_non_ref_samples(
@@ -205,11 +144,116 @@ def get_non_ref_samples(
     return het_samples, hom_samples
 
 
+def extract_info(variant: Variant, config: Dict[str, Any]):
+    """
+    creates an INFO dict by pulling content from the variant info
+    keeps a list of dictionaries for each transcript_consequence
+    :param variant:
+    :param config:
+    :return:
+    """
+
+    # grab the basic information from INFO
+    info_dict = {x: y for x, y in variant.INFO if x in config.get("var_info_keep", [])}
+
+    csq_contents = variant.INFO.get(config.get('csq_field'))
+    csq_string = config.get('csq_string')
+
+    # break the mono-CSQ-string into the component headings
+    csq_categories = list(map(str.lower, csq_string.split('|')))
+
+    # iterate over all consequences, and make each into a dict
+    info_dict['transcript_consequences'] = [
+        dict(zip(csq_categories, each_csq.split('|')))
+        for each_csq in csq_contents.split(',')
+    ]
+    return info_dict
+
+
+class AnalysisVariant:
+    """
+    create a variant superclass
+    pull all content out of the cyvcf2 object
+    we could have a separate implementation for pyvcf,
+    or for a direct parser...
+    whatever
+    """
+
+    def __init__(self, var: Variant, samples: List[str], config: Dict[str, Any]):
+
+        # store the string representation
+        self.string = string_format_variant(var)
+
+        # variant coordinate details
+        self.chrom = var.CHROM
+        self.pos = var.POS
+        self.ref = var.REF
+        self.alt = var.ALT[0]
+
+        # set the class attributes
+        self.class_1 = var.INFO.get('Class1') == 1
+        self.class_2 = var.INFO.get('Class2') == 1
+        self.class_3 = var.INFO.get('Class3') == 1
+        self.class_4 = var.INFO.get('Class4') == 1
+
+        # get all zygosities once per variant
+        # abstraction avoids pulling per-sample calls again later
+        self.het_samples, self.hom_samples = get_non_ref_samples(
+            variant=var, samples=samples
+        )
+
+        self.info = extract_info(variant=var, config=config)
+
+    @property
+    def is_classified(self) -> bool:
+        """
+        check that the variant has at least one assigned class
+        :return:
+        """
+        return any([self.class_1, self.class_2, self.class_3, self.class_4])
+
+    @property
+    def class_4_only(self) -> bool:
+        """
+        checks that the variant was only class 4
+        :return:
+        """
+        return self.class_4 and not any(
+            [
+                self.class_1,
+                self.class_2,
+                self.class_3,
+            ]
+        )
+
+    @property
+    def class_ints(self) -> List[int]:
+        """
+        get a list of ints representing the classes present on this variant
+        for each numerical class, append that number if the class is present
+        """
+        return [
+            integer
+            for integer, class_bool in enumerate(
+                [
+                    self.class_1,
+                    self.class_2,
+                    self.class_3,
+                    self.class_4,
+                ],
+                1,
+            )
+            if class_bool
+        ]
+
+
 @dataclass
 class ReportedVariant:
     """
-    an attempt to describe a model variant
-    all the details required for a report
+    minimal model representing variant categorisation event
+    the initial variant
+    the MOI passed
+    the support (if any)
     """
 
     sample: str
