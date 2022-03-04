@@ -21,10 +21,16 @@ to a Monogenic MOI
 
 import logging
 from abc import abstractmethod
-from typing import Dict, List, Optional, Tuple
-
+from typing import Any, Dict, List, Optional, Tuple
 
 from reanalysis.utils import AnalysisVariant, PedPerson, ReportedVariant
+
+
+# config keys to use for dominant MOI tests
+GNOMAD_RARE_THRESHOLD = 'gnomad_dominant'
+GNOMAD_AD_AC_THRESHOLD = 'gnomad_max_ac_dominant'
+GNOMAD_DOM_HOM_THRESHOLD = 'gnomad_max_homs_dominant'
+GNOMAD_REC_HOM_THRESHOLD = 'gnomad_max_homs_recessive'
 
 
 def check_for_second_hit(
@@ -63,7 +69,10 @@ class MOIRunner:
     """
 
     def __init__(
-        self, ad_threshold: float, pedigree: Dict[str, PedPerson], target_moi: str
+        self,
+        pedigree: Dict[str, PedPerson],
+        target_moi: str,
+        config: Dict[str, Any],
     ):
         """
         for each possible MOI, choose the appropriate filters to apply
@@ -72,33 +81,36 @@ class MOIRunner:
 
         This logic is only called once per MOI, not once per variant
 
-        :param ad_threshold: more stringent AF threshold for dominant inheritance
         :param pedigree:
         :param target_moi:
+        :param config:
         """
 
         # for unknown, we catch all possible options?
         # should we be doing both checks for Monoallelic?
         if target_moi in ['Monoallelic']:
             self.filter_list = [
-                DominantAutosomal(pedigree, ad_threshold),
+                DominantAutosomal(pedigree=pedigree, config=config),
             ]
         elif target_moi in ['Mono_And_Biallelic', 'Unknown']:
             self.filter_list = [
-                DominantAutosomal(pedigree, ad_threshold),
-                RecessiveAutosomal(pedigree),
+                DominantAutosomal(pedigree=pedigree, config=config),
+                RecessiveAutosomal(pedigree=pedigree, config=config),
             ]
         elif target_moi == 'Biallelic':
-            self.filter_list = [RecessiveAutosomal(pedigree)]
+            self.filter_list = [RecessiveAutosomal(pedigree=pedigree, config=config)]
 
         elif target_moi == 'Hemi_Mono_In_Female':
-            self.filter_list = [XRecessive(pedigree), XDominant(pedigree, ad_threshold)]
+            self.filter_list = [
+                XRecessive(pedigree=pedigree, config=config),
+                XDominant(pedigree=pedigree, config=config),
+            ]
 
         elif target_moi == 'Hemi_Bi_In_Female':
-            self.filter_list = [XRecessive(pedigree)]
+            self.filter_list = [XRecessive(pedigree=pedigree, config=config)]
 
         elif target_moi == 'Y_Chrom_Variant':
-            self.filter_list = [YHemi(pedigree, ad_threshold)]
+            self.filter_list = [YHemi(pedigree=pedigree, config=config)]
 
         else:
             raise Exception(f'MOI type {target_moi} is not addressed in MOI')
@@ -133,15 +145,18 @@ class BaseMoi:
     pass
     """
 
-    def __init__(self, pedigree: Dict[str, PedPerson], applied_moi: str):
+    def __init__(
+        self, pedigree: Dict[str, PedPerson], config: Dict[str, Any], applied_moi: str
+    ):
         """
         no values to establish?
         maybe constants in the base class
         """
         if applied_moi is None:
             raise Exception("An applied MOI needs to reach the Base Class")
-        self.applied_moi = applied_moi
         self.pedigree = pedigree
+        self.config = config
+        self.applied_moi = applied_moi
 
     @abstractmethod
     def run(
@@ -151,7 +166,7 @@ class BaseMoi:
         ensg: str,
     ) -> List[ReportedVariant]:
         """
-        run over all the applicable inheritance patterns and finds good fits
+        run all applicable inheritance patterns and finds good fits
         :param principal_var:
         :param comp_hets:
         :param ensg:
@@ -195,17 +210,19 @@ class DominantAutosomal(BaseMoi):
     def __init__(
         self,
         pedigree: Dict[str, PedPerson],
-        ad_threshold: float,
+        config: Dict[str, Any],
         applied_moi: str = 'Autosomal Dominant',
     ):
         """
 
         :param pedigree: not yet implemented
-        :param ad_threshold:
+        :param config:
         :param applied_moi:
         """
-        self.ad_thresh = ad_threshold
-        super().__init__(pedigree, applied_moi)
+        self.ad_threshold = config.get(GNOMAD_RARE_THRESHOLD)
+        self.ac_threshold = config.get(GNOMAD_AD_AC_THRESHOLD)
+        self.hom_threshold = config.get(GNOMAD_DOM_HOM_THRESHOLD)
+        super().__init__(pedigree=pedigree, config=config, applied_moi=applied_moi)
 
     def run(
         self,
@@ -225,8 +242,12 @@ class DominantAutosomal(BaseMoi):
 
         classifications = []
 
-        # apply a more stringent AF threshold for dominant
-        if principal_var.info.get('gnomad_af') >= self.ad_thresh:
+        # more stringent Pop.Freq checks for dominant
+        if (
+            principal_var.info.get('gnomad_af') >= self.ad_threshold
+            or principal_var.info.get('gnomad_hom') >= self.hom_threshold
+            or principal_var.info.get('gnomad_ac') >= self.ac_threshold
+        ):
             return classifications
 
         # autosomal dominant doesn't require support
@@ -251,9 +272,15 @@ class RecessiveAutosomal(BaseMoi):
     pass
     """
 
-    def __init__(self, pedigree, applied_moi: str = 'Autosomal Recessive'):
+    def __init__(
+        self,
+        pedigree: Dict[str, PedPerson],
+        config: Dict[str, Any],
+        applied_moi: str = 'Autosomal Recessive',
+    ):
         """ """
-        super().__init__(pedigree, applied_moi)
+        self.hom_threshold = config.get(GNOMAD_REC_HOM_THRESHOLD)
+        super().__init__(pedigree=pedigree, config=config, applied_moi=applied_moi)
 
     def run(
         self,
@@ -320,14 +347,22 @@ class XDominant(BaseMoi):
     re-implement here, but don't permit Male X-Homs
     """
 
-    def __init__(self, pedigree, ad_threshold: float, applied_moi: str = 'X_Dominant'):
+    def __init__(
+        self,
+        pedigree: Dict[str, PedPerson],
+        config: Dict[str, Any],
+        applied_moi: str = 'X_Dominant',
+    ):
         """
         accept male hets and homs, and female hets without support
         :param pedigree:
+        :param config:
         :param applied_moi:
         """
-        self.ad_thresh = ad_threshold
-        super().__init__(pedigree, applied_moi)
+        self.ad_threshold = config.get(GNOMAD_RARE_THRESHOLD)
+        self.ac_threshold = config.get(GNOMAD_AD_AC_THRESHOLD)
+        self.hom_threshold = config.get(GNOMAD_DOM_HOM_THRESHOLD)
+        super().__init__(pedigree=pedigree, config=config, applied_moi=applied_moi)
 
     def run(
         self,
@@ -350,8 +385,12 @@ class XDominant(BaseMoi):
                 'X-Chromosome MOI given for variant on %s', principal_var.chrom
             )
 
-        # apply a more stringent AF threshold for dominant
-        if principal_var.info.get('gnomad_af') >= self.ad_thresh:
+        # more stringent Pop.Freq checks for dominant
+        if (
+            principal_var.info.get('gnomad_af') >= self.ad_threshold
+            or principal_var.info.get('gnomad_hom') >= self.hom_threshold
+            or principal_var.info.get('gnomad_ac') >= self.ac_threshold
+        ):
             return classifications
 
         # due to legacy caller issues, we expect wrongly called HOM Males
@@ -388,13 +427,18 @@ class XDominant(BaseMoi):
 
 class XRecessive(BaseMoi):
     """
-    for males accept het
+    for males accept het** - male variants HOM because GATK
     effectively the same as AutosomalDominant?
     """
 
-    def __init__(self, pedigree, applied_moi: str = 'X_Recessive'):
+    def __init__(
+        self,
+        pedigree: Dict[str, PedPerson],
+        config: Dict[str, Any],
+        applied_moi: str = 'X_Recessive',
+    ):
         """ """
-        super().__init__(pedigree, applied_moi)
+        super().__init__(pedigree=pedigree, config=config, applied_moi=applied_moi)
 
     def run(
         self,
@@ -413,7 +457,6 @@ class XRecessive(BaseMoi):
         classifications = []
 
         # X-relevant, we separate out male and females
-        # GATK calls X-males as Hom
         males = [
             sam
             for sam in principal_var.het_samples.union(principal_var.hom_samples)
@@ -471,15 +514,22 @@ class YHemi(BaseMoi):
     not expecting to use this
     """
 
-    def __init__(self, pedigree, ad_threshold: float, applied_moi: str = 'Y_Hemi'):
+    def __init__(
+        self,
+        pedigree: Dict[str, PedPerson],
+        config: Dict[str, Any],
+        applied_moi: str = 'Y_Hemi',
+    ):
         """
 
         :param pedigree:
-        :param ad_threshold:
+        :param config:
         :param applied_moi:
         """
-        self.ad_thresh = ad_threshold
-        super().__init__(pedigree, applied_moi)
+
+        self.ad_threshold = config.get(GNOMAD_RARE_THRESHOLD)
+        self.ac_threshold = config.get(GNOMAD_AD_AC_THRESHOLD)
+        super().__init__(pedigree=pedigree, config=config, applied_moi=applied_moi)
 
     def run(
         self,
@@ -496,8 +546,11 @@ class YHemi(BaseMoi):
         """
         classifications = []
 
-        # check that the variant is rare enough to be Dominant
-        if principal_var.info.get('gnomad_af') >= self.ad_thresh:
+        # more stringent Pop.Freq checks for dominant
+        if (
+            principal_var.info.get('gnomad_af') >= self.ad_threshold
+            or principal_var.info.get('gnomad_ac') >= self.ac_threshold
+        ):
             return classifications
 
         # y chrom... called as hom? Shouldn't be possible

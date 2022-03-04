@@ -57,7 +57,7 @@ def test_comp_het_gather():
     for sample, variants in result.items():
         assert set(expected_output[sample].keys()) == set(variants.keys())
         for var_key, variant in variants.items():
-            assert repr(variant.var) == expected_output[sample][var_key]
+            assert variant.string == expected_output[sample][var_key]
 
 
 def test_variant_string_format():

@@ -456,8 +456,7 @@ def extract_annotations(matrix: hl.MatrixTable) -> hl.MatrixTable:
     pull out select fields which aren't per-consequence
     store these in INFO (required to be included in VCF export)
 
-    replace with placeholder if empty
-    placeholder values should be least consequential
+    replace with placeholder (least consequential) if empty
     e.g. most tools score 0, but for Sift 1 is least important
 
     :param matrix:
@@ -588,6 +587,9 @@ def main(
     # get the run configuration JSON
     config_dict = read_json_dict_from_path(config_path)
 
+    # find the config area specific to hail operations
+    hail_config = config_dict.get("hail")
+
     logging.info('Reading PanelApp data from "%s"', panelapp_path)
     # read the parsed panelapp data from a bucket path
     panelapp = read_json_dict_from_path(panelapp_path)
@@ -596,10 +598,10 @@ def main(
     green_expression, new_expression = green_and_new_from_panelapp(panelapp)
 
     logging.info(
-        'Starting Hail with reference genome "%s"', config_dict.get('ref_genome')
+        'Starting Hail with reference genome "%s"', hail_config.get('ref_genome')
     )
     # initiate Hail with the specified reference
-    hl.init(default_reference=config_dict.get('ref_genome'), quiet=True)
+    hl.init(default_reference=hail_config.get('ref_genome'), quiet=True)
 
     # if we already generated the annotated output, load instead
     if check_file_exists(mt_out.rstrip('/') + '/'):
@@ -613,7 +615,7 @@ def main(
 
         # hard filter entries in the MT prior to annotation
         logging.info('Hard filtering variants')
-        matrix = hard_filter_before_annotation(matrix_data=matrix, config=config_dict)
+        matrix = hard_filter_before_annotation(matrix_data=matrix, config=hail_config)
 
         # re-annotate using VEP
         logging.info('Annotating variants')
@@ -635,18 +637,15 @@ def main(
     # filter on row annotations
     logging.info('Filtering Variant rows')
     matrix = filter_mt_rows(
-        matrix=matrix, config=config_dict, green_genes=green_expression
+        matrix=matrix, config=hail_config, green_genes=green_expression
     )
 
     # add Classes to the MT
     logging.info('Applying classes to variant consequences')
     matrix = annotate_class_1(matrix)
-    matrix = annotate_class_2(matrix, config_dict, new_expression)
-    matrix = annotate_class_3(matrix, config_dict)
-    matrix = annotate_class_4(matrix, config_dict)
-
-    # possibly add a background class here for interesting, but only
-    # good enough to be a second hit. C4 is this for now
+    matrix = annotate_class_2(matrix, hail_config, new_expression)
+    matrix = annotate_class_3(matrix, hail_config)
+    matrix = annotate_class_4(matrix, hail_config["in_silico"])
 
     # filter to class-annotated only prior to export
     logging.info('Filter variants to leave only classified')
@@ -656,7 +655,9 @@ def main(
     # also take the single gene_id (from the exploded attribute)
     matrix = matrix.annotate_rows(
         info=matrix.info.annotate(
-            CSQ=vep_struct_to_csq(matrix.vep, csq_fields=config_dict.get('csq_string')),
+            CSQ=vep_struct_to_csq(
+                matrix.vep, csq_fields=config_dict["variant_object"].get('csq_string')
+            ),
             gene_id=matrix.geneIds,
         )
     )

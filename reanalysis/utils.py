@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from csv import DictReader
 
 from cyvcf2 import Variant
+from google.cloud import storage
 
 
 COMP_HET_VALUES = ['sample', 'gene', 'id', 'chrom', 'pos', 'ref', 'alt']
@@ -22,6 +23,40 @@ HOMALT = 3
 
 # in cyVCF2, these ints represent HOMREF, and UNKNOWN
 BAD_GENOTYPES = {HOMREF, UNKNOWN}
+
+
+def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
+    """
+    take a GCP bucket path to a JSON file, read into an object
+    this loop can read config files, or data
+    :param bucket_path:
+    :return:
+    """
+
+    # split the full path to get the bucket and file path
+    bucket = bucket_path.replace('gs://', '').split('/')[0]
+    path = bucket_path.replace('gs://', '').split('/', maxsplit=1)[1]
+
+    # create a client
+    g_client = storage.Client()
+
+    # obtain the blob of the data
+    json_blob = g_client.get_bucket(bucket).get_blob(path)
+
+    # the download_as_bytes method isn't available; but this returns bytes?
+    return json.loads(json_blob.download_as_string())
+
+
+def read_json_dictionary(json_path: str) -> Any:
+    """
+    point at a json file, return the contents
+    :param json_path:
+    :return: whatever is in the file
+    """
+    assert os.path.exists(json_path)
+    with open(json_path, 'r', encoding='utf-8') as handle:
+        json_content = json.load(handle)
+    return json_content
 
 
 def get_simple_moi(moi: str) -> str:
@@ -156,7 +191,7 @@ def extract_info(variant: Variant, config: Dict[str, Any]):
     # grab the basic information from INFO
     info_dict = {x: y for x, y in variant.INFO if x in config.get("var_info_keep", [])}
 
-    csq_contents = variant.INFO.get(config.get('csq_field'))
+    csq_contents = variant.INFO.get('CSQ')
     csq_string = config.get('csq_string')
 
     # break the mono-CSQ-string into the component headings

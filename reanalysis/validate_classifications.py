@@ -10,11 +10,8 @@ for each variant in each participant, check MOI
 import logging
 from typing import Any, Dict, List, Union
 from itertools import chain
-import json
-import os
 import click
 from cyvcf2 import VCFReader
-from google.cloud import storage
 
 from reanalysis.moi_tests import MOIRunner
 from reanalysis.results_builder import HTMLBuilder
@@ -26,41 +23,8 @@ from reanalysis.utils import (
     parse_ped_simple,
     PedPerson,
     ReportedVariant,
+    read_json_dictionary,
 )
-
-
-def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
-    """
-    take a GCP bucket path to a JSON file, read into an object
-    this loop can read config files, or data
-    :param bucket_path:
-    :return:
-    """
-
-    # split the full path to get the bucket and file path
-    bucket = bucket_path.replace('gs://', '').split('/')[0]
-    path = bucket_path.replace('gs://', '').split('/', maxsplit=1)[1]
-
-    # create a client
-    g_client = storage.Client()
-
-    # obtain the blob of the data
-    json_blob = g_client.get_bucket(bucket).get_blob(path)
-
-    # the download_as_bytes method isn't available; but this returns bytes?
-    return json.loads(json_blob.download_as_string())
-
-
-def read_json_dictionary(json_path: str) -> Any:
-    """
-    point at a json file, return the contents
-    :param json_path:
-    :return: whatever is in the file
-    """
-    assert os.path.exists(json_path)
-    with open(json_path, 'r', encoding='utf-8') as handle:
-        json_content = json.load(handle)
-    return json_content
 
 
 def parse_comp_hets(
@@ -135,9 +99,6 @@ def set_up_inheritance_filters(
 
     moi_dictionary = {}
 
-    # get the stringent threshold to use for dominant MOI
-    ad_threshold = config.get('gnomad_dominant')
-
     # iterate over all genes
     for key, gene_data in panelapp_data.items():
 
@@ -153,7 +114,7 @@ def set_up_inheritance_filters(
 
             # get a MOIRunner with the relevant filters
             moi_dictionary[gene_moi] = MOIRunner(
-                pedigree=pedigree, target_moi=gene_moi, ad_threshold=ad_threshold
+                pedigree=pedigree, target_moi=gene_moi, config=config
             )
 
     return moi_dictionary
@@ -274,7 +235,7 @@ def apply_moi_to_variants(
         # cast as an analysis variant
         analysis_variant = AnalysisVariant(variant, samples=vcf_samples, config=config)
 
-        gene = variant.INFO.get('gene_id')
+        gene = analysis_variant.info.get('gene_id')
 
         # one variant appears to be retained here, in a red gene
         # possibly overlapping with a Green gene?
@@ -301,7 +262,6 @@ def apply_moi_to_variants(
 
         # we never use a C4-only variant as a principal variant
         # and we don't consider a variant with no assigned classes
-        # if not analysis_variant.is_classified():
         if analysis_variant.class_4_only or not analysis_variant.is_classified:
             continue
 
@@ -318,13 +278,10 @@ def clean_initial_results(
     result_list: List[ReportedVariant],
 ) -> Dict[str, Dict[str, ReportedVariant]]:
     """
-    There was a possibility that a single variant can be
-    classified in different ways. This method cleans those
-    down to unique
-
+    Possibility 1 variant can be classified multiple ways
+    This cleans those to unique for final report
     Join all possible classes for the condensed variants
     :param result_list:
-    :return:
     """
 
     clean_results: Dict[str, Dict[str, ReportedVariant]] = {}
@@ -413,25 +370,16 @@ def main(
         config=config_dict,
     )
 
-    # remove duplicates of the same variant
+    # remove duplicate variants
     cleaned_results = clean_initial_results(results)
-
-    # use the config file to select the relevant CPG to Seqr ID JSON file
-    # need to find correct exception type here
-    try:
-        seqr_data = read_json_dict_from_path(config_dict.get('seqr_lookup'))
-    except AttributeError:
-        seqr_data = {}
 
     # generate some html
     html_maker = HTMLBuilder(
         results_dict=cleaned_results,
-        seqr_lookup=seqr_data,
         panelapp_data=panelapp_data,
         pedigree=pedigree_digest,
         config=config_dict,
     )
-
     html_maker.write_html(output_path=out_path)
 
 

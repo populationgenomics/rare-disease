@@ -30,6 +30,7 @@ REHEADERED_OUT = output_path("hail_classes_reheadered.vcf.bgz")
 COMP_HET_VCF_OUT = output_path("hail_comp_het.vcf.bgz")
 MT_OUT_PATH = output_path('hail_105_ac.mt')
 RESULTS_HTML = output_path('summary_output.html')
+CONFIG_OUT = output_path('config_used.json')
 WEB_HTML = output_path('summary_output.html', 'web')
 
 
@@ -40,6 +41,7 @@ BCFTOOLS_TAG = 'bcftools:1.10.2--h4f4756c_2'
 SLIVAR_IMAGE = f'{AR_REPO}/{SLIVAR_TAG}'
 BCFTOOLS_IMAGE = f'{AR_REPO}/{BCFTOOLS_TAG}'
 
+# rubbish local references
 HAIL_SCRIPT = os.path.join(os.path.dirname(__file__), "hail_array_classifier.py")
 PANELAPP_SCRIPT = os.path.join(os.path.dirname(__file__), "panelapp_extraction.py")
 RESULTS_SCRIPT = os.path.join(os.path.dirname(__file__), "validate_classifications.py")
@@ -75,30 +77,6 @@ def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
 
     # download_as_bytes method isn't available; but this returns bytes?
     return json.loads(json_blob.download_as_string())
-
-
-def set_html_blob_metadata(filepath: str):
-    """
-    takes a path to an HTML file, and sets appropriate metadata
-    """
-    blob = get_gcp_blob(filepath)
-    if blob is None or not blob.exists():
-        logging.error('File %s doesn\'t exist, cannot set metadata', filepath)
-        return
-
-    # if some metadata is already populated, add/update
-    if isinstance(blob.metadata, dict):
-        blob.metadata['Content-Type'] = 'html'
-
-    # otherwise create the dictionary
-    else:
-        blob.metadata = {'Content-Type': 'html'}
-
-    # set the main ACL attribute (determines browser access)
-    blob.acl.blob.content_type = 'html'
-    blob.patch()
-
-    logging.info('HTML metadata attributes have been added to %s', filepath)
 
 
 def check_blob_exists(filepath: str) -> bool:
@@ -228,7 +206,7 @@ def handle_reheader_job(
     # reheader the VCF using BCFtools and sed
     desc = '##INFO=<ID=CSQ,Number=.,Type=String,Description="'
 
-    conf_csq = config_dict.get('csq_string').replace('|', r'\|')
+    conf_csq = config_dict["variant_object"].get('csq_string').replace('|', r'\|')
     new_format = rf"Format: '{conf_csq}'"
 
     bcftools_job.command(
@@ -402,15 +380,11 @@ def main(
     # write the same report to the dedicated WEB bucket
     batch.write_output(results_job.ofile, WEB_HTML)
 
-    # # add a new job here just to overwrite the HTML metadata
-    # # abandoned this approach... update runs before the batch completes
-    # metadata_job = batch.new_python_job()
-    # metadata_job.call(set_html_blob_metadata, RESULTS_HTML)
+    # save the config file used in this analysis
+    batch.write_output(conf_in_batch, CONFIG_OUT)
 
     # run the batch, and wait, so that the result metadata updates
     batch.run(wait=False)
-    # set_html_blob_metadata(RESULTS_HTML)
-    # set_html_blob_metadata(WEB_HTML)
 
 
 if __name__ == '__main__':

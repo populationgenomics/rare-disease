@@ -2,11 +2,11 @@
 Methods for taking the final output and generating static report content
 """
 
-from typing import Dict, List, Set, Tuple, Union
+from typing import Any, Dict, List, Set, Tuple
 
 import pandas as pd
 
-from reanalysis.utils import PedPerson, ReportedVariant
+from reanalysis.utils import PedPerson, ReportedVariant, read_json_dict_from_path
 
 
 SEQR_TEMPLATE = (
@@ -35,24 +35,28 @@ class HTMLBuilder:
     def __init__(
         self,
         results_dict: Dict[str, Dict[str, ReportedVariant]],
-        seqr_lookup: Dict[str, str],
         panelapp_data: Dict[str, Dict[str, str]],
-        config: Dict[str, Union[str, Dict[str, str]]],
+        config: Dict[str, Any],
         pedigree: Dict[str, PedPerson],
     ):  # pylint: disable=too-many-arguments
         """
 
         :param results_dict:
-        :param seqr_lookup:
         :param panelapp_data:
         :param config:
         :param pedigree:
         """
         self.results = results_dict
-        self.seqr = seqr_lookup
+        self.config = config["output"]
+
+        # use the config file to select the relevant CPG to Seqr ID JSON file
+        # need to find correct exception type here
+        try:
+            self.seqr = read_json_dict_from_path(self.config.get('seqr_lookup'))
+        except AttributeError:
+            self.seqr = {}
+
         self.panelapp = panelapp_data
-        self.config = config
-        self.csq_entries = config.get('csq_string').split('|')
         self.pedigree = pedigree
         self.colours = self.set_up_colours()
 
@@ -73,6 +77,7 @@ class HTMLBuilder:
     ) -> Tuple[str, List[str]]:  # pylint: disable=too-many-locals
         """
         run the numbers across all variant categories
+        :return:
         """
 
         class_count = {'1': [], '2': [], '3': [], 'all': []}
