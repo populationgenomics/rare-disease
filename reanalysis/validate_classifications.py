@@ -235,7 +235,10 @@ def apply_moi_to_variants(
         # cast as an analysis variant
         analysis_variant = AnalysisVariant(variant, samples=vcf_samples, config=config)
 
-        gene = analysis_variant.info.get('gene_id')
+        # each variant is uniformly associated with a single gene
+        # each variant also has at least one tx_csq, so take the first
+        # CHANGE - take geneIds, copy into INFO, split on that field instead
+        gene = analysis_variant.info['transcript_consequences'][0].get('gene')
 
         # one variant appears to be retained here, in a red gene
         # possibly overlapping with a Green gene?

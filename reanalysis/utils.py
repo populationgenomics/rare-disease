@@ -194,7 +194,9 @@ def extract_info(variant: Variant, config: Dict[str, Any]):
 
     # grab the basic information from INFO
     info_dict = {
-        x: y for x, y in variant.INFO if x in object_conf.get("var_info_keep", [])
+        x.lower(): y
+        for x, y in variant.INFO
+        if x in object_conf.get("var_info_keep", [])
     }
 
     csq_contents = variant.INFO.get('CSQ')
