@@ -304,7 +304,7 @@ def filter_mt_rows(
     # if missing they were previously replaced with 0.0
     # could also extend this filter to include max gnomad Homs
     matrix = matrix.filter_rows(
-        (matrix.info.exac < config['af_semi_rare'])
+        (matrix.info.exac_af < config['af_semi_rare'])
         & (matrix.info.gnomad_af < config['af_semi_rare'])
     )
 
