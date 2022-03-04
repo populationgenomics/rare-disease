@@ -254,16 +254,15 @@ def hard_filter_before_annotation(
     :return:
     """
 
-    # count the samples in the VCF
+    # count the samples in the VCF, and use to decide whether to implement
+    # 'common within this joint call' as a filter
     # if we reach the sample threshold, filter on AC
-    if matrix_data.count_cols() >= config.get('min_samples_to_ac_filter'):
+    if matrix_data.count_cols() >= config['min_samples_to_ac_filter']:
         matrix_data = matrix_data.filter_rows(
-            matrix_data.info.AC
-            <= matrix_data.info.AN // config.get('ac_filter_percentage')
+            matrix_data.info.AC <= matrix_data.info.AN // config['ac_filter_percentage']
         )
 
-    # hard filter for quality
-    # assumption here that data is well normalised in pipeline
+    # hard filter for quality; assuming data is well normalised in pipeline
     matrix_data = matrix_data.filter_rows(
         (
             matrix_data.filters.length() == 0
@@ -283,7 +282,7 @@ def annotate_using_vep(matrix_data: hl.MatrixTable) -> hl.MatrixTable:
     :return:
     """
 
-    # now run VEP 105 annotation
+    # VEP 105 annotations
     return hl.vep(matrix_data, config='file:///vep_data/vep-gcloud.json')
 
 
@@ -296,21 +295,17 @@ def filter_mt_rows(
     - reduce the per-row transcript consequences to those specific to the geneIds
     - reduce the rows to ones where there are remaining tx consequences
     :param matrix:
-    :param config:
+    :param config: the dictionary content relating to hail
     :param green_genes:
     :return: reduced matrix
     """
 
     # exac and gnomad must be below threshold or missing
+    # if missing they were previously replaced with 0.0
+    # could also extend this filter to include max gnomad Homs
     matrix = matrix.filter_rows(
-        (
-            (matrix.exac.AF < config.get('exac_semi_rare'))
-            | (hl.is_missing(matrix.exac.AF))
-        )
-        & (
-            (matrix.gnomad_genomes.AF < config.get('gnomad_semi_rare'))
-            | (hl.is_missing(matrix.gnomad_genomes.AF))
-        )
+        (matrix.info.exac < config['af_semi_rare'])
+        & (matrix.info.gnomad_af < config['af_semi_rare'])
     )
 
     # remove all clinvar benign, decent level of support
@@ -333,11 +328,12 @@ def filter_mt_rows(
     matrix = matrix.explode_rows(matrix.geneIds)
 
     # identify consequences to discard from the config
-    useless_csq = hl.set(config.get('useless_csq'))
+    useless_csq = hl.set(config['useless_csq'])
 
     # reduce consequences to overlap with per-variant green geneIDs (pre-filtered)
     # added another condition to state that the tx biotype needs to be protein_coding,
     # unless the row also has an attached MANE transcript
+    # consider an extra allowance for strong Appris transcripts
     matrix = matrix.annotate_rows(
         vep=matrix.vep.annotate(
             transcript_consequences=matrix.vep.transcript_consequences.filter(

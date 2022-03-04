@@ -15,6 +15,7 @@
         ]
     },
     "hail": {
+        "af_semi_rare": 0.01,
         "min_samples_to_ac_filter": 70,
         "ac_filter_percentage": 8,
         "ref_genome": "GRCh38",
@@ -40,8 +41,6 @@
         ],
         "in_silico": {
             "cadd": 28.0,
-            "exac_semi_rare": 0.01,
-            "gnomad_semi_rare": 0.01,
             "revel": 0.4,
             "polyphen": 0.85,
             "sift": 0.05,
