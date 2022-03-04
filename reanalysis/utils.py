@@ -189,11 +189,16 @@ def extract_info(variant: Variant, config: Dict[str, Any]):
     :return:
     """
 
+    # config region concerning variant objects
+    object_conf = config.get('variant_object')
+
     # grab the basic information from INFO
-    info_dict = {x: y for x, y in variant.INFO if x in config.get("var_info_keep", [])}
+    info_dict = {
+        x: y for x, y in variant.INFO if x in object_conf.get("var_info_keep", [])
+    }
 
     csq_contents = variant.INFO.get('CSQ')
-    csq_string = config.get('csq_string')
+    csq_string = object_conf.get('csq_string')
 
     # break the mono-CSQ-string into the component headings
     csq_categories = list(map(str.lower, csq_string.split('|')))
