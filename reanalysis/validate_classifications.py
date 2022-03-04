@@ -121,7 +121,8 @@ def set_up_inheritance_filters(
 
 
 def validate_class_2(
-    panelapp_data: Dict[str, Dict[str, Union[str, bool]]],
+    gene: str,
+    panel_gene_data: Dict[str, str],
     variant: AnalysisVariant,
     moi_lookup: Dict[str, MOIRunner],
     comp_het_lookup: Dict[str, Dict[str, AnalysisVariant]],
@@ -131,7 +132,8 @@ def validate_class_2(
     Test for class 2 variant
     Is it new in PanelApp?
     Otherwise, does it pass more MOI tests than it did previously?
-    :param panelapp_data:
+    :param gene:
+    :param panel_gene_data:
     :param variant:
     :param moi_lookup:
     :param comp_het_lookup:
@@ -141,11 +143,6 @@ def validate_class_2(
 
     # start with the assumption we will discard
     retain = False
-
-    gene = variant.info.get('gene_id')
-
-    # get relevant panelapp contents
-    panel_gene_data = panelapp_data.get(gene)
 
     # if variant is C2, we need the time sensitive check
     # get the panelapp differences
@@ -240,9 +237,12 @@ def apply_moi_to_variants(
         # CHANGE - take geneIds, copy into INFO, split on that field instead
         gene = analysis_variant.info['transcript_consequences'][0].get('gene')
 
+        # extract the panel data specific to this gene
+        panel_gene_data = panelapp_data.get(gene)
+
         # one variant appears to be retained here, in a red gene
         # possibly overlapping with a Green gene?
-        if gene not in panelapp_data:
+        if panel_gene_data is None:
             logging.error("How did this gene creep in? %s", gene)
             continue
 
@@ -255,7 +255,8 @@ def apply_moi_to_variants(
             if panelapp_data["panel_metadata"].get(
                 "previous_version"
             ) is None or not validate_class_2(
-                panelapp_data=panelapp_data,
+                gene=gene,
+                panel_gene_data=panel_gene_data,
                 moi_lookup=moi_lookup,
                 variant=analysis_variant,
                 comp_het_lookup=comp_het_lookup,
