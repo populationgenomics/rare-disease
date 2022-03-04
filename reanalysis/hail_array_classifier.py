@@ -142,8 +142,8 @@ def annotate_class_2(
                     )
                     | (matrix.info.clinvar_sig.lower().contains(pathogenic))
                     | (
-                        (matrix.info.cadd > config.get('cadd'))
-                        | (matrix.info.revel > config.get('revel'))
+                        (matrix.info.cadd > config['in_silico']['cadd'])
+                        | (matrix.info.revel > config['in_silico']['revel'])
                     )
                 ),
                 ONE_INT,
