@@ -219,7 +219,7 @@ def apply_moi_to_variants(
 
     # parse from config... should we use NEW only for Cat. 2?
     # alternative is considering both NEW and changed MOI
-    class_2_new_only = config.get("class_2_new_only", True)
+    class_2_new_only = config['moi_tests'].get('class_2_new_only', True)
 
     results = []
 
