@@ -11,7 +11,27 @@
         "var_info_keep": [
             "AC",
             "AN",
-            "slivar_comphet"
+            "cadd",
+            "clinvar_sig",
+            "clinvar_stars",
+            "eigen_phred",
+            "exac_af",
+            "fathmm",
+            "gerp_rs",
+            "gnomad_ac",
+            "gnomad_af",
+            "gnomad_an",
+            "gnomad_cov",
+            "gnomad_ex_af",
+            "gnomad_ex_cov",
+            "gnomad_hom",
+            "metasvm",
+            "mutationtaster",
+            "phast_cons",
+            "revel",
+            "slivar_comphet",
+            "splice_ai_csq",
+            "splice_ai_delta"
         ]
     },
     "hail": {

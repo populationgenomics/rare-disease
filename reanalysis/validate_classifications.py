@@ -114,7 +114,7 @@ def set_up_inheritance_filters(
 
             # get a MOIRunner with the relevant filters
             moi_dictionary[gene_moi] = MOIRunner(
-                pedigree=pedigree, target_moi=gene_moi, config=config
+                pedigree=pedigree, target_moi=gene_moi, config=config['moi_tests']
             )
 
     return moi_dictionary
