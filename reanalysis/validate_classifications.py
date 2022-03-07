@@ -5,8 +5,7 @@ reads in all compound het pairs
 reads in all panelapp details
 for each variant in each participant, check MOI
 """
-
-
+import json
 import logging
 from typing import Any, Dict, List, Union
 from itertools import chain
@@ -24,6 +23,7 @@ from reanalysis.utils import (
     PedPerson,
     ReportedVariant,
     read_json_dictionary,
+    SetEncoder,
 )
 
 
@@ -90,7 +90,26 @@ def set_up_inheritance_filters(
     pedigree: Dict[str, PedPerson],
 ) -> Dict[str, MOIRunner]:
     """
+    parse the panelapp data, and find all MOIs in this dataset
+    for each unique MOI, set up a MOI filter instance
+    save each one to a dictionary
 
+    {MOI_string: MOI_runner (with a .run() method)}
+
+    The MOI_runner class will use the provided MOI string to
+    select which filters will be appropriate
+
+    All logic regarding how MOI is applied, and which MOIs to
+    apply to which PanelApp MOI descriptions is partitioned off into
+    the MOI class. All we need here is a Run() method, that returns
+    either a list of results, or an empty list
+
+    for every variant, we can then do a simple lookup using this
+    dictionary to find the correct MOI runner, and run it
+    that will return all matching MOIs for the variant
+
+    This dictionary format means we only have to set up each once
+    A billion variants, 6 MOI = 6 test instances, each created once
     :param panelapp_data:
     :param config:
     :param pedigree:
@@ -132,6 +151,13 @@ def validate_class_2(
     Test for class 2 variant
     Is it new in PanelApp?
     Otherwise, does it pass more MOI tests than it did previously?
+
+    ** this latter test is currently not being used
+    The comparison will initially be
+    "is the variant in a gene which is green in the Mendeliome now,
+    but was not in the pre-PanelApp Mendeliome"
+
+
     :param gene:
     :param panel_gene_data:
     :param variant:
@@ -320,18 +346,20 @@ def clean_initial_results(
 
 @click.command()
 @click.option('--conf', 'config_path', help='')
-@click.option('--class_vcf', 'classified_vcf', help='')
-@click.option('--comp_het', 'compound_het', help='VCF limited to compound-hets')
+@click.option('--class_vcf', help='')
+@click.option('--comp_het', help='VCF limited to compound-hets')
 @click.option('--ped', 'pedigree', help='Pedigree file')
 @click.option('--pap', 'panelapp', help='PanelApp JSON file')
-@click.option('--out_path', 'out_path', help='Where to write the output to')
+@click.option('--out_path', help='Where to write the output to')
+@click.option('--out_json', help='Write the analysis results in JSON form')
 def main(
     config_path: str,
-    classified_vcf: str,
-    compound_het: str,
+    class_vcf: str,
+    comp_het: str,
     pedigree: str,
     panelapp: str,
     out_path: str,
+    out_json: str,
 ):  # pylint: disable=too-many-arguments
     """
     All VCFs in use at this point will be small
@@ -340,11 +368,12 @@ def main(
     the cohort; if the variant number is large, the classes should be refined
     We expect approximately linear scaling with participants in the joint call
     :param config_path:
-    :param classified_vcf:
-    :param compound_het:
+    :param class_vcf:
+    :param comp_het:
     :param pedigree:
     :param panelapp:
     :param out_path:
+    :param out_json:
     """
 
     # parse the pedigree from the file
@@ -357,17 +386,16 @@ def main(
     config_dict = read_json_dictionary(config_path)
 
     # find all the Compound Hets from CH VCF
-    comp_het_digest = parse_comp_hets(compound_het, config=config_dict)
+    comp_het_digest = parse_comp_hets(comp_het, config=config_dict)
 
     # set up the inheritance checks
     moi_lookup = set_up_inheritance_filters(
         panelapp_data=panelapp_data, pedigree=pedigree_digest, config=config_dict
     )
 
-    # boolean the config; whether to ignore retrospective MOI change test
     # find classification events
     results = apply_moi_to_variants(
-        classified_variant_source=classified_vcf,
+        classified_variant_source=class_vcf,
         comp_het_lookup=comp_het_digest,
         moi_lookup=moi_lookup,
         panelapp_data=panelapp_data,
@@ -376,6 +404,10 @@ def main(
 
     # remove duplicate variants
     cleaned_results = clean_initial_results(results)
+
+    # dump the JSON-friendly results to a file
+    with open(out_json, 'w', encoding='utf-8') as handle:
+        json.dump(cleaned_results, handle, cls=SetEncoder)
 
     # generate some html
     html_maker = HTMLBuilder(

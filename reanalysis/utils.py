@@ -305,3 +305,14 @@ class ReportedVariant:
     reasons: Set[str]
     supported: bool
     support_var: Optional[AnalysisVariant] = None
+
+
+class SetEncoder(json.JSONEncoder):
+    """
+    to be used as a JSON encoding class - replaces all sets with lists
+    """
+
+    def default(self, obj):
+        if isinstance(obj, set):
+            return list(obj)
+        return json.JSONEncoder.default(self, obj)

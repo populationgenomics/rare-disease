@@ -30,6 +30,7 @@ REHEADERED_OUT = output_path("hail_classes_reheadered.vcf.bgz")
 COMP_HET_VCF_OUT = output_path("hail_comp_het.vcf.bgz")
 MT_OUT_PATH = output_path('hail_105_ac.mt')
 RESULTS_HTML = output_path('summary_output.html')
+RESULTS_JSON = output_path('summary_output.json')
 CONFIG_OUT = output_path('config_used.json')
 WEB_HTML = output_path('summary_output.html', 'web')
 
@@ -370,13 +371,17 @@ def main(
         f'--pap {panelapp_job.panel_json} '
         f'--ped {ped_in_batch} '
         f'--out_path {results_job.ofile} '
+        f'--out_json {results_job.ojson} '
     )
     logging.info('Results trigger: %s', results_command)
 
     results_job.command(results_command)
     results_job.image(os.getenv('DRIVER_IMAGE'))
 
-    # write the final results file to an HTML
+    # write results as JSON
+    batch.write_output(results_job.ojson, RESULTS_JSON)
+
+    # write results HTML
     batch.write_output(results_job.ofile, RESULTS_HTML)
 
     # write the same report to the dedicated WEB bucket
