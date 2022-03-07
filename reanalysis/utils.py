@@ -5,7 +5,7 @@ which may be shared across reanalysis components
 
 
 from typing import Any, Dict, List, Optional, Set, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, is_dataclass
 from csv import DictReader
 import json
 import os
@@ -213,6 +213,7 @@ def extract_info(variant: Variant, config: Dict[str, Any]):
     return info_dict
 
 
+@dataclass
 class AnalysisVariant:
     """
     create a variant superclass
@@ -307,12 +308,15 @@ class ReportedVariant:
     support_var: Optional[AnalysisVariant] = None
 
 
-class SetEncoder(json.JSONEncoder):
+class CustomEncoder(json.JSONEncoder):
     """
     to be used as a JSON encoding class - replaces all sets with lists
     """
 
     def default(self, obj):
+
+        if is_dataclass(obj):
+            return obj.__dict__
         if isinstance(obj, set):
             return list(obj)
         return json.JSONEncoder.default(self, obj)

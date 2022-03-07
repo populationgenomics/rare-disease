@@ -16,14 +16,14 @@ from reanalysis.moi_tests import MOIRunner
 from reanalysis.results_builder import HTMLBuilder
 from reanalysis.utils import (
     AnalysisVariant,
-    VARIANT_STRING_TEMPLATE,
     COMP_HET_VALUES,
+    CustomEncoder,
     get_simple_moi,
     parse_ped_simple,
     PedPerson,
-    ReportedVariant,
     read_json_dictionary,
-    SetEncoder,
+    ReportedVariant,
+    VARIANT_STRING_TEMPLATE,
 )
 
 
@@ -407,7 +407,7 @@ def main(
 
     # dump the JSON-friendly results to a file
     with open(out_json, 'w', encoding='utf-8') as handle:
-        json.dump(cleaned_results, handle, cls=SetEncoder)
+        json.dump(cleaned_results, handle, cls=CustomEncoder)
 
     # generate some html
     html_maker = HTMLBuilder(
