@@ -204,8 +204,10 @@ def handle_reheader_job(
     )
 
     # reheader the VCF using BCFtools and sed
+    # replace the empty description with the full CSQ line from config
     desc = '##INFO=<ID=CSQ,Number=.,Type=String,Description="'
 
+    # grotty string formatting to deliver the correct syntax to bcftools
     conf_csq = config_dict["variant_object"].get('csq_string').replace('|', r'\|')
     new_format = rf"Format: '{conf_csq}'"
 
