@@ -407,7 +407,7 @@ def main(
 
     # dump the JSON-friendly results to a file
     with open(out_json, 'w', encoding='utf-8') as handle:
-        json.dump(cleaned_results, handle, cls=CustomEncoder)
+        json.dump(cleaned_results, handle, cls=CustomEncoder, indent=4)
 
     # generate some html
     html_maker = HTMLBuilder(
