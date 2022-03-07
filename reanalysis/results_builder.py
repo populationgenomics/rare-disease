@@ -276,7 +276,9 @@ class HTMLBuilder:
                             value=float(variant.var_data.info.get('gnomad_af')),
                         ),
                         'gnomad_AC': variant.var_data.info.get('gnomad_ac'),
-                        'gnomad_HOMs': variant.var_data.info.get('gnomad_hom'),
+                        'exac:hom': variant.var_data.info.get('exac_ac_hom'),
+                        'g_exome:hom': variant.var_data.info.get('gnomad_ex_hom'),
+                        'g_genome:hom': variant.var_data.info.get('gnomad_hom'),
                         'MOIs': ','.join(variant.reasons),
                         'support': self.make_seqr_link(
                             var_string=variant.support_var.string,
