@@ -294,9 +294,11 @@ def filter_mt_rows(
     - reduce the 'geneIds' set to contain only green genes
     - reduce the per-row transcript consequences to those specific to the geneIds
     - reduce the rows to ones where there are remaining tx consequences
+
+    CHANGE: also filter out variants with a high HOM count in one/many pop freq DBs?
     :param matrix:
-    :param config: the dictionary content relating to hail
-    :param green_genes:
+    :param config: dictionary content relating to hail
+    :param green_genes: a setExpression of green genes
     :return: reduced matrix
     """
 
@@ -458,7 +460,7 @@ def extract_annotations(matrix: hl.MatrixTable) -> hl.MatrixTable:
     :param matrix:
     :return: input matrix with annotations pulled into INFO
     """
-    # filter the matrix table on per-consequence basis
+
     return matrix.annotate_rows(
         info=matrix.info.annotate(
             exac_af=hl.or_else(matrix.exac.AF, MISSING_FLOAT_LO),
