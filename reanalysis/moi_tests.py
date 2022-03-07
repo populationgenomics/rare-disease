@@ -31,6 +31,7 @@ GNOMAD_RARE_THRESHOLD = 'gnomad_dominant'
 GNOMAD_AD_AC_THRESHOLD = 'gnomad_max_ac_dominant'
 GNOMAD_DOM_HOM_THRESHOLD = 'gnomad_max_homs_dominant'
 GNOMAD_REC_HOM_THRESHOLD = 'gnomad_max_homs_recessive'
+INFO_HOMS = {'gnomad_hom', 'gnomad_ex_hom', 'exac_ac_hom'}
 
 
 def check_for_second_hit(
@@ -245,7 +246,12 @@ class DominantAutosomal(BaseMoi):
         # more stringent Pop.Freq checks for dominant
         if (
             principal_var.info.get('gnomad_af') >= self.ad_threshold
-            or principal_var.info.get('gnomad_hom') >= self.hom_threshold
+            or any(
+                [
+                    principal_var.info.get(hom_key) >= self.hom_threshold
+                    for hom_key in INFO_HOMS
+                ]
+            )
             or principal_var.info.get('gnomad_ac') >= self.ac_threshold
         ):
             return classifications
@@ -299,6 +305,15 @@ class RecessiveAutosomal(BaseMoi):
         """
 
         classifications = []
+
+        # remove from analysis if too many homs are present in population databases
+        if any(
+            [
+                principal_var.info.get(hom_key) >= self.hom_threshold
+                for hom_key in INFO_HOMS
+            ]
+        ):
+            return classifications
 
         # homozygous is relevant directly
         for sample_id in [
@@ -388,7 +403,12 @@ class XDominant(BaseMoi):
         # more stringent Pop.Freq checks for dominant
         if (
             principal_var.info.get('gnomad_af') >= self.ad_threshold
-            or principal_var.info.get('gnomad_hom') >= self.hom_threshold
+            or any(
+                [
+                    principal_var.info.get(hom_key) >= self.hom_threshold
+                    for hom_key in INFO_HOMS
+                ]
+            )
             or principal_var.info.get('gnomad_ac') >= self.ac_threshold
         ):
             return classifications
@@ -438,6 +458,10 @@ class XRecessive(BaseMoi):
         applied_moi: str = 'X_Recessive',
     ):
         """ """
+
+        self.hom_dom_threshold = config.get(GNOMAD_DOM_HOM_THRESHOLD)
+        self.hom_rec_threshold = config.get(GNOMAD_REC_HOM_THRESHOLD)
+
         super().__init__(pedigree=pedigree, config=config, applied_moi=applied_moi)
 
     def run(
@@ -456,6 +480,15 @@ class XRecessive(BaseMoi):
 
         classifications = []
 
+        # remove from analysis if too many homs are present in population databases
+        if any(
+            [
+                principal_var.info.get(hom_key) >= self.hom_dom_threshold
+                for hom_key in INFO_HOMS
+            ]
+        ):
+            return classifications
+
         # X-relevant, we separate out male and females
         males = [
             sam
@@ -471,6 +504,31 @@ class XRecessive(BaseMoi):
         hom_females = [
             sam for sam in principal_var.hom_samples if not self.pedigree.get(sam).male
         ]
+
+        # if het females are present, try and find support
+        for sample_id in het_females:
+
+            passes, partner = check_for_second_hit(principal_var, comp_hets, sample_id)
+            if passes:
+                classifications.append(
+                    ReportedVariant(
+                        sample=sample_id,
+                        gene=ensg,
+                        var_data=principal_var,
+                        reasons={f'{self.applied_moi} Compound-Het Female'},
+                        supported=True,
+                        support_var=partner,
+                    )
+                )
+
+        # remove from analysis if too many homs are present in population databases
+        if any(
+            [
+                principal_var.info.get(hom_key) >= self.hom_rec_threshold
+                for hom_key in INFO_HOMS
+            ]
+        ):
+            return classifications
 
         # find all het males and hom females
         # assumption that the sample can only be hom if female?
@@ -488,22 +546,6 @@ class XRecessive(BaseMoi):
                     supported=False,
                 )
             )
-
-        # if het females are present, try and find support
-        for sample_id in het_females:
-
-            passes, partner = check_for_second_hit(principal_var, comp_hets, sample_id)
-            if passes:
-                classifications.append(
-                    ReportedVariant(
-                        sample=sample_id,
-                        gene=ensg,
-                        var_data=principal_var,
-                        reasons={f'{self.applied_moi} Compound-Het Female'},
-                        supported=True,
-                        support_var=partner,
-                    )
-                )
         return classifications
 
 
