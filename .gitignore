@@ -6,3 +6,6 @@
 reanalysis/input
 reanalysis/local_results
 *.log
+.idea
+*.vcf*
+.pytest_cache

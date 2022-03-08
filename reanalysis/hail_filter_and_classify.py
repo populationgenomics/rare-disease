@@ -310,6 +310,8 @@ def filter_mt_rows(
         & (matrix.info.gnomad_af < config['af_semi_rare'])
     )
 
+    logging.info('Removed common, size: %d', matrix.count_rows())
+
     # remove all clinvar benign, decent level of support
     benign = hl.str('benign')
     matrix = matrix.filter_rows(
@@ -317,10 +319,12 @@ def filter_mt_rows(
         & (matrix.info.clinvar_stars > 0),
         keep=False,
     )
+    logging.info('Removed benign, size: %d', matrix.count_rows())
 
     # remove any rows with no genic annotation at all
     # do this here as set intersections with Missing will fail
     matrix = matrix.filter_rows(hl.is_missing(matrix.geneIds), keep=False)
+    logging.info('Removed non-genic, size: %d', matrix.count_rows())
 
     # replace the default list of green IDs with a reduced set
     matrix = matrix.annotate_rows(geneIds=green_genes.intersection(matrix.geneIds))
@@ -346,11 +350,12 @@ def filter_mt_rows(
         )
     )
 
-    # filter out all rows with no remaining consequences
-    matrix = matrix.filter_rows(hl.len(matrix.vep.transcript_consequences) > 0)
-
     logging.info('Repartition to 50 fragments following Gene ID filter')
     matrix = matrix.repartition(50, shuffle=False)
+
+    # filter out all rows with no remaining consequences
+    matrix = matrix.filter_rows(hl.len(matrix.vep.transcript_consequences) > 0)
+    logging.info('Removed inconsequential, size: %d', matrix.count_rows())
 
     return matrix
 
@@ -611,15 +616,18 @@ def main(
     if check_file_exists(mt_out.rstrip('/') + '/'):
         logging.info('Loading annotated MT from "%s"', mt_out)
         matrix = hl.read_matrix_table(mt_out)
+        logging.info('Loaded annotated MT, size: %d', matrix.count_rows())
 
     else:
         logging.info('Loading MT from "%s"', mt_path)
         # load MT in
         matrix = hl.read_matrix_table(mt_path)
+        logging.info('Loaded new MT, size: %d', matrix.count_rows())
 
         # hard filter entries in the MT prior to annotation
         logging.info('Hard filtering variants')
         matrix = hard_filter_before_annotation(matrix_data=matrix, config=hail_config)
+        logging.info('After hard filters, size: %d', matrix.count_rows())
 
         # re-annotate using VEP
         logging.info('Annotating variants')
@@ -643,6 +651,7 @@ def main(
     matrix = filter_mt_rows(
         matrix=matrix, config=hail_config, green_genes=green_expression
     )
+    logging.info('After row filters, size: %d', matrix.count_rows())
 
     # add Classes to the MT
     logging.info('Applying classes to variant consequences')
@@ -654,6 +663,7 @@ def main(
     # filter to class-annotated only prior to export
     logging.info('Filter variants to leave only classified')
     matrix = filter_to_classified(matrix)
+    logging.info('Reduce to Classified, size: %d', matrix.count_rows())
 
     # obtain the massive CSQ string using method stolen from the Broad's Gnomad library
     # also take the single gene_id (from the exploded attribute)

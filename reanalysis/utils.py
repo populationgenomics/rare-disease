@@ -17,13 +17,13 @@ COMP_HET_VALUES = ['sample', 'gene', 'id', 'chrom', 'pos', 'ref', 'alt']
 VARIANT_STRING_TEMPLATE = '{}-{}-{}-{}'
 COMP_HET_TEMPLATE = f'{VARIANT_STRING_TEMPLATE}-{{}}'
 
-HOMREF = 0
-HETALT = 1
-UNKNOWN = 2
-HOMALT = 3
+HOMREF: int = 0
+HETALT: int = 1
+UNKNOWN: int = 2
+HOMALT: int = 3
 
 # in cyVCF2, these ints represent HOMREF, and UNKNOWN
-BAD_GENOTYPES = {HOMREF, UNKNOWN}
+BAD_GENOTYPES: Set[int] = {HOMREF, UNKNOWN}
 
 
 def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
@@ -64,17 +64,19 @@ def get_simple_moi(moi: str) -> str:
     """
     takes the vast range of PanelApp MOIs, and reduces to a reduced
     range of cases which can be easily implemented in RD analysis
+    This is required to reduce the complexity of an MVP
+    Could become a strict enumeration
 
-    Note: Maybe don't do this. Leave the raw data in until the final analysis stage
+    Biallelic: [all, panelapp, moi, equal, to, biallelic]
+
     :param moi: full PanelApp string
     :return: a simplified representation
     """
 
-    # default to considering both
-    # NOTE! The Y chromosome genes all have 'Unknown'!
+    # default to considering both. NOTE! Many genes have Unknown MOI!
     panel_app_moi = 'Mono_And_Biallelic'
-    if moi is None:
-        # exit iteration, return both (all considered)
+    if moi is None or moi == 'Unknown':
+        # exit iteration, all simple moi considered
         return panel_app_moi
 
     # ideal for match-case, coming to a python 3.10 near you!
@@ -95,7 +97,7 @@ def get_simple_moi(moi: str) -> str:
 
 def string_format_variant(var: Variant, transcript: Optional[bool] = False) -> str:
     """
-    generates a gnomad and seqr format variant string
+    generates a gnomad & seqr format variant string
     :param var:
     :param transcript: if present, include transcript ID
     :return:
@@ -226,19 +228,19 @@ class AnalysisVariant:
     def __init__(self, var: Variant, samples: List[str], config: Dict[str, Any]):
 
         # store the string representation
-        self.string = string_format_variant(var)
+        self.string: str = string_format_variant(var)
 
         # variant coordinate details
-        self.chrom = var.CHROM
-        self.pos = var.POS
-        self.ref = var.REF
-        self.alt = var.ALT[0]
+        self.chrom: str = var.CHROM
+        self.pos: int = var.POS
+        self.ref: str = var.REF
+        self.alt: str = var.ALT[0]
 
         # set the class attributes
-        self.class_1 = var.INFO.get('Class1') == 1
-        self.class_2 = var.INFO.get('Class2') == 1
-        self.class_3 = var.INFO.get('Class3') == 1
-        self.class_4 = var.INFO.get('Class4') == 1
+        self.class_1: bool = var.INFO.get('Class1') == 1
+        self.class_2: bool = var.INFO.get('Class2') == 1
+        self.class_3: bool = var.INFO.get('Class3') == 1
+        self.class_4: bool = var.INFO.get('Class4') == 1
 
         # get all zygosities once per variant
         # abstraction avoids pulling per-sample calls again later
@@ -246,7 +248,7 @@ class AnalysisVariant:
             variant=var, samples=samples
         )
 
-        self.info = extract_info(variant=var, config=config)
+        self.info: Dict[str, Any] = extract_info(variant=var, config=config)
 
     @property
     def is_classified(self) -> bool:

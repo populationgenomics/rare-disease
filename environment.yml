@@ -1,6 +1,7 @@
 name: rare-disease
 
 channels:
+  - bioconda
   - cpg
   - conda-forge
   - defaults
@@ -15,3 +16,4 @@ dependencies:
   - pandas
   - pip
   - progressbar2
+  - sample-metadata
