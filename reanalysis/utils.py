@@ -312,7 +312,9 @@ class ReportedVariant:
 
 class CustomEncoder(json.JSONEncoder):
     """
-    to be used as a JSON encoding class - replaces all sets with lists
+    to be used as a JSON encoding class
+    - replaces all sets with lists
+    - replaces dataclass objects with a dictionary of the same
     """
 
     def default(self, obj):
