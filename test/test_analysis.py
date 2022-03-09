@@ -18,7 +18,7 @@ PWD = os.path.dirname(__file__)
 INPUT = os.path.join(PWD, 'input')
 JSON_STUB = os.path.join(INPUT, 'json_example.json')
 COMP_HET = os.path.join(INPUT, 'comp_het.vcf.bgz')
-SINGLE_VAR = os.path.join(INPUT, 'single_var.vcf.bgz')
+SINGLE_VAR = os.path.join(INPUT, 'single_hail.vcf.bgz')
 
 with open(os.path.join(INPUT, 'config.json'), 'r') as handle:
     FULL_CONF = json.load(handle)
@@ -67,13 +67,9 @@ def test_comp_het_gather():
 def test_variant_string_format():
     """
     open a single variant test VCF
-    chr2	177663913	rs61306957	G	A
     :return:
     """
     for variant in cyvcf2.VCFReader(SINGLE_VAR):
-        assert string_format_variant(variant) == '2-177663913-G-A'
-        assert (
-            string_format_variant(variant, transcript=True)
-            == '2-177663913-G-A-ENST00000286063'
-        )
+        assert string_format_variant(variant) == '1-1-GC-G'
+        assert string_format_variant(variant, transcript=True) == '1-1-GC-G-None'
         break
