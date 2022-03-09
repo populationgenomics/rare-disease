@@ -104,7 +104,7 @@ This script queries for the latest version of the panel, and obtains all Green (
 
 This data is written into the batch for downstream use as a JSON file
 
-**Optionally this script takes a date as an argument. The active panel version at that data will also be obtained, and the stored data will be augmented with differences between the latest version and this point in time (MOI change, or if the gene is newly Green since that date)
+**Optionally takes a YYYY-MM-DD date argument. The active panel version at that date will be obtained, and the latest data will be augmented with differences between the latest version and this point in time (MOI change, or if the gene is newly Green since that date)
 
 ## Hail_filter_and_classify.py
 
@@ -122,4 +122,7 @@ Implementing Comp-Hets in Hail is currently beyond me, and custom code would req
 
 ## Validate_classifications.py
 
-The big ol' bit
+Multi-step process for pulling in all data, then iterating through to identify variants of interest for the final report
+
+1. Digest the Comp-Het VCF, generating a map for every sample of {Var_1: Var_2} for all variant pairs. See unit tests for output example
+2. Parse the PanelApp data, and for each unique Mode of Inheritance create a filter instance. Separate Doc

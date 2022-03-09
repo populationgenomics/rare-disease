@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 
-# this probably won't work in this format... I'll need to pass the output name
-# in order to extract it from a hail resource later
-# maybe do all this using a subprocess call instead?
-
 # takes a file which was pre-processed by Hail to include a compound CSQ field
 # use this script to add a required Description to the file
 file_in=$1

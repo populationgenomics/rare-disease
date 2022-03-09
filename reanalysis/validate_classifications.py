@@ -345,8 +345,11 @@ def clean_initial_results(
 
 
 @click.command()
-@click.option('--conf', 'config_path', help='')
-@click.option('--class_vcf', help='')
+@click.option('--conf', 'config_path', help='Path to a config JSON file')
+@click.option(
+    '--class_vcf',
+    help='VCF from Hail with variant categories and annotations',
+)
 @click.option('--comp_het', help='VCF limited to compound-hets')
 @click.option('--ped', 'pedigree', help='Pedigree file')
 @click.option('--pap', 'panelapp', help='PanelApp JSON file')
@@ -367,6 +370,10 @@ def main(
     holding all the variants in memory should not be a challenge, no matter how large
     the cohort; if the variant number is large, the classes should be refined
     We expect approximately linear scaling with participants in the joint call
+
+    Might be able to use a single output path, just altering the extension
+    Depends on how this is handled by Hail, as the object paths are Resource File paths
+
     :param config_path:
     :param class_vcf:
     :param comp_het:
