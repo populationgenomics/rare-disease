@@ -38,6 +38,26 @@ The outputs will be written to the [CPG GCP bucket](https://github.com/populatio
 
 ---
 
+# Instructions
+
+Run using a call to the analysis-runner, e.g.
+
+```bash
+PanelApp_Date=${1:-"2021-09-03"}
+analysis-runner \
+  --dataset acute-care \
+  --description "run reanalysis draft" \
+  -o "reanalysis/${PanelApp_Date}" \
+  --access-level test \
+  reanalysis/reanalysis_wrapper.py \
+    --conf gs://cpg-acute-care-test/reanalysis/reanalysis_conf.json \
+    --matrix gs://cpg-acute-care-main/mt/acute-care.mt \
+    --pap_date "${PanelApp_Date}" \
+    --ped gs://cpg-acute-care-test/reanalysis/acute_care_singleton_pedigree.json
+```
+
+---
+
 ## Structure
 
 This program is structured using one wrapper script (`reanalysis_wrapper.py`) which defines and submits the worker sub-batches.
