@@ -1,0 +1,17 @@
+digraph "packages" {
+rankdir=BT
+charset="utf-8"
+"generate_pedigree" [color="black", label="generate_pedigree", shape="box", style="solid"];
+"process_seqr_metadata" [color="black", label="process_seqr_metadata", shape="box", style="solid"];
+"query_panelapp" [color="black", label="query_panelapp", shape="box", style="solid"];
+"hail_filter_and_classify" [color="black", label="hail_filter_and_classify", shape="box", style="solid"];
+"reanalysis.moi_tests" [color="black", label="moi_tests", shape="box", style="solid"];
+"reanalysis.results_builder" [color="black", label="results_builder", shape="box", style="solid"];
+"reanalysis.utils" [color="black", label="utils", shape="box", style="solid"];
+"validate_classifications" [color="black", label="validate_classifications", shape="box", style="solid"];
+"reanalysis.moi_tests" -> "reanalysis.utils" [arrowhead="open", arrowtail="none"];
+"reanalysis.results_builder" -> "reanalysis.utils" [arrowhead="open", arrowtail="none"];
+"validate_classifications" -> "reanalysis.moi_tests" [arrowhead="open", arrowtail="none"];
+"validate_classifications" -> "reanalysis.results_builder" [arrowhead="open", arrowtail="none"];
+"validate_classifications" -> "reanalysis.utils" [arrowhead="open", arrowtail="none"];
+}

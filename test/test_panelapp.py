@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from reanalysis.panelapp_extraction import (
+from reanalysis.query_panelapp import (
     ACTIVITIES,
     get_json_response,
     get_previous_version,

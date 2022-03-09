@@ -44,7 +44,7 @@ BCFTOOLS_IMAGE = f'{AR_REPO}/{BCFTOOLS_TAG}'
 
 # rubbish local references
 HAIL_SCRIPT = os.path.join(os.path.dirname(__file__), "hail_filter_and_classify.py")
-PANELAPP_SCRIPT = os.path.join(os.path.dirname(__file__), "panelapp_extraction.py")
+PANELAPP_SCRIPT = os.path.join(os.path.dirname(__file__), "query_panelapp.py")
 RESULTS_SCRIPT = os.path.join(os.path.dirname(__file__), "validate_classifications.py")
 
 

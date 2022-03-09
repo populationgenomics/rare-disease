@@ -26,7 +26,9 @@ def get_clean_pedigree(
     singles: bool,
 ) -> List[Dict[str, str]]:
     """
-    maybe use dictwriter?
+    swaps sample IDs for the internal CPG values
+    optionally strips out family structure and makes
+    all members into unrelated singletons
     """
 
     new_entries = []

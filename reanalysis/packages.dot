@@ -1,0 +1,21 @@
+digraph "packages" {
+rankdir=BT
+charset="utf-8"
+"reanalysis" [color="black", label="reanalysis", shape="box", style="solid"];
+"reanalysis.generate_pedigree" [color="black", label="reanalysis.generate_pedigree", shape="box", style="solid"];
+"reanalysis.hail_filter_and_classify" [color="black", label="reanalysis.hail_filter_and_classify", shape="box", style="solid"];
+"reanalysis.moi_tests" [color="black", label="reanalysis.moi_tests", shape="box", style="solid"];
+"reanalysis.panelapp_extraction" [color="black", label="reanalysis.panelapp_extraction", shape="box", style="solid"];
+"reanalysis.process_seqr_metadata" [color="black", label="reanalysis.process_seqr_metadata", shape="box", style="solid"];
+"reanalysis.prototype" [color="black", label="reanalysis.prototype", shape="box", style="solid"];
+"reanalysis.prototype.pedigree" [color="black", label="reanalysis.prototype.pedigree", shape="box", style="solid"];
+"reanalysis.reanalysis_wrapper" [color="black", label="reanalysis.reanalysis_wrapper", shape="box", style="solid"];
+"reanalysis.results_builder" [color="black", label="reanalysis.results_builder", shape="box", style="solid"];
+"reanalysis.utils" [color="black", label="reanalysis.utils", shape="box", style="solid"];
+"reanalysis.validate_classifications" [color="black", label="reanalysis.validate_classifications", shape="box", style="solid"];
+"reanalysis.moi_tests" -> "reanalysis.utils" [arrowhead="open", arrowtail="none"];
+"reanalysis.results_builder" -> "reanalysis.utils" [arrowhead="open", arrowtail="none"];
+"reanalysis.validate_classifications" -> "reanalysis.moi_tests" [arrowhead="open", arrowtail="none"];
+"reanalysis.validate_classifications" -> "reanalysis.results_builder" [arrowhead="open", arrowtail="none"];
+"reanalysis.validate_classifications" -> "reanalysis.utils" [arrowhead="open", arrowtail="none"];
+}

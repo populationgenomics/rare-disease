@@ -1,0 +1,26 @@
+digraph "classes" {
+rankdir=BT
+charset="utf-8"
+"reanalysis.utils.AnalysisVariant" [color="black", fontcolor="black", label="{AnalysisVariant|alt\lchrom\lclass_1\lclass_2 : bool\lclass_3\lclass_4\lclass_4_only\lclass_ints\lhet_samples : set\lhom_samples : set\linfo\lis_classified\lpos\lref\lstring : str\l|}", shape="record", style="solid"];
+"reanalysis.moi_tests.BaseMoi" [color="black", fontcolor="black", label="{BaseMoi|applied_moi : str\lconfig : Dict[str, Any]\lpedigree : Dict[str, PedPerson]\l|is_affected(sample_id: str): bool\lrun(principal_var: AnalysisVariant, comp_hets: Dict[str, Dict[str, AnalysisVariant]], ensg: str): List[ReportedVariant]\l}", shape="record", style="solid"];
+#"reanalysis.utils.CustomEncoder" [color="black", fontcolor="black", label="{CustomEncoder|\l|default(obj)\l}", shape="record", style="solid"];
+"reanalysis.moi_tests.DominantAutosomal" [color="black", fontcolor="black", label="{DominantAutosomal|ac_threshold\lad_threshold\lhom_threshold\l|run(principal_var: AnalysisVariant, comp_hets: Dict[str, Dict[str, AnalysisVariant]], ensg: str): List[ReportedVariant]\l}", shape="record", style="solid"];
+"reanalysis.results_builder.HTMLBuilder" [color="black", fontcolor="black", label="{HTMLBuilder|colours\lconfig\lpanelapp : Dict[str, Dict[str, str]]\lpedigree : Dict[str, PedPerson]\lresults : Dict[str, Dict[str, ReportedVariant]]\lseqr : dict\l|class_2_table(class_2_variants: Set[str]): str\lcolour_csq(all_csq: Set[str], mane_csq: Set[str]): str\lcreate_html_tables()\lget_csq_details(variant: ReportedVariant): Tuple[str, str]\lget_summary_stats(): Tuple[str, List[str]]\lmake_seqr_link(var_string: str, sample: str): str\lset_up_colours()\lwrite_html(output_path: str)\l}", shape="record", style="solid"];
+"reanalysis.moi_tests.MOIRunner" [color="black", fontcolor="black", label="{MOIRunner|filter_list : list\l|run(principal_var, comp_hets: Dict[str, Dict[str, AnalysisVariant]], ensg: str): List[ReportedVariant]\lsend_it()\l}", shape="record", style="solid"];
+#"reanalysis.prototype.pedigree.Participant" [color="black", fontcolor="black", label="{Participant|children : List[Type['Participant']]\ldetails\lfather : Optional[Type['Participant']]\lmother : Optional[Type['Participant']]\l|}", shape="record", style="solid"];
+#"reanalysis.prototype.pedigree.PedEntry" [color="black", fontcolor="black", label="{PedEntry|affected\lfamily : str\lfather : str\lis_female\lmother : str\lsample_id : str\l|}", shape="record", style="solid"];
+"reanalysis.utils.PedPerson" [color="black", fontcolor="black", label="{PedPerson|affected : bool\lmale : bool\lsample : str\l|}", shape="record", style="solid"];
+#"reanalysis.prototype.pedigree.PedigreeParser" [color="black", fontcolor="black", label="{PedigreeParser|participants : Dict[str, Type['Participant']]\lped_dict\l|apply_children()\lpopulate_participants(sample_id: str)\lread_participants(ped_file): Dict[str, PedEntry]\l}", shape="record", style="solid"];
+"reanalysis.moi_tests.RecessiveAutosomal" [color="black", fontcolor="black", label="{RecessiveAutosomal|hom_threshold\l|run(principal_var: AnalysisVariant, comp_hets: Dict[str, Dict[str, AnalysisVariant]], ensg: str): List[ReportedVariant]\l}", shape="record", style="solid"];
+"reanalysis.utils.ReportedVariant" [color="black", fontcolor="black", label="{ReportedVariant|gene : str\lreasons : Set[str]\lsample : str\lsupport_var : Optional[AnalysisVariant]\lsupported : bool\lvar_data\l|}", shape="record", style="solid"];
+"reanalysis.moi_tests.XDominant" [color="black", fontcolor="black", label="{XDominant|ac_threshold\lad_threshold\lhom_threshold\l|run(principal_var: AnalysisVariant, comp_hets: Dict[str, Dict[str, AnalysisVariant]], ensg: str): List[ReportedVariant]\l}", shape="record", style="solid"];
+"reanalysis.moi_tests.XRecessive" [color="black", fontcolor="black", label="{XRecessive|hom_dom_threshold\lhom_rec_threshold\l|run(principal_var: AnalysisVariant, comp_hets: Dict[str, Dict[str, AnalysisVariant]], ensg: str): List[ReportedVariant]\l}", shape="record", style="solid"];
+"reanalysis.moi_tests.YHemi" [color="black", fontcolor="black", label="{YHemi|ac_threshold\lad_threshold\l|run(principal_var: AnalysisVariant, comp_hets: Dict[str, Dict[str, AnalysisVariant]], ensg: str): List[ReportedVariant]\l}", shape="record", style="solid"];
+"reanalysis.moi_tests.DominantAutosomal" -> "reanalysis.moi_tests.BaseMoi" [arrowhead="empty", arrowtail="none"];
+"reanalysis.moi_tests.RecessiveAutosomal" -> "reanalysis.moi_tests.BaseMoi" [arrowhead="empty", arrowtail="none"];
+"reanalysis.moi_tests.XDominant" -> "reanalysis.moi_tests.BaseMoi" [arrowhead="empty", arrowtail="none"];
+"reanalysis.moi_tests.XRecessive" -> "reanalysis.moi_tests.BaseMoi" [arrowhead="empty", arrowtail="none"];
+"reanalysis.moi_tests.YHemi" -> "reanalysis.moi_tests.BaseMoi" [arrowhead="empty", arrowtail="none"];
+#"reanalysis.prototype.pedigree.PedEntry" -> "reanalysis.prototype.pedigree.Participant" [arrowhead="diamond", arrowtail="none", fontcolor="green", label="details", style="solid"];
+"reanalysis.utils.AnalysisVariant" -> "reanalysis.utils.ReportedVariant" [arrowhead="diamond", arrowtail="none", fontcolor="green", label="var_data", style="solid"];
+}
