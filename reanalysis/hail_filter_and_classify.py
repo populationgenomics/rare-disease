@@ -31,6 +31,10 @@ ONE_INT = hl.int32(1)
 MISSING_FLOAT_LO = hl.float64(0.0)
 MISSING_FLOAT_HI = hl.float64(1.0)
 
+CONFLICTING = hl.str('conflicting')
+LOFTEE_HC = hl.str('HC')
+PATHOGENIC = hl.str('pathogenic')
+
 
 def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
     """
@@ -86,15 +90,12 @@ def annotate_class_1(matrix: hl.MatrixTable) -> hl.MatrixTable:
     :return:
     """
 
-    pathogenic = hl.str('pathogenic')
-    conflicting = hl.str('conflicting')
-
     return matrix.annotate_rows(
         info=matrix.info.annotate(
             Class1=hl.if_else(
                 (matrix.info.clinvar_stars > 0)
-                & (matrix.info.clinvar_sig.lower().contains(pathogenic))
-                & ~(matrix.info.clinvar_sig.lower().contains(conflicting)),
+                & (matrix.info.clinvar_sig.lower().contains(PATHOGENIC))
+                & ~(matrix.info.clinvar_sig.lower().contains(CONFLICTING)),
                 ONE_INT,
                 MISSING_INT,
             )
@@ -123,7 +124,6 @@ def annotate_class_2(
     """
 
     critical_consequences = hl.set(config.get('critical_csq'))
-    pathogenic = hl.str('pathogenic')
 
     return matrix.annotate_rows(
         info=matrix.info.annotate(
@@ -140,7 +140,7 @@ def annotate_class_2(
                             > 0
                         )
                     )
-                    | (matrix.info.clinvar_sig.lower().contains(pathogenic))
+                    | (matrix.info.clinvar_sig.lower().contains(PATHOGENIC))
                     | (
                         (matrix.info.cadd > config['in_silico']['cadd'])
                         | (matrix.info.revel > config['in_silico']['revel'])
@@ -166,8 +166,6 @@ def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     """
 
     critical_consequences = hl.set(config.get('critical_csq'))
-    pathogenic = hl.str('pathogenic')
-    loftee_high_confidence = hl.str('HC')
 
     return matrix.annotate_rows(
         info=matrix.info.annotate(
@@ -185,11 +183,10 @@ def annotate_class_3(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
                 & (
                     (
                         matrix.vep.transcript_consequences.any(
-                            lambda x: (x.lof == loftee_high_confidence)
-                            | (hl.is_missing(x.lof))
+                            lambda x: (x.lof == LOFTEE_HC) | (hl.is_missing(x.lof))
                         )
                     )
-                    | (matrix.info.clinvar_sig.lower().contains(pathogenic))
+                    | (matrix.info.clinvar_sig.lower().contains(PATHOGENIC))
                 ),
                 ONE_INT,
                 MISSING_INT,
