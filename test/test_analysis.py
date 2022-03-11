@@ -3,16 +3,9 @@ test class for the class validation class
 """
 import json
 import os
-import pytest
-import cyvcf2
 
-from reanalysis.validate_classifications import (
-    parse_comp_hets,
-    read_json_dictionary,
-)
-from reanalysis.utils import (
-    string_format_variant,
-)
+from reanalysis.validate_classifications import parse_comp_hets
+
 
 PWD = os.path.dirname(__file__)
 INPUT = os.path.join(PWD, 'input')
@@ -41,16 +34,6 @@ expected_output = {
 }
 
 
-def test_read_json():
-    """
-
-    :return:
-    """
-    assert read_json_dictionary(JSON_STUB) == {'key': 'value'}
-    with pytest.raises(AssertionError):
-        read_json_dictionary('not_a_real_path')
-
-
 def test_comp_het_gather():
     """
     check that we gather the right data from the comphet het vcf
@@ -62,14 +45,3 @@ def test_comp_het_gather():
         assert set(expected_output[sample].keys()) == set(variants.keys())
         for var_key, variant in variants.items():
             assert variant.string == expected_output[sample][var_key]
-
-
-def test_variant_string_format():
-    """
-    open a single variant test VCF
-    :return:
-    """
-    for variant in cyvcf2.VCFReader(SINGLE_VAR):
-        assert string_format_variant(variant) == '1-1-GC-G'
-        assert string_format_variant(variant, transcript=True) == '1-1-GC-G-None'
-        break

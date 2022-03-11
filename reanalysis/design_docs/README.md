@@ -82,7 +82,8 @@ Non-Optional
 1. `query_panelapp.py` - Uses requests to obtain panel data from AU PanelApp instance
 2. `hail_filter_and_classify.py` - loads variant data in Hail Query, Annotates with VEP and custom categories
 3. `SLIVAR` - executed directly as commands within a Slivar container, identifies compound-het variant pairs
-4. `validate_classifications.py` - takes all previous results, and runs MOI compatibility tests on all samples & variants in the cohort
+4. `validate_classifications.py` - takes all previous results, and runs MOI compatibility tests on all samples &
+variants in the cohort
 
 
 ---
@@ -148,11 +149,13 @@ and testing
 
 Multi-step process for pulling in all data, then iterating through to identify variants of interest
 
-1. Digest the Comp-Het VCF, generating a map for every sample of {Var_1: Var_2} for all variant pairs. See unit tests for output example
+1. Digest the Comp-Het VCF, generating a map for every sample of {Var_1: Var_2} for all variant pairs. See unit 
+tests for output example
 2. Parse the PanelApp data, and for each unique Mode of Inheritance create a filter instance. Separate Doc
-3. Review each variant in turn, applying the Mode(s) of Inheritance relative to the gene the variant sits in, and the sample(s) with variant calls
+3. Review each variant in turn, applying the Mode(s) of Inheritance relative to the gene the variant sits in, 
+and the sample(s) with variant calls
 4. For each sample in the dataset, record a list of all variants which passed the MOI filters
-5. Pass the results to a presentation module
+5. Pass the results to a presentation module 
 
 
 ## MOI Tests
@@ -160,13 +163,21 @@ Multi-step process for pulling in all data, then iterating through to identify v
 Flexible implementation for calculating MOI.
 
 Includes one controlling class `MoiRunner`, and one functional class `BaseMoi` and its children. The `BaseMoi` 
-derivatives each define a Mode of Inheritance.
+derivatives each define a Mode of Inheritance. 
 
 e.g.
 - DominantAutosomal - requires a variant to be exceptionally rare, and homozygotes to be absent from population 
 databases. All samples with a heterozygous variant call are passed as fitting with the MOI
 - XRecessive - Male samples are passed so long as the AF is below a stringent threshold, Female samples must be 
 Homozygous or supported in a compound-het
+
+The separation between the methods defining the filter algorithm, and the MoiRunner using one or more algorithms 
+allows multiple filters to be applied for a given MOI string 
+e.g. 
+- "BOTH monoallelic and biallelic, autosomal or pseudoautosomal" from PanelApp is easy to interpret as 
+2 filters, monoallelic, and biallelic
+- "X-LINKED: hemizygous mutation in males, biallelic mutations in females" for male samples we call a 
+DominantMOI alrogithm, for females we call a Recessive Algorithm
 
 The usage paradigm is:
 
