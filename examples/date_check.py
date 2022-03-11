@@ -31,7 +31,7 @@ from datetime import datetime
 ENSG_RE = re.compile(r'vep_gene_id=(?P<gene>ENSG[0-9]*);')
 
 
-def read_pipe():
+def read_pipe() -> Iterator[str]:
     """
     generator for lines coming through STDIN
     :return:
