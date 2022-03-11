@@ -8,6 +8,7 @@ one command launched per class
 
 
 from typing import Optional
+from shlex import quote
 import os
 
 import click
@@ -15,20 +16,31 @@ import hailtop.batch as hb
 
 
 AR_REPO = 'australia-southeast1-docker.pkg.dev/cpg-common/images'
+HIGH_IMPACT = [
+    'transcript_ablation',
+    "splice_acceptor",
+    "splice_donor",
+    "stop_gained",
+    "start_lost",
+    "frameshift",
+    "stop_lost",
+]
 SLIVAR_TAG = 'slivar:v0.2.7'
 SLIVAR_IMAGE = f'{AR_REPO}/{SLIVAR_TAG}'
-SLIVAR_TEMPLATE = """
-set -ex
-SLIVAR_QUIET="true" slivar expr \
---vcf {input_vcf} \
---pass-only \
---skip-non-variable \
---info '{info_expr}' \
---sample-expr 'het:sample.DP && sample.GQ > 10 && sample.het' \
---sample-expr 'hom:sample.DP && sample.GQ > 10 && sample.hom_alt' \
-| bgzip -c -@ 4 > {output}
-tabix {output}
-"""
+SLIVAR_TEMPLATE = quote(
+    """
+    set -ex;
+    SLIVAR_QUIET="true" slivar expr \
+    --vcf {input_vcf} \
+    --pass-only \
+    --skip-non-variable \
+    --info '{info_expr}' \
+    --sample-expr 'het:sample.DP && sample.GQ > 10 && sample.het' \
+    --sample-expr 'hom:sample.DP && sample.GQ > 10 && sample.hom_alt' \
+    | bgzip -c -@ 4 > {output};
+    tabix {output}
+    """
+)
 
 CLINVAR_PATHO = ' || '.join(
     [f'INFO.clinvar_sig == "{csq}' for csq in ["Pathogenic", "Likely_pathogenic"]]
@@ -114,18 +126,7 @@ def make_class_3_job(
         vcf={'vcf.bgz': '{root}.vcf.bgz', 'vcf.bgz.tbi': '{root}.vcf.bgz.tbi'}
     )
     all_csq_conditions = ' || '.join(
-        [
-            f'variant.INFO.vep_csq == "{csq}"'
-            for csq in [
-                'transcript_ablation',
-                "splice_acceptor",
-                "splice_donor",
-                "stop_gained",
-                "start_lost",
-                "frameshift",
-                "stop_lost",
-            ]
-        ]
+        [f'variant.INFO.vep_csq == "{csq}"' for csq in HIGH_IMPACT]
     )
 
     job_cmd = SLIVAR_TEMPLATE.format(

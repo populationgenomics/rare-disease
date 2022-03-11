@@ -19,6 +19,7 @@ from analysis_runner.git import (
     get_repo_name_from_current_directory,
     get_git_commit_ref_of_current_repository,
 )
+from shlex import quote
 
 import click
 
@@ -125,7 +126,7 @@ def handle_panelapp_job(batch: hb.Batch, date: str) -> hb.batch.job.Job:
     panelapp_job = batch.new_job(name='parse panelapp')
     panelapp_job.image(os.getenv('DRIVER_IMAGE'))
     set_job_resources(panelapp_job, git=True)
-    panelapp_command = (
+    panelapp_command = quote(
         f'python3 {PANELAPP_SCRIPT} '
         f'--out {panelapp_job.panel_json} '
         f'--date {date}'
@@ -150,17 +151,21 @@ def handle_hail_job(
     :param prior_job:
     :return:
     """
+
+    script = quote(
+        f'{HAIL_SCRIPT} '
+        f'--mt {matrix} '
+        f'--pap {PANELAPP_JSON_OUT} '
+        f'--config {config} '
+        f'--output {HAIL_VCF_OUT} '
+        f'--mt_out {MT_OUT_PATH}'
+    )
     hail_job = dataproc.hail_dataproc_job(
         batch=batch,
         worker_machine_type='n1-highmem-8',
         worker_boot_disk_size=200,
         secondary_worker_boot_disk_size=200,
-        script=f'{HAIL_SCRIPT} '
-        f'--mt {matrix} '
-        f'--pap {PANELAPP_JSON_OUT} '
-        f'--config {config} '
-        f'--output {HAIL_VCF_OUT} '
-        f'--mt_out {MT_OUT_PATH}',
+        script=script,
         max_age='8h',
         init=[
             'gs://cpg-reference/hail_dataproc/install_common.sh',
@@ -213,11 +218,13 @@ def handle_reheader_job(
     new_format = rf"Format: '{conf_csq}'"
 
     bcftools_job.command(
-        'set -ex; '
-        f'bcftools view -h {local_vcf} | sed \'s/'
-        f'{desc}">/{desc}{new_format}">/\' > new_header; '
-        f'bcftools reheader -h new_header --threads 4 -o {bcftools_job.vcf["vcf"]} {local_vcf}; '
-        f'tabix {bcftools_job.vcf["vcf"]}; '
+        quote(
+            'set -ex; '
+            f'bcftools view -h {local_vcf} | sed \'s/'
+            f'{desc}">/{desc}{new_format}">/\' > new_header; '
+            f'bcftools reheader -h new_header --threads 4 -o {bcftools_job.vcf["vcf"]} {local_vcf}; '
+            f'tabix {bcftools_job.vcf["vcf"]}; '
+        )
     )
     return bcftools_job
 
@@ -250,12 +257,14 @@ def handle_slivar_job(
     slivar_job.depends_on(prior_job)
 
     slivar_job.command(
-        'export SLIVAR_QUIET="true"; '
-        'slivar compound-hets '
-        '--allow-non-trios '
-        f'--ped {local_ped} '
-        f'-v {reheadered_vcf} | '
-        f'bgzip -c -@ 4 > {slivar_job.out_vcf};'
+        quote(
+            'export SLIVAR_QUIET="true"; '
+            'slivar compound-hets '
+            '--allow-non-trios '
+            f'--ped {local_ped} '
+            f'-v {reheadered_vcf} | '
+            f'bgzip -c -@ 4 > {slivar_job.out_vcf};'
+        )
     )
     return slivar_job
 
@@ -361,7 +370,7 @@ def main(
 
     # needs a container with either cyvcf2 or pyvcf inside
     # we could be gross here, and tuck in an installation?
-    results_command = (
+    results_command = quote(
         'export MAMBA_ROOT_PREFIX="/root/micromamba" && '
         'micromamba install -y cyvcf2 --prefix $MAMBA_ROOT_PREFIX -c bioconda -c conda-forge && '
         f'PYTHONPATH=$(pwd) python3 {RESULTS_SCRIPT} '

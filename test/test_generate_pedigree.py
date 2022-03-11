@@ -21,11 +21,6 @@ PROJECT = 'fake-project'
 INPUT = os.path.join(PWD, 'input')
 JSON_PED = os.path.join(INPUT, 'mock_pedigree.json')
 LOOKUP_PED = os.path.join(INPUT, 'mock_sm_lookup.json')
-API_BASE = 'https://sample-metadata.populationgenomics.org.au/api/v1/'
-FAMILY_BASE = f'{API_BASE}/family/{PROJECT}'
-PARTY_BASE = f'{API_BASE}/participant/{PROJECT}'
-FAMILY_PEDI = f'{FAMILY_BASE}/pedigree'
-PARTY_PEDI = f'{PARTY_BASE}/external-pid-to-internal-sample-id'
 
 SAMPLE_TO_CPG = {
     'sam1': 'cpg1',
