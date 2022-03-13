@@ -3,13 +3,13 @@
 ## Aim
 
 Take in variant data, and run a variant prioritisation algorithm. Highlight a minimal set of variants per sample, 
-based on strict criteria
+based on strict criteria.
 
-In general this is focused on True Positives, and is happy to allow False Negatives, making a highly specific 
-actionable dataset, at the potential expense of sensitivity
+This is biased towards high confidence True Positives, and is happy to allow False Negatives, making a highly 
+specific actionable dataset, at the potential expense of sensitivity.
 
 This is currently in an MVP phase, where the core logic should be accurate but the input and output are only 
-rough drafts
+rough drafts. I.e. substituting the input MatrixTable for a VCF is possible, but not a current priority.
 
 ---
 
@@ -69,8 +69,11 @@ analysis-runner \
 
 ## Structure
 
-This program is structured using one wrapper script (`reanalysis_wrapper.py`) which defines and submits the 
-worker sub-batches.
+This program is  leverages [Hail Batch](https://hail.is/docs/batch/service.html) as a workflow manager. The core
+wrapper script (`reanalysis_wrapper.py`) is submitted as a batch workflow, and within that we spawn a number of 
+single-purpose sub-batches for each step of the workflow. One of those elements (the Hail filtering and annotation
+step) generates a Dataproc cluster, whilst the rest of the steps (PanelApp API query, Slivar, Python analysis stage) 
+are submitted as simple containerised batch operations.
 
 ![uml](packages.png)
 
@@ -90,13 +93,14 @@ variants in the cohort
 
 # Module Descriptions
 
-## Generate_pedigree.py
+## Generate_pedigree.py (optional)
+
+(output from this process can be provided directly as a PED file)
 
 Utilises the Sample-Metadata API client library, which requires being executed inside a gcloud authenticated container 
 
-Queries API for all samples in the cohort, as well as the External ID -> CPG ID mapping
-
-Overwrites all member IDs with the CPG internal ID, and exports in PED format
+Queries API for all samples in the cohort, as well as the External ID -> CPG ID mapping. Overwrites all member
+IDs with the CPG internal ID, and exports in PED format
 
 **Optional argument will strip out all family structure and renders as singletons. This is to prevent the Slivar 
 stage from inferring family structure whilst flagging compound hets whilst we are focused on a Singleton-only 
@@ -132,7 +136,7 @@ or if the gene is newly Green since that date)
 
 A multi-step filtration and annotation process, using Hail Query in a PySpark cluster
 
-Probably deserves a separate readme
+Probably deserves a separate README
 
 ## Slivar
 
@@ -151,7 +155,7 @@ Multi-step process for pulling in all data, then iterating through to identify v
 
 1. Digest the Comp-Het VCF, generating a map for every sample of {Var_1: Var_2} for all variant pairs. See unit 
 tests for output example
-2. Parse the PanelApp data, and for each unique Mode of Inheritance create a filter instance. Separate Doc
+2. Parse the PanelApp data, and for each unique Mode of Inheritance create a filter instance. Separate Doc to cover.
 3. Review each variant in turn, applying the Mode(s) of Inheritance relative to the gene the variant sits in, 
 and the sample(s) with variant calls
 4. For each sample in the dataset, record a list of all variants which passed the MOI filters
@@ -163,7 +167,7 @@ and the sample(s) with variant calls
 Flexible implementation for calculating MOI.
 
 Includes one controlling class `MoiRunner`, and one functional class `BaseMoi` and its children. The `BaseMoi` 
-derivatives each define a Mode of Inheritance. 
+derivatives each define a single Mode of Inheritance. 
 
 e.g.
 - DominantAutosomal - requires a variant to be exceptionally rare, and homozygotes to be absent from population 
