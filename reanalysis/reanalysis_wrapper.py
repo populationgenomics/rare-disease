@@ -7,11 +7,12 @@ wrapper for reanalysis process
 
 
 from typing import Any, Dict, Optional, Union
-import json
+
+# import json
 import logging
 import os
 
-from cloudpathlib import AnyPath
+# from cloudpathlib import AnyPath
 import hailtop.batch as hb
 from analysis_runner import dataproc, output_path
 from analysis_runner.git import (
@@ -32,6 +33,7 @@ HAIL_VCF_OUT = output_path("hail_classified.vcf.bgz")
 REHEADERED_OUT = output_path("hail_classes_reheadered.vcf.bgz")
 COMP_HET_VCF_OUT = output_path("hail_comp_het.vcf.bgz")
 MT_OUT_PATH = output_path('hail_105_ac.mt')
+CH_OUT_PATH = output_path('hail_comp_het.json')
 RESULTS_HTML = output_path('summary_output.html')
 RESULTS_JSON = output_path('summary_output.json')
 CONFIG_OUT = output_path('config_used.json')
@@ -51,13 +53,13 @@ PANELAPP_SCRIPT = os.path.join(os.path.dirname(__file__), "query_panelapp.py")
 RESULTS_SCRIPT = os.path.join(os.path.dirname(__file__), "validate_classifications.py")
 
 
-def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
-    """
-    take a path to a JSON file, read into an object
-    :param bucket_path:
-    """
-    with open(AnyPath(bucket_path), encoding='utf-8') as handle:
-        return json.load(handle)
+# def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
+#     """
+#     take a path to a JSON file, read into an object
+#     :param bucket_path:
+#     """
+#     with open(AnyPath(bucket_path), encoding='utf-8') as handle:
+#         return json.load(handle)
 
 
 def set_job_resources(job: Union[hb.batch.job.BashJob, hb.batch.job.Job], git=False):
@@ -117,7 +119,8 @@ def handle_hail_job(batch: hb.Batch, matrix: str, config: str) -> hb.batch.job.J
         f'--pap {PANELAPP_JSON_OUT} '
         f'--config {config} '
         f'--output {HAIL_VCF_OUT} '
-        f'--mt_out {MT_OUT_PATH}'
+        f'--mt_out {MT_OUT_PATH} '
+        f'--ch_out {CH_OUT_PATH} '
     )
     hail_job = dataproc.hail_dataproc_job(
         batch=batch,
@@ -299,12 +302,18 @@ def main(
     # complete absence of the VCF will cause an exception to be thrown
     # handled in method for now
     # prior_job = None
-    if not AnyPath(HAIL_VCF_OUT).exists():
-        _prior_job = handle_hail_job(
-            batch=batch,
-            matrix=matrix_path,
-            config=config_json,
-        )
+    # if not AnyPath(HAIL_VCF_OUT).exists():
+    #     _prior_job = handle_hail_job(
+    #         batch=batch,
+    #         matrix=matrix_path,
+    #         config=config_json,
+    #     )
+
+    _prior_job = handle_hail_job(
+        batch=batch,
+        matrix=matrix_path,
+        config=config_json,
+    )
 
     # # copy the Hail output file into the remaining batch jobs
     # hail_output_in_batch = batch.read_input_group(

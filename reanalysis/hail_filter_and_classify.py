@@ -26,7 +26,7 @@ import sys
 import click
 import hail as hl
 
-from cloudpathlib import AnyPath
+from google.cloud import storage
 
 
 # set some Hail constants
@@ -39,6 +39,44 @@ MISSING_FLOAT_HI = hl.float64(1.0)
 CONFLICTING = hl.str('conflicting')
 LOFTEE_HC = hl.str('HC')
 PATHOGENIC = hl.str('pathogenic')
+
+
+def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
+    """
+    take a GCP bucket path to a JSON file, read into an object
+    this loop can read config files, or data
+    :param bucket_path:
+    :return:
+    """
+
+    # split the full path to get the bucket and file path
+    bucket, path = bucket_path.replace('gs://', '').split('/')
+
+    # create a client
+    g_client = storage.Client()
+
+    # obtain the blob of the data
+    json_blob = g_client.get_bucket(bucket).get_blob(path)
+
+    # the download_as_bytes method isn't available; but this returns bytes?
+    return json.loads(json_blob.download_as_string())
+
+
+def check_file_exists(filepath: str) -> bool:
+    """
+    used to allow for the skipping of long running process
+    if data already exists
+    - for novel analysis runs, might need a force parameter
+    if output folder is the same as a prev. run
+    :param filepath:
+    :return:
+    """
+    bucket = filepath.replace('gs://', '').split('/')[0]
+    path = filepath.replace('gs://', '').split('/', maxsplit=1)[1]
+
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket)
+    return storage.Blob(bucket=bucket, name=path).exists(storage_client)
 
 
 def annotate_class_1(matrix: hl.MatrixTable) -> hl.MatrixTable:
@@ -266,12 +304,17 @@ def extract_comp_het_details(matrix: hl.MatrixTable, write_path: str):
         for row in hets_as_python
     }
 
-    # swap file extensions, to create a JSON output
-    output_path = f'{write_path.split(".", maxsplit=1)[0]}.json'
-
     # write this content to an output path
-    with open(AnyPath(output_path), encoding='utf-8') as handle:
+    with open('local_temp.json', 'w', encoding='utf-8') as handle:
         json.dump(combinations, handle)
+
+    # evasion for the lack of cloudpathlib in the current deployment
+    bucket, path = write_path.replace('gs://', '').split('/')
+    storage_client = storage.Client()
+    bucket = storage_client.get_bucket(bucket)
+    blob = bucket.blob(path)
+
+    blob.upload_from_filename('local_temp.json')
 
 
 def filter_matrix_by_ac(
@@ -622,6 +665,7 @@ def green_and_new_from_panelapp(
 @click.option('--pap', 'panelapp_path', help='bucket path containing panelapp JSON')
 @click.option('--config', 'config_path', help='path to a config dict')
 @click.option('--output', 'out_vcf', help='VCF path to export results')
+@click.option('--ch_out', help='write path for compound het')
 @click.option(
     '--mt_out',
     help='path to export annotated MT to',
@@ -633,6 +677,7 @@ def main(
     panelapp_path: str,
     config_path: str,
     out_vcf: str,
+    ch_out: str,
     mt_out: Optional[str] = None,
 ):
     """
@@ -644,21 +689,20 @@ def main(
     :param panelapp_path: path to the panelapp data dump
     :param config_path: path to the config json
     :param out_vcf: path to write the VCF out to
+    :param ch_out:
     :param mt_out:
     """
 
     # get the run configuration JSON
     logging.info('Reading config dict from "%s"', config_path)
-    with open(AnyPath(config_path), encoding='utf-8') as handle:
-        config_dict = json.load(handle)
+    config_dict = read_json_dict_from_path(config_path)
 
     # find the config area specific to hail operations
-    hail_config = config_dict.get('hail')
+    hail_config = config_dict.get("hail")
 
-    # read the parsed panelapp data
     logging.info('Reading PanelApp data from "%s"', panelapp_path)
-    with open(AnyPath(panelapp_path), encoding='utf-8') as handle:
-        panelapp = json.load(handle)
+    # read the parsed panelapp data from a bucket path
+    panelapp = read_json_dict_from_path(panelapp_path)
 
     # pull green and new genes from the panelapp data
     green_expression, new_expression = green_and_new_from_panelapp(panelapp)
@@ -670,7 +714,7 @@ def main(
     hl.init(default_reference=hail_config.get('ref_genome'), quiet=True)
 
     # if we already generated the annotated output, load instead
-    if AnyPath(mt_out.rstrip('/') + '/').exists():
+    if check_file_exists(mt_out.rstrip('/') + '/'):
         logging.info('Loading annotated MT from "%s"', mt_out)
         matrix = hl.read_matrix_table(mt_out)
         logging.debug('Loaded annotated MT, size: %d', matrix.count_rows())
@@ -724,7 +768,7 @@ def main(
     matrix = annotate_class_4_only(matrix)
 
     # parse out the compound het details
-    extract_comp_het_details(matrix=matrix, write_path=out_vcf)
+    extract_comp_het_details(matrix=matrix, write_path=ch_out)
 
     # obtain the massive CSQ string using method stolen from the Broad's Gnomad library
     # also take the single gene_id (from the exploded attribute)
