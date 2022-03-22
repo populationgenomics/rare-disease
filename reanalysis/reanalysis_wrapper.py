@@ -6,12 +6,12 @@ wrapper for reanalysis process
 """
 
 
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 import json
 import logging
 import os
 
-from google.cloud import storage
+from cloudpathlib import AnyPath
 import hailtop.batch as hb
 from analysis_runner import dataproc, output_path
 from analysis_runner.git import (
@@ -22,6 +22,8 @@ from analysis_runner.git import (
 from shlex import quote
 
 import click
+
+from reanalysis.query_panelapp import main as panelapp_main
 
 
 # static paths to write outputs
@@ -49,53 +51,13 @@ PANELAPP_SCRIPT = os.path.join(os.path.dirname(__file__), "query_panelapp.py")
 RESULTS_SCRIPT = os.path.join(os.path.dirname(__file__), "validate_classifications.py")
 
 
-def get_gcp_blob(bucket_path: str) -> storage.blob:
-    """
-    take a GCP bucket path to a file, read into a blob object
-    :param bucket_path:
-    :return: a blob representing the data
-    """
-
-    # split the full path to get the bucket and file path
-    bucket = bucket_path.replace('gs://', '').split('/')[0]
-    path = bucket_path.replace('gs://', '').split('/', maxsplit=1)[1]
-
-    # create a client
-    g_client = storage.Client()
-
-    # obtain the blob of the data
-    return g_client.get_bucket(bucket).get_blob(path)
-
-
 def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
     """
-    take a GCP bucket path to a JSON file, read into an object
-    this loop can read config files, or data
+    take a path to a JSON file, read into an object
     :param bucket_path:
-    :return:
     """
-
-    json_blob = get_gcp_blob(bucket_path)
-
-    # download_as_bytes method isn't available; but this returns bytes?
-    return json.loads(json_blob.download_as_string())
-
-
-def check_blob_exists(filepath: str) -> bool:
-    """
-    used to allow for the skipping of long running process
-    if data already exists
-
-    - for novel analysis runs, might need a force parameter
-    if output folder is the same as a prev. run
-    :param filepath:
-    :return:
-    """
-    blob = get_gcp_blob(filepath)
-
-    if blob is None:
-        return False
-    return blob.exists()
+    with open(AnyPath(bucket_path), encoding='utf-8') as handle:
+        return json.load(handle)
 
 
 def set_job_resources(job: Union[hb.batch.job.BashJob, hb.batch.job.Job], git=False):
@@ -140,15 +102,12 @@ def handle_panelapp_job(batch: hb.Batch, date: str) -> hb.batch.job.Job:
     return panelapp_job
 
 
-def handle_hail_job(
-    batch: hb.Batch, matrix: str, config: str, prior_job: hb.batch.job
-) -> hb.batch.job.Job:
+def handle_hail_job(batch: hb.Batch, matrix: str, config: str) -> hb.batch.job.Job:
     """
     sets up the hail dataproc stage
     :param batch:
     :param matrix:
     :param config:
-    :param prior_job:
     :return:
     """
 
@@ -177,9 +136,6 @@ def handle_hail_job(
         cluster_name='hail_reanalysis_stage',
     )
     set_job_resources(hail_job)
-
-    # don't start unless prior step is successful
-    hail_job.depends_on(prior_job)
 
     return hail_job
 
@@ -270,29 +226,44 @@ def handle_slivar_job(
 
 
 @click.command()
-@click.option('--matrix', 'matrix_path', help='variant matrix table to analyse')
-@click.option('--pap_date', 'panelapp_date', help='panelapp date threshold')
 @click.option(
-    '--conf',
-    'config_json',
-    help='dictionary of runtime thresholds',
-    required=False,
+    '--matrix', 'matrix_path', help='variant matrix table to analyse', required=True
+)
+@click.option(
+    '--config_json',
+    help='dictionary of runtime settings',
     default='gs://cpg-acute-care-test/reanalysis/reanalysis_conf.json',
+)
+@click.option(
+    '--panelapp_version',
+    help='panelapp version for comparison with earlier version',
+    required=False,
+)
+@click.option(
+    '--panel_genes',
+    help='location of a Gene list for use in analysis',
+    required=False,
 )
 @click.option('--ped', 'ped_file', help='ped file for this analysis')
 def main(
-    matrix_path: str, panelapp_date: str, config_json: str, ped_file: str
-):  # pylint: disable=too-many-locals
+    matrix_path: str,
+    config_json: str,
+    panelapp_version: Optional[str],
+    panel_genes: Optional[str],
+    ped_file: str,
+):
 
     """
-    Description
+    main method, which runs the full reanalysis process
+
     :param matrix_path:
-    :param panelapp_date:
     :param config_json:
+    :param panelapp_version:
+    :param panel_genes:
     :param ped_file:
     """
-
-    config_dict = read_json_dict_from_path(config_json)
+    print(ped_file)
+    # config_dict = read_json_dict_from_path(config_json)
 
     service_backend = hb.ServiceBackend(
         billing_project=os.getenv('HAIL_BILLING_PROJECT'),
@@ -304,100 +275,102 @@ def main(
         name='run_reanalysis', backend=service_backend, cancel_after_n_failures=1
     )
 
-    # read ped and config files as a local batch resource
-    # fiddle with the ped file so that we are _really_ doing singletons
-    # SampleMetadata API to generate PED from *project*
-    ped_in_batch = batch.read_input(ped_file)
-    conf_in_batch = batch.read_input(config_json)
+    # # read ped and config files as a local batch resource
+    # # fiddle with the ped file so that we are _really_ doing singletons
+    # # SampleMetadata API to generate PED from *project*
+    # ped_in_batch = batch.read_input(ped_file)
+    # conf_in_batch = batch.read_input(config_json)
 
     # -------------------------------- #
     # query panelapp for panel details #
     # -------------------------------- #
-    panelapp_job = handle_panelapp_job(batch=batch, date=panelapp_date)
+    # no need to launch in a separate batch, minimal dependencies
+    panelapp_main(
+        panel_id='137',
+        out_path=PANELAPP_JSON_OUT,
+        previous_version=panelapp_version,
+        gene_list=panel_genes,
+    )
 
     # ----------------------- #
     # run hail classification #
     # ----------------------- #
-    # retain dependency flow if we skip the hail job
-    prior_job = panelapp_job
 
     # complete absence of the VCF will cause an exception to be thrown
     # handled in method for now
-    if not check_blob_exists(HAIL_VCF_OUT):
-        hail_job = handle_hail_job(
+    # prior_job = None
+    if not AnyPath(HAIL_VCF_OUT).exists():
+        _prior_job = handle_hail_job(
             batch=batch,
             matrix=matrix_path,
             config=config_json,
-            prior_job=panelapp_job,
         )
-        prior_job = hail_job
 
-    # copy the Hail output file into the remaining batch jobs
-    hail_output_in_batch = batch.read_input_group(
-        **{'vcf': HAIL_VCF_OUT, 'vcf.tbi': HAIL_VCF_OUT + '.tbi'}
-    )
-
-    # --------------------------------- #
-    # bcftools re-headering of hail VCF #
-    # --------------------------------- #
-    bcftools_job = handle_reheader_job(
-        batch=batch,
-        local_vcf=hail_output_in_batch['vcf'],
-        prior_job=prior_job,
-        config_dict=config_dict,
-    )
-
-    batch.write_output(bcftools_job.vcf, REHEADERED_OUT)
-
-    # ------------------------- #
-    # slivar compound het check #
-    # ------------------------- #
-    slivar_job = handle_slivar_job(
-        batch=batch,
-        reheadered_vcf=bcftools_job.vcf['vcf'],
-        local_ped=ped_in_batch,
-        prior_job=prior_job,
-    )
-
-    batch.write_output(slivar_job.out_vcf, COMP_HET_VCF_OUT)
-
-    # not yet in use??
-    results_job = batch.new_job(name='finalise_results')
-    # don't start unless prior jobs are successful
-    results_job.depends_on(slivar_job)
-
-    set_job_resources(results_job, git=True)
-
-    # needs a container with either cyvcf2 or pyvcf inside
-    # we could be gross here, and tuck in an installation?
-    results_command = quote(
-        'export MAMBA_ROOT_PREFIX="/root/micromamba" && '
-        'micromamba install -y cyvcf2 --prefix $MAMBA_ROOT_PREFIX -c bioconda -c conda-forge && '
-        f'PYTHONPATH=$(pwd) python3 {RESULTS_SCRIPT} '
-        f'--conf {conf_in_batch} '
-        f'--class_vcf {bcftools_job.vcf["vcf"]} '
-        f'--comp_het {slivar_job.out_vcf} '
-        f'--pap {panelapp_job.panel_json} '
-        f'--ped {ped_in_batch} '
-        f'--out_path {results_job.ofile} '
-        f'--out_json {results_job.ojson} '
-    )
-    logging.info('Results trigger: %s', results_command)
-
-    results_job.command(results_command)
-    results_job.image(os.getenv('DRIVER_IMAGE'))
-
-    # write results as JSON
-    batch.write_output(results_job.ojson, RESULTS_JSON)
-
-    # write results HTML
-    batch.write_output(results_job.ofile, RESULTS_HTML)
-
-    # write the same report to the dedicated WEB bucket
-    batch.write_output(results_job.ofile, WEB_HTML)
-
-    # save the config file used in this analysis
-    batch.write_output(conf_in_batch, CONFIG_OUT)
+    # # copy the Hail output file into the remaining batch jobs
+    # hail_output_in_batch = batch.read_input_group(
+    #     **{'vcf': HAIL_VCF_OUT, 'vcf.tbi': HAIL_VCF_OUT + '.tbi'}
+    # )
+    #
+    # # --------------------------------- #
+    # # bcftools re-headering of hail VCF #
+    # # --------------------------------- #
+    # bcftools_job = handle_reheader_job(
+    #     batch=batch,
+    #     local_vcf=hail_output_in_batch['vcf'],
+    #     prior_job=prior_job,
+    #     config_dict=config_dict,
+    # )
+    #
+    # batch.write_output(bcftools_job.vcf, REHEADERED_OUT)
+    #
+    # # ------------------------- #
+    # # slivar compound het check #
+    # # ------------------------- #
+    # slivar_job = handle_slivar_job(
+    #     batch=batch,
+    #     reheadered_vcf=bcftools_job.vcf['vcf'],
+    #     local_ped=ped_in_batch,
+    #     prior_job=prior_job,
+    # )
+    #
+    # batch.write_output(slivar_job.out_vcf, COMP_HET_VCF_OUT)
+    #
+    # results_job = batch.new_job(name='finalise_results')
+    # # don't start unless prior jobs are successful
+    # results_job.depends_on(slivar_job)
+    #
+    # set_job_resources(results_job, git=True)
+    #
+    # # needs a container with either cyvcf2 or pyvcf inside
+    # # we could be gross here, and tuck in an installation?
+    # results_command = quote(
+    #     'export MAMBA_ROOT_PREFIX="/root/micromamba" && '
+    #     'micromamba install -y cyvcf2 --prefix $MAMBA_ROOT_PREFIX -c bioconda -c conda-forge && '
+    #     f'PYTHONPATH=$(pwd) python3 {RESULTS_SCRIPT} '
+    #     f'--conf {conf_in_batch} '
+    #     f'--class_vcf {bcftools_job.vcf["vcf"]} '
+    #     f'--comp_het {slivar_job.out_vcf} '
+    #     f'--pap {PANELAPP_JSON_OUT} '
+    #     f'--ped {ped_in_batch} '
+    #     f'--out_path {results_job.ofile} '
+    #     f'--out_json {results_job.ojson} '
+    # )
+    # logging.info('Results trigger: %s', results_command)
+    #
+    # results_job.command(results_command)
+    # results_job.image(os.getenv('DRIVER_IMAGE'))
+    #
+    # # write results as JSON
+    # batch.write_output(results_job.ojson, RESULTS_JSON)
+    #
+    # # write results HTML
+    # batch.write_output(results_job.ofile, RESULTS_HTML)
+    #
+    # # write the same report to the dedicated WEB bucket
+    # batch.write_output(results_job.ofile, WEB_HTML)
+    #
+    # # save the config file used in this analysis
+    # batch.write_output(conf_in_batch, CONFIG_OUT)
 
     # run the batch, and wait, so that the result metadata updates
     batch.run(wait=False)

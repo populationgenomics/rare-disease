@@ -1,5 +1,5 @@
 """
-Similar to hail_classifier.py script, but no exploding
+Read, filter, annotate, classify, and write Genetic data
 - read VCF into MT
 - read PanelApp data through GCP client
 - hard-filter (FILTERS, AC)
@@ -7,21 +7,26 @@ Similar to hail_classifier.py script, but no exploding
 - extract generic fields
 - remove all rows and consequences not relevant to GREEN genes
 - consequence filter
-- remove all rows with no interesting GREEN consequences
+- remove all rows with no interesting consequences
 - extract vep data into CSQ string(s)
 - annotate with classes 1, 2, 3, and 4
 - remove all un-classified variants
 - write as VCF
+
+This doesn't include applying inheritance pattern filters
+Classifications here are treated as unconfirmed
 """
 
 from typing import Any, Dict, Optional, Tuple
+from itertools import permutations
 import json
 import logging
 import sys
 
 import click
 import hail as hl
-from google.cloud import storage
+
+from cloudpathlib import AnyPath
 
 
 # set some Hail constants
@@ -36,58 +41,17 @@ LOFTEE_HC = hl.str('HC')
 PATHOGENIC = hl.str('pathogenic')
 
 
-def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
-    """
-    take a GCP bucket path to a JSON file, read into an object
-    this loop can read config files, or data
-    :param bucket_path:
-    :return:
-    """
-
-    # split the full path to get the bucket and file path
-    bucket = bucket_path.replace('gs://', '').split('/')[0]
-    path = bucket_path.replace('gs://', '').split('/', maxsplit=1)[1]
-
-    # create a client
-    g_client = storage.Client()
-
-    # obtain the blob of the data
-    json_blob = g_client.get_bucket(bucket).get_blob(path)
-
-    # the download_as_bytes method isn't available; but this returns bytes?
-    return json.loads(json_blob.download_as_string())
-
-
-def check_file_exists(filepath: str) -> bool:
-    """
-    used to allow for the skipping of long running process
-    if data already exists
-
-    - for novel analysis runs, might need a force parameter
-    if output folder is the same as a prev. run
-    :param filepath:
-    :return:
-    """
-    bucket = filepath.replace('gs://', '').split('/')[0]
-    path = filepath.replace('gs://', '').split('/', maxsplit=1)[1]
-
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket)
-    return storage.Blob(bucket=bucket, name=path).exists(storage_client)
-
-
 def annotate_class_1(matrix: hl.MatrixTable) -> hl.MatrixTable:
     """
-    applies the Class1 flag where appropriate
+    applies the Class1 annotation (1 or 0) as appropriate
     semi-rare in Gnomad
     at least one Clinvar star
     either Pathogenic or Likely_pathogenic in Clinvar
-    Assign 1 or 0, depending on presence
 
-    Didn't handle "Pathogenic/Likely_pathogenic"
+    Didn't handle 'Pathogenic/Likely_pathogenic'
     Changing to 'contains pathogenic and not conflicting'
     :param matrix:
-    :return:
+    :return: same Matrix, with additional field per variant
     """
 
     return matrix.annotate_rows(
@@ -120,7 +84,7 @@ def annotate_class_2(
     :param matrix:
     :param config:
     :param new_genes: the new genes in this panelapp content
-    :return:
+    :return: same Matrix, with additional field per variant
     """
 
     critical_consequences = hl.set(config.get('critical_csq'))
@@ -228,8 +192,8 @@ def annotate_class_4(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
                         )
                     )
                     & (
-                        (matrix.info.mutationtaster.contains("D"))
-                        | (matrix.info.mutationtaster == "missing")
+                        (matrix.info.mutationtaster.contains('D'))
+                        | (matrix.info.mutationtaster == 'missing')
                     )
                     & (matrix.info.gerp_rs >= config.get('gerp'))
                     & (matrix.info.eigen_phred > config.get('eigen'))
@@ -241,7 +205,76 @@ def annotate_class_4(matrix: hl.MatrixTable, config: Dict[str, Any]) -> hl.Matri
     )
 
 
-def hard_filter_before_annotation(
+def annotate_class_4_only(matrix: hl.MatrixTable) -> hl.MatrixTable:
+    """
+    applies a flagto all variants with only Class4 flags applied
+    this becomes relevant when we are looking at variants eligible for
+    compound het analysis
+
+    :param matrix:
+    """
+
+    return matrix.annotate_rows(
+        info=matrix.info.annotate(
+            class_4_only=hl.if_else(
+                (matrix.info.Class1 == 0)
+                & (matrix.info.Class2 == 0)
+                & (matrix.info.Class3 == 0)
+                & (matrix.info.Class4 == 1),
+                ONE_INT,
+                MISSING_INT,
+            )
+        )
+    )
+
+
+def extract_comp_het_details(matrix: hl.MatrixTable, write_path: str):
+    """
+    takes the matrix table, and finds compound-hets per sample
+    based on the gene name only
+
+    :param matrix:
+    :param write_path: path to the output VCF, transform to json
+    """
+
+    # set a new group of values as the key, so that we can collect on them easily
+    ch_matrix = matrix.key_rows_by(
+        matrix.locus, matrix.alleles, matrix.info.class_4_only
+    )
+    ch_matrix = ch_matrix.annotate_cols(
+        hets=hl.agg.group_by(
+            ch_matrix.info.gene,
+            hl.agg.filter(ch_matrix.GT.is_het(), hl.agg.collect(ch_matrix.row_key)),
+        )
+    )
+
+    # extract those possible compound het pairs out as a non-Hail structure
+    hets_as_python = ch_matrix.select_cols('hets').col.collect()
+
+    # find all variant pair permutations which aren't both class 4
+    combinations = {
+        row.s: {
+            key: [
+                (var1, var2)
+                for var1, var2 in permutations(value, 2)
+                if not all(
+                    map(lambda x: x == 0, [var1['class_4_only'], var2['class_4_only']])
+                )
+            ]
+            for key, value in dict(row.hets).items()
+        }
+        for row in hets_as_python
+    }
+
+    # swap file extensions, to create a JSON output
+    output_path = f'{write_path.split(".", maxsplit=1)[0]}.json'
+
+    # write this content to an output path
+    with open(AnyPath(output_path), encoding='utf-8') as handle:
+        json.dump(combinations, handle)
+
+
+def filter_matrix_by_ac(
     matrix_data: hl.MatrixTable, config: Dict[str, Any]
 ) -> hl.MatrixTable:
     """
@@ -258,6 +291,15 @@ def hard_filter_before_annotation(
         matrix_data = matrix_data.filter_rows(
             matrix_data.info.AC <= matrix_data.info.AN // config['ac_filter_percentage']
         )
+    return matrix_data
+
+
+def filter_matrix_by_variant_attributes(matrix_data: hl.MatrixTable) -> hl.MatrixTable:
+    """
+    filter MT to rows with normalised, high quality variants
+    :param matrix_data:
+    :return:
+    """
 
     # hard filter for quality; assuming data is well normalised in pipeline
     matrix_data = matrix_data.filter_rows(
@@ -267,9 +309,7 @@ def hard_filter_before_annotation(
         & (hl.len(matrix_data.alleles) == 2)
         & (matrix_data.alleles[1] != '*')
     )
-
-    # throw in a repartition here (annotate even chunks in parallel)
-    return matrix_data.repartition(150, shuffle=False)
+    return matrix_data
 
 
 def annotate_using_vep(matrix_data: hl.MatrixTable) -> hl.MatrixTable:
@@ -279,56 +319,79 @@ def annotate_using_vep(matrix_data: hl.MatrixTable) -> hl.MatrixTable:
     :return:
     """
 
+    # throw in a repartition here (annotate even chunks in parallel)
+    matrix_data = matrix_data.repartition(150, shuffle=False)
+
     # VEP 105 annotations
     return hl.vep(matrix_data, config='file:///vep_data/vep-gcloud.json')
 
 
-def filter_mt_rows(
-    matrix: hl.MatrixTable, config: Dict[str, Any], green_genes: hl.SetExpression
+def filter_rows_for_rare(
+    matrix: hl.MatrixTable, config: Dict[str, Any]
 ) -> hl.MatrixTable:
     """
-    - remove common variants
-    - reduce the 'geneIds' set to contain only green genes
-    - reduce the per-row transcript consequences to those specific to the geneIds
-    - reduce the rows to ones where there are remaining tx consequences
-
-    CHANGE: also filter out variants with a high HOM count in one/many pop freq DBs?
+    run the rare filter, using Gnomad & exac
     :param matrix:
-    :param config: dictionary content relating to hail
-    :param green_genes: a setExpression of green genes
-    :return: reduced matrix
+    :param config:
+    :return:
     """
-
     # exac and gnomad must be below threshold or missing
     # if missing they were previously replaced with 0.0
     # could also extend this filter to include max gnomad Homs
-    matrix = matrix.filter_rows(
+    return matrix.filter_rows(
         (matrix.info.exac_af < config['af_semi_rare'])
         & (matrix.info.gnomad_af < config['af_semi_rare'])
     )
 
-    logging.info('Removed common, size: %d', matrix.count_rows())
 
+def filter_benign(matrix: hl.MatrixTable) -> hl.MatrixTable:
+    """
+    filter out benign variants, where clinvar is confident
+    :param matrix:
+    :return:
+    """
     # remove all clinvar benign, decent level of support
     benign = hl.str('benign')
-    matrix = matrix.filter_rows(
+    return matrix.filter_rows(
         (matrix.info.clinvar_sig.lower().contains(benign))
         & (matrix.info.clinvar_stars > 0),
         keep=False,
     )
-    logging.info('Removed benign, size: %d', matrix.count_rows())
+
+
+def filter_to_green_genes_and_split(
+    matrix: hl.MatrixTable, green_genes: hl.SetExpression
+) -> hl.MatrixTable:
+    """
+    reduces geneIds set to green only, then splits
+    :param matrix:
+    :param green_genes:
+    :return:
+    """
 
     # remove any rows with no genic annotation at all
     # do this here as set intersections with Missing will fail
     matrix = matrix.filter_rows(hl.is_missing(matrix.geneIds), keep=False)
-    logging.info('Removed non-genic, size: %d', matrix.count_rows())
 
     # replace the default list of green IDs with a reduced set
     matrix = matrix.annotate_rows(geneIds=green_genes.intersection(matrix.geneIds))
 
     # split to form a separate row for each green gene
     # this transforms the 'geneIds' field from a set to a string
-    matrix = matrix.explode_rows(matrix.geneIds)
+    return matrix.explode_rows(matrix.geneIds)
+
+
+def filter_by_consequence(
+    matrix: hl.MatrixTable, config: Dict[str, Any]
+) -> hl.MatrixTable:
+    """
+    - reduce the per-row transcript consequences to those specific to the geneIds
+    - reduce the rows to ones where there are remaining tx consequences
+
+    :param matrix:
+    :param config: dictionary content relating to hail
+    :return: reduced matrix
+    """
 
     # identify consequences to discard from the config
     useless_csq = hl.set(config['useless_csq'])
@@ -347,14 +410,8 @@ def filter_mt_rows(
         )
     )
 
-    logging.info('Repartition to 50 fragments following Gene ID filter')
-    matrix = matrix.repartition(50, shuffle=False)
-
     # filter out all rows with no remaining consequences
-    matrix = matrix.filter_rows(hl.len(matrix.vep.transcript_consequences) > 0)
-    logging.info('Removed inconsequential, size: %d', matrix.count_rows())
-
-    return matrix
+    return matrix.filter_rows(hl.len(matrix.vep.transcript_consequences) > 0)
 
 
 def vep_struct_to_csq(
@@ -362,7 +419,8 @@ def vep_struct_to_csq(
 ) -> hl.expr.ArrayExpression:
     """
     Taken shamelessly from the gnomad library source code
-    Given a VEP Struct, returns and array of VEP VCF CSQ strings (1 per csq in the struct).
+    Given a VEP Struct, returns an array of VEP VCF CSQ strings
+    (1 per csq in the struct).
 
     Fields & order correspond to those in `csq_fields`, corresponding to the
     VCF header that is required to interpret the VCF CSQ INFO field.
@@ -371,10 +429,10 @@ def vep_struct_to_csq(
     These fields are formatted in the same way that their VEP CSQ counterparts are.
 
     :param vep_expr: The input VEP Struct
-    :param csq_fields: The | delimited list of fields to include in the CSQ (in that order)
+    :param csq_fields: | delimited fields to include in the CSQ (in that order)
     :return: The corresponding CSQ strings
     """
-    _csq_fields = [f.lower() for f in csq_fields.split("|")]
+    _csq_fields = [f.lower() for f in csq_fields.split('|')]
 
     def get_csq_from_struct(
         element: hl.expr.StructExpression, feature_type: str
@@ -385,63 +443,63 @@ def vep_struct_to_csq(
         # Add general exceptions
         fields.update(
             {
-                "allele": element.variant_allele,
-                "consequence": hl.delimit(element.consequence_terms, delimiter="&"),
-                "feature_type": feature_type,
-                "feature": (
+                'allele': element.variant_allele,
+                'consequence': hl.delimit(element.consequence_terms, delimiter='&'),
+                'feature_type': feature_type,
+                'feature': (
                     element.transcript_id
-                    if "transcript_id" in element
+                    if 'transcript_id' in element
                     else element.regulatory_feature_id
-                    if "regulatory_feature_id" in element
+                    if 'regulatory_feature_id' in element
                     else element.motif_feature_id
-                    if "motif_feature_id" in element
-                    else ""
+                    if 'motif_feature_id' in element
+                    else ''
                 ),
-                "variant_class": vep_expr.variant_class,
-                "canonical": hl.if_else(element.canonical == 1, "YES", ""),
-                "ensp": element.protein_id,
-                "gene": element.gene_id,
-                "symbol": element.gene_symbol,
-                "symbol_source": element.gene_symbol_source,
-                "cdna_position": hl.str(element.cdna_start)
+                'variant_class': vep_expr.variant_class,
+                'canonical': hl.if_else(element.canonical == 1, 'YES', ''),
+                'ensp': element.protein_id,
+                'gene': element.gene_id,
+                'symbol': element.gene_symbol,
+                'symbol_source': element.gene_symbol_source,
+                'cdna_position': hl.str(element.cdna_start)
                 + hl.if_else(
                     element.cdna_start == element.cdna_end,
-                    "",
-                    "-" + hl.str(element.cdna_end),
+                    '',
+                    '-' + hl.str(element.cdna_end),
                 ),
-                "cds_position": hl.str(element.cds_start)
+                'cds_position': hl.str(element.cds_start)
                 + hl.if_else(
                     element.cds_start == element.cds_end,
-                    "",
-                    "-" + hl.str(element.cds_end),
+                    '',
+                    '-' + hl.str(element.cds_end),
                 ),
-                "protein_position": hl.str(element.protein_start)
+                'protein_position': hl.str(element.protein_start)
                 + hl.if_else(
                     element.protein_start == element.protein_end,
-                    "",
-                    "-" + hl.str(element.protein_end),
+                    '',
+                    '-' + hl.str(element.protein_end),
                 ),
-                "sift": element.sift_prediction
-                + "("
-                + hl.format("%.3f", element.sift_score)
-                + ")",
-                "polyphen": element.polyphen_prediction
-                + "("
-                + hl.format("%.3f", element.polyphen_score)
-                + ")",
-                "mane_select": element.mane_select,
+                'sift': element.sift_prediction
+                + '('
+                + hl.format('%.3f', element.sift_score)
+                + ')',
+                'polyphen': element.polyphen_prediction
+                + '('
+                + hl.format('%.3f', element.polyphen_score)
+                + ')',
+                'mane_select': element.mane_select,
             }
         )
 
         return hl.delimit(
-            [hl.or_else(hl.str(fields.get(f, "")), "") for f in _csq_fields], "|"
+            [hl.or_else(hl.str(fields.get(f, '')), '') for f in _csq_fields], '|'
         )
 
     csq = hl.empty_array(hl.tstr)
     csq = csq.extend(
         hl.or_else(
-            vep_expr["transcript_consequences"].map(
-                lambda x: get_csq_from_struct(x, feature_type="Transcript")
+            vep_expr['transcript_consequences'].map(
+                lambda x: get_csq_from_struct(x, feature_type='Transcript')
             ),
             hl.empty_array(hl.tstr),
         )
@@ -489,8 +547,8 @@ def extract_annotations(matrix: hl.MatrixTable) -> hl.MatrixTable:
                 matrix.clinvar.clinical_significance, MISSING_STRING
             ),
             clinvar_stars=hl.or_else(matrix.clinvar.gold_stars, MISSING_INT),
-            # these next 3 are per-transcript, with ";" to delimit
-            # pulling these annotations into INFO with ";" to separate
+            # these next 3 are per-transcript, with ';' to delimit
+            # pulling these annotations into INFO with ';' to separate
             # will break INFO parsing for most tools
             mutationtaster=hl.or_else(
                 matrix.dbnsfp.MutationTaster_pred, MISSING_STRING
@@ -589,16 +647,18 @@ def main(
     :param mt_out:
     """
 
-    logging.info('Reading config dict from "%s"', config_path)
     # get the run configuration JSON
-    config_dict = read_json_dict_from_path(config_path)
+    logging.info('Reading config dict from "%s"', config_path)
+    with open(AnyPath(config_path), encoding='utf-8') as handle:
+        config_dict = json.load(handle)
 
     # find the config area specific to hail operations
-    hail_config = config_dict.get("hail")
+    hail_config = config_dict.get('hail')
 
+    # read the parsed panelapp data
     logging.info('Reading PanelApp data from "%s"', panelapp_path)
-    # read the parsed panelapp data from a bucket path
-    panelapp = read_json_dict_from_path(panelapp_path)
+    with open(AnyPath(panelapp_path), encoding='utf-8') as handle:
+        panelapp = json.load(handle)
 
     # pull green and new genes from the panelapp data
     green_expression, new_expression = green_and_new_from_panelapp(panelapp)
@@ -610,21 +670,20 @@ def main(
     hl.init(default_reference=hail_config.get('ref_genome'), quiet=True)
 
     # if we already generated the annotated output, load instead
-    if check_file_exists(mt_out.rstrip('/') + '/'):
+    if AnyPath(mt_out.rstrip('/') + '/').exists():
         logging.info('Loading annotated MT from "%s"', mt_out)
         matrix = hl.read_matrix_table(mt_out)
-        logging.info('Loaded annotated MT, size: %d', matrix.count_rows())
+        logging.debug('Loaded annotated MT, size: %d', matrix.count_rows())
 
     else:
         logging.info('Loading MT from "%s"', mt_path)
-        # load MT in
         matrix = hl.read_matrix_table(mt_path)
-        logging.info('Loaded new MT, size: %d', matrix.count_rows())
+        logging.debug('Loaded new MT, size: %d', matrix.count_rows())
 
         # hard filter entries in the MT prior to annotation
         logging.info('Hard filtering variants')
-        matrix = hard_filter_before_annotation(matrix_data=matrix, config=hail_config)
-        logging.info('After hard filters, size: %d', matrix.count_rows())
+        matrix = filter_matrix_by_ac(matrix_data=matrix, config=hail_config)
+        matrix = filter_matrix_by_variant_attributes(matrix_data=matrix)
 
         # re-annotate using VEP
         logging.info('Annotating variants')
@@ -635,39 +694,44 @@ def main(
             matrix.write(mt_out, overwrite=True)
 
     # pull annotations into info and update if missing
-    # conditional logic in hail seems difficult without negation
-    # e.g. filter out rows where X == Y, unless X is missing
-    # replacement with default values seems necessary
-    # i.e. filters were failing, missing clinvar data was failing
-    # test for 'discard rows where clinvar == benign'
     logging.info('Pulling VEP annotations into INFO field')
     matrix = extract_annotations(matrix)
 
     # filter on row annotations
     logging.info('Filtering Variant rows')
-    matrix = filter_mt_rows(
-        matrix=matrix, config=hail_config, green_genes=green_expression
+    matrix = filter_rows_for_rare(matrix=matrix, config=hail_config)
+    matrix = filter_benign(matrix=matrix)
+    matrix = filter_to_green_genes_and_split(
+        matrix=matrix, green_genes=green_expression
     )
-    logging.info('After row filters, size: %d', matrix.count_rows())
+    matrix = filter_by_consequence(matrix=matrix, config=hail_config)
+
+    logging.info('Repartition to 50 fragments following Gene ID filter')
+    matrix = matrix.repartition(50, shuffle=False)
 
     # add Classes to the MT
     logging.info('Applying classes to variant consequences')
     matrix = annotate_class_1(matrix)
     matrix = annotate_class_2(matrix, hail_config, new_expression)
     matrix = annotate_class_3(matrix, hail_config)
-    matrix = annotate_class_4(matrix, hail_config["in_silico"])
+    matrix = annotate_class_4(matrix, hail_config['in_silico'])
 
     # filter to class-annotated only prior to export
     logging.info('Filter variants to leave only classified')
     matrix = filter_to_classified(matrix)
-    logging.info('Reduce to Classified, size: %d', matrix.count_rows())
+
+    # add an additional annotation, if the variant is Class4 only
+    matrix = annotate_class_4_only(matrix)
+
+    # parse out the compound het details
+    extract_comp_het_details(matrix=matrix, write_path=out_vcf)
 
     # obtain the massive CSQ string using method stolen from the Broad's Gnomad library
     # also take the single gene_id (from the exploded attribute)
     matrix = matrix.annotate_rows(
         info=matrix.info.annotate(
             CSQ=vep_struct_to_csq(
-                matrix.vep, csq_fields=config_dict["variant_object"].get('csq_string')
+                matrix.vep, csq_fields=config_dict['variant_object'].get('csq_string')
             ),
             gene_id=matrix.geneIds,
         )
