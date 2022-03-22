@@ -26,7 +26,7 @@ from shlex import quote
 
 import click
 
-from query_panelapp import main as panelapp_main
+# from query_panelapp import main as panelapp_main
 
 
 # static paths to write outputs
@@ -290,12 +290,12 @@ def main(
     # query panelapp for panel details #
     # -------------------------------- #
     # no need to launch in a separate batch, minimal dependencies
-    panelapp_main(
-        panel_id='137',
-        out_path=PANELAPP_JSON_OUT,
-        previous_version=panelapp_version,
-        gene_list=panel_genes,
-    )
+    # panelapp_main(
+    #     panel_id='137',
+    #     out_path=PANELAPP_JSON_OUT,
+    #     previous_version=panelapp_version,
+    #     gene_list=panel_genes,
+    # )
 
     # ----------------------- #
     # run hail classification #
