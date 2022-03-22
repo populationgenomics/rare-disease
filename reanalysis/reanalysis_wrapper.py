@@ -13,8 +13,10 @@ import logging
 import os
 
 # from cloudpathlib import AnyPath
+
+from cpg_utils.hail import output_path
 import hailtop.batch as hb
-from analysis_runner import dataproc, output_path
+from analysis_runner import dataproc
 from analysis_runner.git import (
     prepare_git_job,
     get_repo_name_from_current_directory,
