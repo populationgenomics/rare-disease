@@ -20,11 +20,33 @@ import logging
 import json
 import requests
 
-from cloudpathlib import AnyPath
+# from cloudpathlib import AnyPath
 
+from google.cloud import storage
 import click
 
 PanelData = Dict[str, Dict[str, Union[str, bool]]]
+
+
+def read_json_dict_from_path(bucket_path: str) -> Dict[str, Any]:
+    """
+    take a GCP bucket path to a JSON file, read into an object
+    this loop can read config files, or data
+    :param bucket_path:
+    :return:
+    """
+
+    # split the full path to get the bucket and file path
+    bucket, path = bucket_path.replace('gs://', '').split('/')
+
+    # create a client
+    g_client = storage.Client()
+
+    # obtain the blob of the data
+    json_blob = g_client.get_bucket(bucket).get_blob(path)
+
+    # the download_as_bytes method isn't available; but this returns bytes?
+    return json.loads(json_blob.download_as_string())
 
 
 def parse_gene_list(path_to_list: str) -> Set[str]:
@@ -35,7 +57,7 @@ def parse_gene_list(path_to_list: str) -> Set[str]:
     """
     return {
         line.rstrip()
-        for line in open(AnyPath(path_to_list), 'r', encoding='utf-8')
+        for line in read_json_dict_from_path(path_to_list)
         if line.rstrip() != ''
     }
 
