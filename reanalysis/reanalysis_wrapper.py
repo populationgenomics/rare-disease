@@ -26,7 +26,7 @@ from shlex import quote
 
 import click
 
-from reanalysis.query_panelapp import main as panelapp_main
+from .query_panelapp import main as panelapp_main
 
 
 # static paths to write outputs
