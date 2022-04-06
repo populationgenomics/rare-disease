@@ -22,11 +22,9 @@ assert DRIVER_IMAGE and DATASET
 @click.command("Transfer_datasets from signed URLs")
 @click.option("--presigned-url-file-path")
 @click.option("--subfolder", type=str)
-@click.option("--batch-size", type=int, default=5)
 def main(
     presigned_url_file_path: str,
     subfolder: Optional[str] = None,
-    batch_size: int = 5,
 ):
     """
     Given a list of presigned URLs, download the files and upload them to GCS.
@@ -56,6 +54,8 @@ def main(
         j = batch.new_job(f"URL {idx} ({filename})")
         quoted_url = quote(url)
         j.command(GCLOUD_ACTIVATE_AUTH)
+        # catch errors during the CURL
+        j.command("set -euxo pipefail")
         j.command(
             f"curl -L {quoted_url} | gsutil cp - {os.path.join(output_path, filename)}"
         )
