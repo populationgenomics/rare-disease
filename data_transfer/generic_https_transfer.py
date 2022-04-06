@@ -54,7 +54,7 @@ def main(
         j = batch.new_job(f"URL {idx} ({filename})")
         quoted_url = quote(url)
         j.command(GCLOUD_ACTIVATE_AUTH)
-        # catch errors during the CURL
+        # catch errors during the cURL
         j.command("set -euxo pipefail")
         j.command(
             f"curl -L {quoted_url} | gsutil cp - {os.path.join(output_path, filename)}"
