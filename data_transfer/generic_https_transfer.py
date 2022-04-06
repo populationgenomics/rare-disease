@@ -57,7 +57,7 @@ def main(
         quoted_url = quote(url)
         j.command(GCLOUD_ACTIVATE_AUTH)
         j.command(
-            f"curl -L {quoted_url} | gsutil -m cp - {os.path.join(output_path, filename)}"
+            f"curl -L {quoted_url} | gsutil cp - {os.path.join(output_path, filename)}"
         )
 
     batch.run(wait=False)
