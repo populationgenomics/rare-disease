@@ -9,7 +9,7 @@ from shlex import quote
 import click
 import hailtop.batch as hb
 from cloudpathlib import AnyPath
-from cpg_utils.hail import remote_tmpdir
+from cpg_utils.hail_batch import remote_tmpdir
 from analysis_runner.constants import GCLOUD_ACTIVATE_AUTH
 
 
