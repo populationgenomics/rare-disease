@@ -9,14 +9,12 @@ from shlex import quote
 import click
 import hailtop.batch as hb
 from cloudpathlib import AnyPath
-from cpg_utils.hail_batch import remote_tmpdir
-from analysis_runner.constants import GCLOUD_ACTIVATE_AUTH
+from cpg_utils.config import get_config
+from cpg_utils.hail_batch import remote_tmpdir, authenticate_cloud_credentials_in_job
 
 
-DRIVER_IMAGE = os.getenv("CPG_DRIVER_IMAGE")
 DATASET = os.getenv("CPG_DATASET")
-
-assert DRIVER_IMAGE and DATASET
+assert DATASET
 
 
 @click.command("Transfer_datasets from signed URLs")
@@ -30,6 +28,10 @@ def main(
     Given a list of presigned URLs, download the files and upload them to GCS.
     """
 
+    cpg_driver_image = get_config()["workflow"]["driver_image"]
+    billing_project = get_config()["hail"]["billing_project"]
+    assert billing_project and cpg_driver_image
+
     with open(AnyPath(presigned_url_file_path)) as file:
         presigned_urls = [l.strip() for l in file.readlines() if l.strip()]
 
@@ -38,10 +40,10 @@ def main(
         raise Exception(f"Incorrect URLs: {incorrect_urls}")
 
     sb = hb.ServiceBackend(
-        billing_project=os.getenv("HAIL_BILLING_PROJECT"),
+        billing_project=billing_project,
         remote_tmpdir=remote_tmpdir(),
     )
-    batch = hb.Batch(f"transfer {DATASET}", backend=sb, default_image=DRIVER_IMAGE)
+    batch = hb.Batch(f"transfer {DATASET}", backend=sb, default_image=cpg_driver_image)
 
     output_path = f"gs://cpg-{DATASET}-main-upload"
     if subfolder:
@@ -53,7 +55,7 @@ def main(
         filename = os.path.basename(url).split("?")[0]
         j = batch.new_job(f"URL {idx} ({filename})")
         quoted_url = quote(url)
-        j.command(GCLOUD_ACTIVATE_AUTH)
+        authenticate_cloud_credentials_in_job(job=j)
         # catch errors during the cURL
         j.command("set -euxo pipefail")
         j.command(
