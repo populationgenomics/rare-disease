@@ -2,7 +2,6 @@
 """
 Transfer datasets from presigned URLs to a dataset's GCP main-upload bucket.
 """
-from typing import Optional
 import os
 from shlex import quote
 
@@ -10,27 +9,27 @@ import click
 import hailtop.batch as hb
 from cloudpathlib import AnyPath
 from cpg_utils.config import get_config
-from cpg_utils.hail_batch import remote_tmpdir, authenticate_cloud_credentials_in_job
-
-
-DATASET = os.getenv("CPG_DATASET")
-assert DATASET
+from cpg_utils.hail_batch import (
+    authenticate_cloud_credentials_in_job,
+    dataset_path,
+    remote_tmpdir,
+)
 
 
 @click.command("Transfer_datasets from signed URLs")
 @click.option("--presigned-url-file-path")
-@click.option("--subfolder", type=str)
-def main(
-    presigned_url_file_path: str,
-    subfolder: Optional[str] = None,
-):
+def main(presigned_url_file_path: str):
     """
     Given a list of presigned URLs, download the files and upload them to GCS.
+    GCP suffix in target GCP bucket is defined using analysis-runner's --output
     """
 
-    cpg_driver_image = get_config()["workflow"]["driver_image"]
-    billing_project = get_config()["hail"]["billing_project"]
-    assert billing_project and cpg_driver_image
+    env_config = get_config()
+    cpg_driver_image = env_config["workflow"]["driver_image"]
+    billing_project = env_config["hail"]["billing_project"]
+    dataset = env_config["workflow"]["dataset"]
+    output_prefix = env_config["workflow"]["output_prefix"]
+    assert all({billing_project, cpg_driver_image, dataset, output_prefix})
 
     with open(AnyPath(presigned_url_file_path)) as file:
         presigned_urls = [l.strip() for l in file.readlines() if l.strip()]
@@ -43,11 +42,9 @@ def main(
         billing_project=billing_project,
         remote_tmpdir=remote_tmpdir(),
     )
-    batch = hb.Batch(f"transfer {DATASET}", backend=sb, default_image=cpg_driver_image)
+    batch = hb.Batch(f"transfer {dataset}", backend=sb, default_image=cpg_driver_image)
 
-    output_path = f"gs://cpg-{DATASET}-main-upload"
-    if subfolder:
-        output_path = os.path.join(output_path, subfolder)
+    output_path = dataset_path(output_prefix, "upload")
 
     # may as well batch them to reduce the number of VMs
     for idx, url in enumerate(presigned_urls):
