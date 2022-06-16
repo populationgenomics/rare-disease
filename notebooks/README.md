@@ -7,7 +7,7 @@ Assuming you have conda installed, good practice would be to create a virtual en
 $ conda create -n rd_venv python=3.10
 $ conda activate rd_venv
 # this should show the active environment on the prompt
-$ (rd_venv) conda install --file requirements.txt
+$ (rd_venv) pip install -r requirements.txt
 ```
 
 After the package installation completes, you should be able to run the accompanying notebook with
