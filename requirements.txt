@@ -2,4 +2,4 @@ click==8.0.4
 cloudpathlib[azure,gs]==0.7.0
 cpg-utils==4.3.6
 jupyter==1.0.0
-sample-metadata==4.6.0
+sample-metadata==4.10.0
