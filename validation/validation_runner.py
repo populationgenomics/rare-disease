@@ -29,7 +29,7 @@ DEFAULT_IMAGE = get_config()['workflow']['driver_image']
 assert DEFAULT_IMAGE
 
 MT_TO_VCF_SCRIPT = os.path.join(os.path.dirname(__file__), 'mt_to_vcf.py')
-OUTPUT_VCF = output_path('variants_from_mt.vcf.gz')
+OUTPUT_VCF = output_path('variants_from_mt.vcf.bgz')
 
 
 def set_job_resources(
@@ -99,7 +99,7 @@ def main(input_file: str):
         remote_tmpdir=remote_tmpdir(),
     )
     batch = hb.Batch(
-        name='run reanalysis (AIP)',
+        name='run validation bits and pieces',
         backend=service_backend,
         cancel_after_n_failures=1,
         default_timeout=6000,
