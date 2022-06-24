@@ -1,7 +1,8 @@
+#!/usr/bin/env python3
+
 """
 wraps the validation script(s)
 """
-from typing import Any
 import os
 from pathlib import Path
 from argparse import ArgumentParser
