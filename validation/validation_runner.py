@@ -112,7 +112,9 @@ def main(input_file: str):
             print("no need to convert")
         else:
             # requires conversion to vcf
-            mt_to_vcf(batch=batch, input_file=input_file, output_file=OUTPUT_VCF)
+            _job = mt_to_vcf(batch=batch, input_file=input_file, output_file=OUTPUT_VCF)
+
+    batch.run(wait=False)
 
 
 if __name__ == '__main__':
