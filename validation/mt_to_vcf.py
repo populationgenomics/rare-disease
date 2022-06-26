@@ -28,19 +28,18 @@ def main(input_mt: str, output_path: str, additional_header: str | None = None):
     )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
-        '--input',
+        "--input",
         type=str,
-        help='input MatrixTable path',
+        help="input MatrixTable path",
     )
-    parser.add_argument('--output', type=str, help='path to write VCF out to')
+    parser.add_argument("--output", type=str, help="path to write VCF out to")
     parser.add_argument(
-        '--additional_header',
+        "--additional_header",
         type=str,
-        help='path to file containing any additional header lines',
-        required=False,
+        help="path to file containing any additional header lines",
         default=None,
     )
     args = parser.parse_args()

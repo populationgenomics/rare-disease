@@ -3,10 +3,12 @@
 """
 wraps the validation script(s)
 """
+
 import os
 from pathlib import Path
 from argparse import ArgumentParser
 from cloudpathlib import AnyPath
+import logging
 
 import hailtop.batch as hb
 from cpg_utils.config import get_config
@@ -22,14 +24,18 @@ from cpg_utils.hail_batch import (
     copy_common_env,
     output_path,
     remote_tmpdir,
+    # image_path
 )
 
 
-DEFAULT_IMAGE = get_config()['workflow']['driver_image']
+DEFAULT_IMAGE = get_config()["workflow"]["driver_image"]
 assert DEFAULT_IMAGE
 
-MT_TO_VCF_SCRIPT = os.path.join(os.path.dirname(__file__), 'mt_to_vcf.py')
-OUTPUT_VCF = output_path('variants_from_mt.vcf.bgz')
+MT_TO_VCF_SCRIPT = os.path.join(os.path.dirname(__file__), "mt_to_vcf.py")
+OUTPUT_VCF = output_path("variants_from_mt.vcf.bgz")
+
+# create a logger
+logger = logging.getLogger(__file__)
 
 
 def set_job_resources(
@@ -38,7 +44,7 @@ def set_job_resources(
     git=False,
     image: str | None = None,
     prior_job: hb.batch.job.Job | None = None,
-    memory: str = 'standard',
+    memory: str = "standard",
 ):
     """
     applied resources to the job
@@ -68,28 +74,40 @@ def set_job_resources(
         )
 
 
-def mt_to_vcf(batch: hb.Batch, input_file: str, output_file: str):
+def mt_to_vcf(
+    batch: hb.Batch, input_file: str, output_file: str, header_lines: str | None
+):
     """
     takes a MT and converts to VCF
+    adds in extra header lines for VQSR filters
     :param batch:
     :param input_file:
     :param output_file:
+    :param header_lines:
     :return:
     """
     mt_to_vcf_job = batch.new_job(name='Convert MT to VCF')
+
+    copy_common_env(mt_to_vcf_job)
+
     set_job_resources(mt_to_vcf_job, git=True, auth=True)
 
     job_cmd = (
         f'PYTHONPATH=$(pwd) python3 {MT_TO_VCF_SCRIPT} '
         f'--input {input_file} '
-        f'--output {output_file}'
+        f'--output {output_file} '
     )
-    copy_common_env(mt_to_vcf_job)
+
+    if header_lines:
+        job_cmd += f'--additional_header {header_lines}'
+
+    logger.info(f'Command MT>VCF: {job_cmd}')
+
     mt_to_vcf_job.command(job_cmd)
     return mt_to_vcf_job
 
 
-def main(input_file: str):
+def main(input_file: str, header_lines: str | None):
     """
 
     """
@@ -109,10 +127,15 @@ def main(input_file: str):
     input_path = Path(input_file)
     if input_path.suffix == '.mt':
         if AnyPath(OUTPUT_VCF).exists():
-            print("no need to convert")
+            print('no need to convert')
         else:
             # requires conversion to vcf
-            _job = mt_to_vcf(batch=batch, input_file=input_file, output_file=OUTPUT_VCF)
+            _job = mt_to_vcf(
+                batch=batch,
+                input_file=input_file,
+                output_file=OUTPUT_VCF,
+                header_lines=header_lines,
+            )
 
     batch.run(wait=False)
 
@@ -120,6 +143,9 @@ def main(input_file: str):
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-i', help='input_path')
+    parser.add_argument('-h', help='header_lines_file', default=None)
     args = parser.parse_args()
-    main(input_file=args.i)
-
+    main(
+        input_file=args.i,
+        header_lines=args.h
+    )
