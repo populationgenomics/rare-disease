@@ -107,7 +107,7 @@ def mt_to_vcf(
     return mt_to_vcf_job
 
 
-def main(input_file: str, header_lines: str | None):
+def main(input_file: str, header: str | None):
     """
 
     """
@@ -134,7 +134,7 @@ def main(input_file: str, header_lines: str | None):
                 batch=batch,
                 input_file=input_file,
                 output_file=OUTPUT_VCF,
-                header_lines=header_lines,
+                header_lines=header,
             )
 
     batch.run(wait=False)
@@ -143,9 +143,9 @@ def main(input_file: str, header_lines: str | None):
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-i', help='input_path')
-    parser.add_argument('-h', help='header_lines_file', default=None)
+    parser.add_argument('--header', help='header_lines_file', default=None)
     args = parser.parse_args()
     main(
         input_file=args.i,
-        header_lines=args.h
+        header=args.header
     )

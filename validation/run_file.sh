@@ -9,4 +9,4 @@ analysis-runner \
   --access-level test \
   validation/validation_runner.py \
     -i gs://cpg-validation-main/mt/e51f4fb948f27a4130f4a56b32fd1ca8e7c0ad_867-validation.mt \
-    -h gs://cpg-validation-test/header_lines.txt
+    --header gs://cpg-validation-test/header_lines.txt
