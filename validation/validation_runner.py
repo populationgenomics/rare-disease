@@ -127,7 +127,7 @@ def compare_syndip(
     """
 
     # this data should be supplied externally, but is hard coded for now
-    syndip_truth = "gs://cpg-validation-test/syndip/syndip_truth.vcf.gz"
+    syndip_truth = "gs://cpg-validation-test/syndip/syndip_truth.vcf.bgz"
     syndip_bed = "gs://cpg-reference/validation/syndip/regions/syndip.b38_20180222.bed"
     syndip_sample = "SYNDIP"
 
