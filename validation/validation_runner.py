@@ -35,7 +35,7 @@ HAPPY_IMAGE = image_path("happy-vcfeval")
 assert DEFAULT_IMAGE, HAPPY_IMAGE
 
 MT_TO_VCF_SCRIPT = os.path.join(os.path.dirname(__file__), "mt_to_vcf.py")
-OUTPUT_VCF = output_path("variants_from_mt.vcf.bgz")
+OUTPUT_VCF = output_path("variants_from_mt.vcf.gz")
 
 # create a logger
 logger = logging.getLogger(__file__)
@@ -127,7 +127,7 @@ def compare_syndip(
     """
 
     # this data should be supplied externally, but is hard coded for now
-    syndip_truth = "gs://cpg-validation-test/syndip/syndip_truth.vcf.bgz"
+    syndip_truth = "gs://cpg-validation-test/syndip/syndip_truth.vcf.gz"
     syndip_bed = "gs://cpg-reference/validation/syndip/regions/syndip.b38_20180222.bed"
     syndip_sample = "SYNDIP"
 
