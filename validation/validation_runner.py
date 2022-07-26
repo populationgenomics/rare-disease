@@ -128,13 +128,15 @@ def compare_syndip(
 
     # this data should be supplied externally, but is hard coded for now
     syndip_truth = "gs://cpg-validation-test/syndip/syndip_truth.vcf.gz"
+    syndip_vcf = "gs://cpg-validation-test/2022-06-24/syndip.vcf.gz"
     syndip_bed = "gs://cpg-reference/validation/syndip/regions/syndip.b38_20180222.bed"
-    syndip_sample = "SYNDIP"
 
     job = batch.new_job(name="compare_syndip")
     job.image(HAPPY_IMAGE)
     job.memory("20Gi")
-    vcf_input = batch.read_input_group(**{"vcf": vcf, "index": vcf + ".tbi"})
+    vcf_input = batch.read_input_group(
+        **{"vcf": syndip_vcf, "index": syndip_vcf + ".tbi"}
+    )
     truth_input = batch.read_input_group(
         **{"vcf": syndip_truth, "index": syndip_truth + ".tbi"}
     )
@@ -145,15 +147,12 @@ def compare_syndip(
 
     job_cmd = (
         f"java -jar -Xmx16G /vcfeval/RTG.jar format -o refgenome_sdf {refgenome} && "
-        f"mv {vcf_input['vcf']}  input.vcf.gz && "
-        f"mv {vcf_input['index']}  input.vcf.gz.tbi && "
         f"java -jar -Xmx16G /vcfeval/RTG.jar vcfeval "
         f"-t refgenome_sdf "
         f"-b {truth_input['vcf']} "
-        f"-c input.vcf.gz "
+        f"-c {vcf_input['vcf']} "
         f"-o {job.output} "
-        f"--bed-regions={truth_bed} "
-        f"--sample={syndip_sample} &&"
+        f"--bed-regions={truth_bed} && "
         f"ls {job.output}"
     )
 
