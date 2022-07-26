@@ -35,7 +35,7 @@ HAPPY_IMAGE = image_path("happy-vcfeval")
 assert DEFAULT_IMAGE, HAPPY_IMAGE
 
 MT_TO_VCF_SCRIPT = os.path.join(os.path.dirname(__file__), "mt_to_vcf.py")
-OUTPUT_VCF = output_path("variants_from_mt.vcf.gz")
+OUTPUT_VCF = output_path("variants_from_mt.vcf.bgz")
 
 # create a logger
 logger = logging.getLogger(__file__)
@@ -145,10 +145,12 @@ def compare_syndip(
 
     job_cmd = (
         f"java -jar -Xmx16G /vcfeval/RTG.jar format -o refgenome_sdf {refgenome} && "
+        f"mv {vcf_input['vcf']} > input.vcf.gz"
+        f"mv {vcf_input['index']} > input.vcf.gz.tbi"
         f"java -jar -Xmx16G /vcfeval/RTG.jar vcfeval "
         f"-t refgenome_sdf "
         f"-b {truth_input['vcf']} "
-        f"-c {vcf_input['vcf']} "
+        f"-c input.vcf.gz "
         f"-o {job.output} "
         f"--bed-regions={truth_bed} "
         f"--sample={syndip_sample} &&"
