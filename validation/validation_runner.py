@@ -35,6 +35,7 @@ HAPPY_IMAGE = image_path("happy-vcfeval")
 assert DEFAULT_IMAGE, HAPPY_IMAGE
 
 MT_TO_VCF_SCRIPT = os.path.join(os.path.dirname(__file__), "mt_to_vcf.py")
+QUERY_COMPARISON = os.path.join(os.path.dirname(__file__), "hail_query_validate.py")
 OUTPUT_VCF = output_path("variants_from_mt.vcf.bgz")
 
 # create a logger
@@ -128,15 +129,13 @@ def compare_syndip(
 
     # this data should be supplied externally, but is hard coded for now
     syndip_truth = "gs://cpg-validation-test/syndip/syndip_truth.vcf.gz"
-    syndip_vcf = "gs://cpg-validation-test/2022-06-24/syndip.vcf.gz"
+    # syndip_vcf = "gs://cpg-validation-test/2022-06-24/syndip.vcf.gz"
     syndip_bed = "gs://cpg-reference/validation/syndip/regions/syndip.b38_20180222.bed"
 
     job = batch.new_job(name="compare_syndip")
     job.image(HAPPY_IMAGE)
     job.memory("20Gi")
-    vcf_input = batch.read_input_group(
-        **{"vcf": syndip_vcf, "index": syndip_vcf + ".tbi"}
-    )
+    vcf_input = batch.read_input_group(**{"vcf": vcf, "index": vcf + ".tbi"})
     truth_input = batch.read_input_group(
         **{"vcf": syndip_truth, "index": syndip_truth + ".tbi"}
     )
@@ -158,10 +157,13 @@ def compare_syndip(
 
     job_cmd = (
         f"java -jar -Xmx16G /vcfeval/RTG.jar format -o refgenome_sdf {refgenome} && "
+        f"mv {vcf_input['vcf']} input.vcf.gz && "
+        f"mv {vcf_input['indec']} input.vcf.gz.tbi && "
         f"java -jar -Xmx16G /vcfeval/RTG.jar vcfeval "
+        f"--decompose "
         f"-t refgenome_sdf "
         f"-b {truth_input['vcf']} "
-        f"-c {vcf_input['vcf']} "
+        f"-c input.vcf.gz "
         f"-o {job.output} "
         f"--bed-regions={truth_bed} && "
         f"ls {job.output}"
@@ -171,6 +173,10 @@ def compare_syndip(
     batch.write_output(job.output, output_path("comparison"))
 
     return prior_job
+
+
+def run_hail_benchmark(prior_job):
+    pass
 
 
 def main(input_file: str, header: str | None):
