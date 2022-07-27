@@ -144,6 +144,17 @@ def compare_syndip(
     refgenome = batch.read_input(
         "gs://cpg-reference/hg38/v0/dragen_reference/Homo_sapiens_assembly38_masked.fasta"
     )
+    job.declare_resource_group(
+        output={
+            "fp": "{root}/fp.vcf.gz",
+            "fpidx": "{root}/fp.vcf.gz.tbi",
+            "fn": "{root}/fp.vcf.gz",
+            "fnidx": "{root}/fp.vcf.gz.tbi",
+            "tp": "{root}/fp.vcf.gz",
+            "tpidx": "{root}/fp.vcf.gz.tbi",
+            "summary": "{root}/summary.txt",
+        }
+    )
 
     job_cmd = (
         f"java -jar -Xmx16G /vcfeval/RTG.jar format -o refgenome_sdf {refgenome} && "
@@ -157,6 +168,10 @@ def compare_syndip(
     )
 
     job.command(job_cmd)
+    batch.write_output(job.output.fp, output_path("fp.vcf.gz"))
+    batch.write_output(job.output.fn, output_path("fn.vcf.gz"))
+    batch.write_output(job.output.tp, output_path("tp.vcf.gz"))
+    batch.write_output(job.output.summary, output_path("summary.txt"))
 
     return prior_job
 
