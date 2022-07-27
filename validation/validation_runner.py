@@ -148,10 +148,10 @@ def compare_syndip(
         output={
             "fp.vcf.gz": "{root}/fp.vcf.gz",
             "fp.vcf.gz.tbi": "{root}/fp.vcf.gz.tbi",
-            "fn.vcf.gz": "{root}/fp.vcf.gz",
-            "fn.vcf.gz.tbi": "{root}/fp.vcf.gz.tbi",
-            "tp.vcf.gz": "{root}/fp.vcf.gz",
-            "tp.vcf.gz.tbi": "{root}/fp.vcf.gz.tbi",
+            "fn.vcf.gz": "{root}/fn.vcf.gz",
+            "fn.vcf.gz.tbi": "{root}/fn.vcf.gz.tbi",
+            "tp.vcf.gz": "{root}/tp.vcf.gz",
+            "tp.vcf.gz.tbi": "{root}/tp.vcf.gz.tbi",
             "summary.txt": "{root}/summary.txt",
         }
     )
