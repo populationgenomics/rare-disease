@@ -158,6 +158,7 @@ def compare_syndip(batch: hailtop.batch.Batch, prior_job) -> hailtop.batch.job.J
         f"mv {vcf_input['index']} input.vcf.gz.tbi && "
         f"java -jar -Xmx16G /vcfeval/RTG.jar vcfeval "
         f"--decompose "
+        f"--output-mode annotate "
         f"-t refgenome_sdf "
         f"-b {truth_input['vcf']} "
         f"-c input.vcf.gz "
