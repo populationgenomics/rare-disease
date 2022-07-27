@@ -167,9 +167,10 @@ def compare_syndip(batch: hailtop.batch.Batch, prior_job) -> hailtop.batch.job.J
     )
 
     job.command(job_cmd)
+    job.depends_on(prior_job)
     batch.write_output(job.output, output_path("comparison"))
 
-    return prior_job
+    return job
 
 
 def run_hail_benchmark(prior_job):
