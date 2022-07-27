@@ -146,13 +146,13 @@ def compare_syndip(
     )
     job.declare_resource_group(
         output={
-            "fp": "{root}/fp.vcf.gz",
-            "fpidx": "{root}/fp.vcf.gz.tbi",
-            "fn": "{root}/fp.vcf.gz",
-            "fnidx": "{root}/fp.vcf.gz.tbi",
-            "tp": "{root}/fp.vcf.gz",
-            "tpidx": "{root}/fp.vcf.gz.tbi",
-            "summary": "{root}/summary.txt",
+            "fp.vcf.gz": "{root}/fp.vcf.gz",
+            "fp.vcf.gz.tbi": "{root}/fp.vcf.gz.tbi",
+            "fn.vcf.gz": "{root}/fp.vcf.gz",
+            "fn.vcf.gz.tbi": "{root}/fp.vcf.gz.tbi",
+            "tp.vcf.gz": "{root}/fp.vcf.gz",
+            "tp.vcf.gz.tbi": "{root}/fp.vcf.gz.tbi",
+            "summary.txt": "{root}/summary.txt",
         }
     )
 
