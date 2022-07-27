@@ -108,13 +108,15 @@ def mt_to_vcf(batch: hb.Batch, input_file: str, header_lines: str | None):
     return mt_to_vcf_job
 
 
-def compare_syndip(batch: hailtop.batch.Batch, prior_job) -> hailtop.batch.job.Job:
+def compare_syndip(
+    batch: hailtop.batch.Batch, prior_job, annotate=True
+) -> hailtop.batch.job.Job:
     """
 
     Parameters
     ----------
     batch : the batch to insert this job into
-    vcf : input VCF file
+    annotate : run comparison in annotate mode
     prior_job : a job to depend on, or None
 
     Returns
@@ -140,15 +142,32 @@ def compare_syndip(batch: hailtop.batch.Batch, prior_job) -> hailtop.batch.job.J
     refgenome = batch.read_input(
         "gs://cpg-reference/hg38/v0/dragen_reference/Homo_sapiens_assembly38_masked.fasta"
     )
-    job.declare_resource_group(
-        output={
-            "calls.vcf.gz": "{root}/calls.vcf.gz",
-            "calls.vcf.gz.tbi": "{root}/calls.vcf.gz.tbi",
-            "baseline.vcf.gz": "{root}/baseline.vcf.gz",
-            "baseline.vcf.gz.tbi": "{root}/baseline.vcf.gz.tbi",
-            "summary.txt": "{root}/summary.txt",
-        }
-    )
+
+    if annotate:
+        job.declare_resource_group(
+            output={
+                "calls.vcf.gz": "{root}/calls.vcf.gz",
+                "calls.vcf.gz.tbi": "{root}/calls.vcf.gz.tbi",
+                "baseline.vcf.gz": "{root}/baseline.vcf.gz",
+                "baseline.vcf.gz.tbi": "{root}/baseline.vcf.gz.tbi",
+                "summary.txt": "{root}/summary.txt",
+            }
+        )
+    else:
+        job.declare_resource_group(
+            output={
+                "fp.vcf.gz": "{root}/fp.vcf.gz",
+                "fp.vcf.gz.tbi": "{root}/fp.vcf.gz.tbi",
+                "fn.vcf.gz": "{root}/fn.vcf.gz",
+                "fn.vcf.gz.tbi": "{root}/fn.vcf.gz.tbi",
+                "tp.vcf.gz": "{root}/tp.vcf.gz",
+                "tp.vcf.gz.tbi": "{root}/tp.vcf.gz.tbi",
+                "summary.txt": "{root}/summary.txt",
+            }
+        )
+
+    # default mode is split
+    mode = "--output-mode annotate " if annotate else ""
 
     job_cmd = (
         f"java -jar -Xmx16G /vcfeval/RTG.jar format -o refgenome_sdf {refgenome} && "
@@ -156,7 +175,7 @@ def compare_syndip(batch: hailtop.batch.Batch, prior_job) -> hailtop.batch.job.J
         f"mv {vcf_input['index']} input.vcf.gz.tbi && "
         f"java -jar -Xmx16G /vcfeval/RTG.jar vcfeval "
         f"--decompose "
-        f"--output-mode annotate "
+        f"{mode}"
         f"-t refgenome_sdf "
         f"-b {truth_input['vcf']} "
         f"-c input.vcf.gz "
