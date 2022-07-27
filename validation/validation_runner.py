@@ -144,6 +144,8 @@ def compare_syndip(batch: hailtop.batch.Batch, prior_job) -> hailtop.batch.job.J
         output={
             "calls.vcf.gz": "{root}/calls.vcf.gz",
             "calls.vcf.gz.tbi": "{root}/calls.vcf.gz.tbi",
+            "baseline.vcf.gz": "{root}/baseline.vcf.gz",
+            "baseline.vcf.gz.tbi": "{root}/baseline.vcf.gz.tbi",
             "summary.txt": "{root}/summary.txt",
         }
     )
