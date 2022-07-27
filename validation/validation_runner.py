@@ -9,7 +9,6 @@ from pathlib import Path
 from argparse import ArgumentParser
 
 import hailtop.batch.job
-from cloudpathlib import AnyPath
 import logging
 
 import hailtop.batch as hb
@@ -79,15 +78,12 @@ def set_job_resources(
         )
 
 
-def mt_to_vcf(
-    batch: hb.Batch, input_file: str, output_file: str, header_lines: str | None
-):
+def mt_to_vcf(batch: hb.Batch, input_file: str, header_lines: str | None):
     """
     takes a MT and converts to VCF
     adds in extra header lines for VQSR filters
     :param batch:
     :param input_file:
-    :param output_file:
     :param header_lines:
     :return:
     """
@@ -100,7 +96,7 @@ def mt_to_vcf(
     job_cmd = (
         f"PYTHONPATH=$(pwd) python3 {MT_TO_VCF_SCRIPT} "
         f"--input {input_file} "
-        f"--output {output_file} "
+        f"--output {OUTPUT_VCFS} "
     )
 
     if header_lines:
@@ -112,9 +108,7 @@ def mt_to_vcf(
     return mt_to_vcf_job
 
 
-def compare_syndip(
-    batch: hailtop.batch.Batch, vcf: str, prior_job
-) -> hailtop.batch.job.Job:
+def compare_syndip(batch: hailtop.batch.Batch, prior_job) -> hailtop.batch.job.Job:
     """
 
     Parameters
@@ -127,6 +121,8 @@ def compare_syndip(
     -------
 
     """
+
+    vcf = os.path.join(OUTPUT_VCFS, "syndip.vcf.gz")
 
     # this data should be supplied externally, but is hard coded for now
     syndip_truth = "gs://cpg-validation-test/syndip/syndip_truth.vcf.gz"
@@ -213,12 +209,11 @@ def main(input_file: str, header: str | None):
         prior_job = mt_to_vcf(
             batch=batch,
             input_file=input_file,
-            output_file=OUTPUT_VCFS,
             header_lines=header,
         )
 
     # now do some comparison-related things
-    _prior_job = compare_syndip(batch=batch, vcf=OUTPUT_VCF, prior_job=prior_job)
+    _prior_job = compare_syndip(batch=batch, prior_job=prior_job)
 
     batch.run(wait=False)
 
