@@ -168,10 +168,7 @@ def compare_syndip(
     )
 
     job.command(job_cmd)
-    batch.write_output(job.output.fp, output_path("fp.vcf.gz"))
-    batch.write_output(job.output.fn, output_path("fn.vcf.gz"))
-    batch.write_output(job.output.tp, output_path("tp.vcf.gz"))
-    batch.write_output(job.output.summary, output_path("summary.txt"))
+    batch.write_output(job.output, output_path("comparison"))
 
     return prior_job
 
