@@ -158,7 +158,7 @@ def compare_syndip(
     job_cmd = (
         f"java -jar -Xmx16G /vcfeval/RTG.jar format -o refgenome_sdf {refgenome} && "
         f"mv {vcf_input['vcf']} input.vcf.gz && "
-        f"mv {vcf_input['indec']} input.vcf.gz.tbi && "
+        f"mv {vcf_input['index']} input.vcf.gz.tbi && "
         f"java -jar -Xmx16G /vcfeval/RTG.jar vcfeval "
         f"--decompose "
         f"-t refgenome_sdf "
