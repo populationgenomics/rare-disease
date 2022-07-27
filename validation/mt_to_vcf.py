@@ -1,11 +1,12 @@
 """
 Takes an input MT, and extracts a VCF-format representation.
 """
-
+import os
 from argparse import ArgumentParser
 
 import hail as hl
 from cpg_utils.hail_batch import init_batch
+from cloudpathlib import AnyPath
 
 
 def main(input_mt: str, output_path: str, additional_header: str | None = None):
@@ -20,12 +21,27 @@ def main(input_mt: str, output_path: str, additional_header: str | None = None):
 
     matrix = hl.read_matrix_table(input_mt)
 
-    hl.export_vcf(
-        matrix,
-        output_path,
-        append_to_header=additional_header,
-        tabix=True,
-    )
+    # extract all present samples into a separate file
+    for sample in matrix.s.collect():
+
+        sample_path = os.path.join(output_path, f"{sample}.vcf.bgz")
+
+        if AnyPath(sample_path).exists():
+            print(f"no action taken, {sample_path} already exists")
+            continue
+
+        # filter to this column
+        ss_matrix = matrix.filter_cols(matrix.s == sample)
+
+        # filter to this sample's genotype calls
+        ss_matrix = ss_matrix.filter_entries(ss_matrix.GT.is_non_ref())
+
+        hl.export_vcf(
+            ss_matrix,
+            sample_path,
+            append_to_header=additional_header,
+            tabix=True,
+        )
 
 
 if __name__ == "__main__":
@@ -35,7 +51,7 @@ if __name__ == "__main__":
         type=str,
         help="input MatrixTable path",
     )
-    parser.add_argument("--output", type=str, help="path to write VCF out to")
+    parser.add_argument("--output", type=str, help="directory to write VCFs out to")
     parser.add_argument(
         "--additional_header",
         type=str,

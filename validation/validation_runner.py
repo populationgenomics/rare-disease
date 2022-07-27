@@ -36,6 +36,7 @@ assert DEFAULT_IMAGE, HAPPY_IMAGE
 
 MT_TO_VCF_SCRIPT = os.path.join(os.path.dirname(__file__), "mt_to_vcf.py")
 QUERY_COMPARISON = os.path.join(os.path.dirname(__file__), "hail_query_validate.py")
+OUTPUT_VCFS = output_path("single_sample_vcfs")
 OUTPUT_VCF = output_path("variants_from_mt.vcf.bgz")
 
 # create a logger
@@ -208,16 +209,13 @@ def main(input_file: str, header: str | None):
 
     input_path = Path(input_file)
     if input_path.suffix == ".mt":
-        if AnyPath(OUTPUT_VCF).exists():
-            print("no need to convert")
-        else:
-            # requires conversion to vcf
-            prior_job = mt_to_vcf(
-                batch=batch,
-                input_file=input_file,
-                output_file=OUTPUT_VCF,
-                header_lines=header,
-            )
+        # requires conversion to vcf
+        prior_job = mt_to_vcf(
+            batch=batch,
+            input_file=input_file,
+            output_file=OUTPUT_VCFS,
+            header_lines=header,
+        )
 
     # now do some comparison-related things
     _prior_job = compare_syndip(batch=batch, vcf=OUTPUT_VCF, prior_job=prior_job)
