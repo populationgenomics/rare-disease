@@ -24,7 +24,7 @@ def main(input_mt: str, output_path: str, additional_header: str | None = None):
     # extract all present samples into a separate file
     for sample in matrix.s.collect():
 
-        sample_path = os.path.join(output_path, f"{sample}.vcf.bgz")
+        sample_path = os.path.join(output_path, f"{sample.lower()}.vcf.bgz")
 
         if AnyPath(sample_path).exists():
             print(f"no action taken, {sample_path} already exists")
