@@ -122,7 +122,7 @@ def compare_syndip(batch: hailtop.batch.Batch, prior_job) -> hailtop.batch.job.J
 
     """
 
-    vcf = os.path.join(OUTPUT_VCFS, "syndip.vcf.gz")
+    vcf = os.path.join(OUTPUT_VCFS, "syndip.vcf.bgz")
 
     # this data should be supplied externally, but is hard coded for now
     syndip_truth = "gs://cpg-validation-test/syndip/syndip_truth.vcf.gz"
