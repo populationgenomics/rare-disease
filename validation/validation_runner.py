@@ -252,7 +252,7 @@ def main(input_file: str, header: str | None):
         )
 
     # now do some comparison-related things
-    _prior_job = compare_syndip(batch=batch, prior_job=prior_job)
+    _prior_job = compare_syndip(batch=batch, prior_job=prior_job, combine=True)
 
     batch.run(wait=False)
 
