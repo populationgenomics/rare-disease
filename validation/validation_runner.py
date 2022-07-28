@@ -109,42 +109,39 @@ def mt_to_vcf(batch: hb.Batch, input_file: str, header_lines: str | None):
     return mt_to_vcf_job
 
 
-def compare_syndip(
-    batch: hailtop.batch.Batch, prior_job, annotate=False, combine=False
-) -> hailtop.batch.job.Job:
+def comparison_job(
+    batch, sample, truth_vcf, bed: str, prior_job, annotate=False, combine=False
+):
     """
 
     Parameters
     ----------
-    batch : the batch to insert this job into
-    annotate : run comparison in annotate mode
-    combine : run comparison in combine mode
-    prior_job : a job to depend on, or None
+    batch :
+    sample :
+    truth_vcf :
+    bed :
+    prior_job :
+    annotate :
+    combine :
 
     Returns
     -------
 
     """
-
     if annotate and combine:
         print("please pick a single setting [annotate/combine/split(default)]")
         sys.exit(1)
 
-    vcf = os.path.join(OUTPUT_VCFS, "syndip.vcf.bgz")
+    vcf = os.path.join(OUTPUT_VCFS, f"{sample}.vcf.bgz")
 
-    # this data should be supplied externally, but is hard coded for now
-    syndip_truth = "gs://cpg-validation-test/syndip/syndip_truth.vcf.gz"
-    # syndip_vcf = "gs://cpg-validation-test/2022-06-24/syndip.vcf.gz"
-    syndip_bed = "gs://cpg-reference/validation/syndip/regions/syndip.b38_20180222.bed"
-
-    job = batch.new_job(name="compare_syndip")
+    job = batch.new_job(name=f"compare_{sample}")
     job.image(HAPPY_IMAGE)
     job.memory("20Gi")
     vcf_input = batch.read_input_group(**{"vcf": vcf, "index": vcf + ".tbi"})
     truth_input = batch.read_input_group(
-        **{"vcf": syndip_truth, "index": syndip_truth + ".tbi"}
+        **{"vcf": truth_vcf, "index": truth_vcf + ".tbi"}
     )
-    truth_bed = batch.read_input(syndip_bed)
+    truth_bed = batch.read_input(bed)
     refgenome = batch.read_input(
         "gs://cpg-reference/hg38/v0/dragen_reference/Homo_sapiens_assembly38_masked.fasta"
     )
@@ -189,6 +186,7 @@ def compare_syndip(
     if combine:
         mode = "-m combine "
 
+    # in future don't regenerate SDF
     job_cmd = (
         f"java -jar -Xmx16G /vcfeval/RTG.jar format -o refgenome_sdf {refgenome} && "
         f"mv {vcf_input['vcf']} input.vcf.gz && "
@@ -206,8 +204,7 @@ def compare_syndip(
 
     job.command(job_cmd)
     job.depends_on(prior_job)
-    batch.write_output(job.output, output_path("comparison"))
-
+    batch.write_output(job.output, os.path.join(output_path("comparison"), sample))
     return job
 
 
@@ -251,8 +248,24 @@ def main(input_file: str, header: str | None):
             header_lines=header,
         )
 
-    # now do some comparison-related things
-    _prior_job = compare_syndip(batch=batch, prior_job=prior_job, combine=True)
+    # compare syndip
+    _comparison_job = comparison_job(
+        batch=batch,
+        sample="syndip",
+        prior_job=prior_job,
+        bed="gs://cpg-reference/validation/syndip/regions/syndip.b38_20180222.bed",
+        truth_vcf="gs://cpg-validation-test/syndip/syndip_truth.vcf.gz",
+        combine=True,
+    )
+    # compare hg001
+    _comparison_job = comparison_job(
+        batch=batch,
+        sample="na12878_kccg",
+        prior_job=prior_job,
+        bed="gs://cpg-validation-test/HG001/HG001_GRCh38_1_22_v4.2.1_benchmark.bed",
+        truth_vcf="gs://cpg-reference/validation/giab/truth/HG001_GRCh38_GIAB_highconf_CG-IllFB-IllGATKHC-Ion-10X-SOLID_CHROM1-X_v.3.3.2_highconf_PGandRTGphasetransfer.vcf.gz",
+        combine=True,
+    )
 
     batch.run(wait=False)
 
