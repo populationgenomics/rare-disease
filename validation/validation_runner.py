@@ -263,7 +263,7 @@ def main(input_file: str, header: str | None):
         sample="na12878_kccg",
         prior_job=prior_job,
         bed="gs://cpg-validation-test/HG001/HG001_GRCh38_1_22_v4.2.1_benchmark.bed",
-        truth_vcf="gs://cpg-reference/validation/giab/truth/HG001_GRCh38_GIAB_highconf_CG-IllFB-IllGATKHC-Ion-10X-SOLID_CHROM1-X_v.3.3.2_highconf_PGandRTGphasetransfer.vcf.gz",
+        truth_vcf="gs://cpg-validation-test/HG001/HG001_GRCh38_1_22_v4.2.1_benchmark.vcf.gz",
         combine=True,
     )
 
