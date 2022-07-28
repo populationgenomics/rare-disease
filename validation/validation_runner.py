@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from argparse import ArgumentParser
 
-import hailtop.batch.job
 import logging
 
 import hailtop.batch as hb
@@ -248,21 +247,24 @@ def main(input_file: str, header: str | None):
             header_lines=header,
         )
 
+    twist_bed = "gs://cpg-validation-test/Twist_Exome_Core_Covered_Targets_hg38.bed"
     # compare syndip
+    syndip_bed = "gs://cpg-reference/validation/syndip/regions/syndip.b38_20180222.bed"
     _comparison_job = comparison_job(
         batch=batch,
         sample="syndip",
         prior_job=prior_job,
-        bed="gs://cpg-reference/validation/syndip/regions/syndip.b38_20180222.bed",
+        bed=twist_bed,
         truth_vcf="gs://cpg-validation-test/syndip/syndip_truth.vcf.gz",
         combine=True,
     )
     # compare hg001
+    hg001_bed = "gs://cpg-validation-test/HG001/HG001_GRCh38_1_22_v4.2.1_benchmark.bed"
     _comparison_job = comparison_job(
         batch=batch,
         sample="na12878_kccg",
         prior_job=prior_job,
-        bed="gs://cpg-validation-test/HG001/HG001_GRCh38_1_22_v4.2.1_benchmark.bed",
+        bed=twist_bed,
         truth_vcf="gs://cpg-validation-test/HG001/HG001_GRCh38_1_22_v4.2.1_benchmark.vcf.gz",
         combine=True,
     )
