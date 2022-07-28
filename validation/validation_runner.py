@@ -5,6 +5,7 @@ wraps the validation script(s)
 """
 
 import os
+import sys
 from pathlib import Path
 from argparse import ArgumentParser
 
@@ -109,7 +110,7 @@ def mt_to_vcf(batch: hb.Batch, input_file: str, header_lines: str | None):
 
 
 def compare_syndip(
-    batch: hailtop.batch.Batch, prior_job, annotate=True
+    batch: hailtop.batch.Batch, prior_job, annotate=False, combine=False
 ) -> hailtop.batch.job.Job:
     """
 
@@ -117,12 +118,17 @@ def compare_syndip(
     ----------
     batch : the batch to insert this job into
     annotate : run comparison in annotate mode
+    combine : run comparison in combine mode
     prior_job : a job to depend on, or None
 
     Returns
     -------
 
     """
+
+    if annotate and combine:
+        print("please pick a single setting [annotate/combine/split(default)]")
+        sys.exit(1)
 
     vcf = os.path.join(OUTPUT_VCFS, "syndip.vcf.bgz")
 
@@ -153,6 +159,16 @@ def compare_syndip(
                 "summary.txt": "{root}/summary.txt",
             }
         )
+
+    elif combine:
+        job.declare_resource_group(
+            output={
+                "combined_output.vcf.gz": "{root}/output.vcf.gz",
+                "combined_output.vcf.gz.tbi": "{root}/output.vcf.gz.tbi",
+                "summary.txt": "{root}/summary.txt",
+            }
+        )
+
     else:
         job.declare_resource_group(
             output={
@@ -167,7 +183,11 @@ def compare_syndip(
         )
 
     # default mode is split
-    mode = "--output-mode annotate " if annotate else ""
+    mode = ""
+    if annotate:
+        mode = "-m annotate "
+    if combine:
+        mode = "-m combine "
 
     job_cmd = (
         f"java -jar -Xmx16G /vcfeval/RTG.jar format -o refgenome_sdf {refgenome} && "
