@@ -2,10 +2,11 @@
 
 """
 Takes a path to a MatrixTable, and optionally sample IDs
-Reads in the MT form the input path
+Reads in the MT from provided input path
 If sample IDs are specified, subset containing only those
 Write the [reduced] MT into Test
 Optionally with the --vcf flag, write as a VCF
+Optionally with both --chr and --pos specified, subset to a specific locus
 """
 
 import logging
