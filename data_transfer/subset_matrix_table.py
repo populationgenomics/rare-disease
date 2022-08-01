@@ -166,7 +166,7 @@ if __name__ == "__main__":
     )
     subset_job = batch.new_python_job("run matrix subsetting")
     subset_job.image(get_config()["workflow"]["driver_image"])
-    authenticate_cloud_credentials_in_job(subset_job)
+    # authenticate_cloud_credentials_in_job(subset_job)
     subset_job.call(
         main,
         args.i,
