@@ -9,27 +9,104 @@ Optionally with the --vcf flag, write as a VCF
 Optionally with both --chr and --pos specified, subset to a specific locus
 """
 
+from argparse import ArgumentParser
 import logging
-import os
 import sys
 
-from argparse import ArgumentParser
+import hail as hl
 
-import hailtop.batch as hb
+from cpg_utils.hail_batch import output_path
 
-from cpg_utils.config import get_config
-from cpg_utils.git import (
-    prepare_git_job,
-    get_git_commit_ref_of_current_repository,
-    get_organisation_name_from_current_directory,
-    get_repo_name_from_current_directory,
-)
-from cpg_utils.hail_batch import (
-    authenticate_cloud_credentials_in_job,
-    remote_tmpdir,
-)
 
-script_path = os.path.join(os.path.dirname(__file__), "subset_matrix_table.py")
+def subset_to_samples(matrix: hl.MatrixTable, samples: list[str]) -> hl.MatrixTable:
+    """
+    reduce the MatrixTable to a subset
+    Parameters
+    ----------
+    matrix :
+    samples :
+
+    Returns
+    -------
+
+    """
+
+    mt_samples = matrix.s.collect()
+
+    # check the subset exists
+    missing_samples = [sam for sam in samples if sam not in mt_samples]
+    if missing_samples:
+        raise Exception(f"Sample(s) missing from subset: {','.join(missing_samples)}")
+
+    filt_mt = matrix.filter_cols(matrix.s in samples)
+
+    # # optional - filter to variants with at least one alt call in these samples
+    # call_filt_matrix = filt_mt.filter_entries(filt_mt.GT.is_non_ref())
+
+    return filt_mt
+
+
+def subset_to_locus(matrix: hl.MatrixTable, chrom: str, pos: int) -> hl.MatrixTable:
+    """
+
+    Parameters
+    ----------
+    matrix :
+    chrom :
+    pos :
+
+    Returns
+    -------
+
+    """
+
+    locus = hl.Locus(contig=chrom, position=pos, reference_genome="GRCh38")
+    matrix = matrix.filter_rows(matrix.locus == locus)
+    if matrix.count_rows() == 0:
+        raise Exception(f"No rows remain after applying Locus filter {locus}")
+    return matrix
+
+
+def main(
+    mt_path: str,
+    output_root: str,
+    samples: list[str],
+    vcf: bool,
+    chrom: str | None,
+    pos: int | None,
+):
+    """
+
+    Parameters
+    ----------
+    mt_path : path to input MatrixTable
+    output_root :
+    samples :
+    vcf :
+    chrom :
+    pos :
+
+    Returns
+    -------
+
+    """
+
+    hl.init(default_reference="GRCh38")
+    matrix = hl.read_matrix_table(mt_path)
+
+    if samples:
+        matrix = subset_to_samples(matrix, samples)
+
+    if chrom and pos:
+        matrix = subset_to_locus(matrix=matrix, chrom=chrom, pos=pos)
+
+    # write the MT to a new output path
+    matrix.write(output_path(f"{output_root}.mt"))
+
+    # if VCF, export as a VCF as well
+    if vcf:
+        vcf_output = output_path(f"{output_root}.vcf.bgz")
+        hl.export_vcf(matrix, vcf_output, tabix=True)
 
 
 if __name__ == "__main__":
@@ -67,31 +144,11 @@ if __name__ == "__main__":
             f"When defining a Locus, provide both Chr & Pos: {args.chr}, {args.pos}"
         )
 
-    service_backend = hb.ServiceBackend(
-        billing_project=get_config()["hail"]["billing_project"],
-        remote_tmpdir=remote_tmpdir(),
+    main(
+        mt_path=args.i,
+        output_root=args.out,
+        samples=args.s,
+        vcf=args.vcf,
+        chrom=args.chr,
+        pos=args.pos,
     )
-    batch = hb.Batch(
-        name="AIP batch",
-        backend=service_backend,
-        cancel_after_n_failures=1,
-        default_timeout=6000,
-        default_memory="highmem",
-    )
-    subset_job = batch.new_job("run matrix subsetting")
-    subset_job.image(get_config()["workflow"]["driver_image"])
-    authenticate_cloud_credentials_in_job(subset_job)
-    prepare_git_job(
-        job=subset_job,
-        organisation=get_organisation_name_from_current_directory(),
-        repo_name=get_repo_name_from_current_directory(),
-        commit=get_git_commit_ref_of_current_repository(),
-    )
-
-    sample_arg = f'-s {" ".join(args.s)}' if args.s else ""
-    locus = f"--chr {args.chr} --pos {args.pos}" if args.chr else ""
-    vcf_arg = "--vcf" if args.vcf else ""
-    subset_job.command(
-        f"python3 {script_path} -i {args.i} --out {args.out} {vcf_arg} {sample_arg} {locus}"
-    )
-    batch.run(wait=False)
