@@ -92,6 +92,6 @@ if __name__ == "__main__":
     locus = f"--chr {args.chr} --pos {args.pos}" if args.chr else ""
     vcf_arg = "--vcf" if args.vcf else ""
     subset_job.command(
-        f"python3 {script_path} -i {args.i} --out {args.out} {args.vcf} {sample_arg} {locus}"
+        f"python3 {script_path} -i {args.i} --out {args.out} {vcf_arg} {sample_arg} {locus}"
     )
     batch.run(wait=False)
