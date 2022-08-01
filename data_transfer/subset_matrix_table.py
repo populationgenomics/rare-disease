@@ -15,8 +15,16 @@ import sys
 from argparse import ArgumentParser
 
 import hail as hl
+import hailtop.batch as hb
 
-from cpg_utils.hail_batch import output_path
+from cpg_utils.config import get_config
+from cpg_utils.hail_batch import (
+    authenticate_cloud_credentials_in_job,
+    copy_common_env,
+    output_path,
+    query_command,
+    remote_tmpdir,
+)
 
 
 def subset_to_samples(matrix: hl.MatrixTable, samples: list[str]) -> hl.MatrixTable:
@@ -144,11 +152,26 @@ if __name__ == "__main__":
         raise Exception(
             f"When defining a Locus, provide both Chr & Pos: {args.chr}, {args.pos}"
         )
-    main(
-        mt_path=args.i,
-        output_root=args.out,
-        samples=args.s,
-        vcf=args.vcf,
-        chrom=args.chr,
-        pos=args.pos,
+
+    service_backend = hb.ServiceBackend(
+        billing_project=get_config()["hail"]["billing_project"],
+        remote_tmpdir=remote_tmpdir(),
     )
+    batch = hb.Batch(
+        name="AIP batch",
+        backend=service_backend,
+        cancel_after_n_failures=1,
+        default_timeout=6000,
+        default_memory="highmem",
+    )
+    subset_job = batch.new_python_job("run matrix subsetting")
+    subset_job.call(
+        main,
+        args.i,
+        args.out,
+        args.s,
+        args.vcf,
+        args.chr,
+        args.pos,
+    )
+    batch.run(wait=False)
