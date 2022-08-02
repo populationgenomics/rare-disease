@@ -23,7 +23,8 @@ def subset_to_samples(
     matrix: hl.MatrixTable, samples: list[str], remove_hom_ref: bool
 ) -> hl.MatrixTable:
     """
-    reduce the MatrixTable to a subset
+    checks the requested sample subset exists in this joint call
+    reduces the MatrixTable to a sample subset
     Parameters
     ----------
     matrix :
@@ -35,12 +36,9 @@ def subset_to_samples(
 
     """
 
-    mt_samples = matrix.s.collect()
-
-    # check the subset exists
-    missing_samples = [sam for sam in samples if sam not in mt_samples]
+    missing_samples = [sam for sam in samples if sam not in matrix.s.collect()]
     if missing_samples:
-        raise Exception(f"Sample(s) missing from subset: {','.join(missing_samples)}")
+        raise Exception(f"Sample(s) missing from subset: {', '.join(missing_samples)}")
 
     filt_mt = matrix.filter_cols(hl.literal(set(samples)).contains(matrix.s))
 
@@ -53,6 +51,7 @@ def subset_to_samples(
 
 def subset_to_locus(matrix: hl.MatrixTable, chrom: str, pos: int) -> hl.MatrixTable:
     """
+    Subset the provided MT to a single locus - fail if the variant is absent
 
     Parameters
     ----------
