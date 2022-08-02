@@ -15,7 +15,7 @@ import sys
 
 import hail as hl
 
-from cpg_utils.hail_batch import output_path
+from cpg_utils.hail_batch import output_path, remote_tmpdir
 from cpg_utils.config import get_config
 
 
@@ -94,6 +94,7 @@ def main(
     hl.init_batch(
         default_reference="GRCh38",
         billing_project=get_config()["hail"]["billing_project"],
+        remote_tmpdir=remote_tmpdir(),
     )
     matrix = hl.read_matrix_table(mt_path)
 
