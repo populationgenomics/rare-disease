@@ -38,7 +38,7 @@ def subset_to_samples(matrix: hl.MatrixTable, samples: list[str]) -> hl.MatrixTa
     if missing_samples:
         raise Exception(f"Sample(s) missing from subset: {','.join(missing_samples)}")
 
-    filt_mt = matrix.filter_cols(matrix.s in samples)
+    filt_mt = matrix.filter_cols(hl.literal(set(samples)).contains(matrix.s))
 
     # # optional - filter to variants with at least one alt call in these samples
     # call_filt_matrix = filt_mt.filter_entries(filt_mt.GT.is_non_ref())
