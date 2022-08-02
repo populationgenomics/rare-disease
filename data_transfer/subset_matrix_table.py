@@ -16,6 +16,7 @@ import sys
 import hail as hl
 
 from cpg_utils.hail_batch import output_path, init_batch
+from cpg_utils.config import get_config
 
 
 def subset_to_samples(matrix: hl.MatrixTable, samples: list[str]) -> hl.MatrixTable:
@@ -99,13 +100,18 @@ def main(
     if chrom and pos:
         matrix = subset_to_locus(matrix=matrix, chrom=chrom, pos=pos)
 
+    # create the output path; make sure we're only ever writing to test
+    actual_output_path = output_path(output_root).replace(
+        f'cpg-{get_config()["workflow"]["dataset"]}-main',
+        f'cpg-{get_config()["workflow"]["dataset"]}-test',
+    )
+
     # write the MT to a new output path
-    matrix.write(output_path(f"{output_root}.mt"))
+    matrix.write(f"{actual_output_path}.mt")
 
     # if VCF, export as a VCF as well
     if vcf:
-        vcf_output = output_path(f"{output_root}.vcf.bgz")
-        hl.export_vcf(matrix, vcf_output, tabix=True)
+        hl.export_vcf(matrix, f"{actual_output_path}.vcf.bgz", tabix=True)
 
 
 if __name__ == "__main__":
