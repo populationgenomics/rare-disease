@@ -14,8 +14,10 @@ import logging
 import sys
 
 import hail as hl
+import hailtop.batch as hb
 
-from cpg_utils.hail_batch import output_path
+from cpg_utils.hail_batch import output_path, remote_tmpdir
+from cpg_utils.config import get_config
 
 
 def subset_to_samples(matrix: hl.MatrixTable, samples: list[str]) -> hl.MatrixTable:
@@ -90,8 +92,11 @@ def main(
     -------
 
     """
-
-    hl.init(default_reference="GRCh38")
+    service_backend = hb.ServiceBackend(
+        billing_project=get_config()["hail"]["billing_project"],
+        remote_tmpdir=remote_tmpdir(),
+    )
+    hl.init(default_reference="GRCh38", backend=service_backend)
     matrix = hl.read_matrix_table(mt_path)
 
     if samples:
