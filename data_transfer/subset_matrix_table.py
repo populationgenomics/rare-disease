@@ -114,7 +114,7 @@ def main(
 
     if out_format in ["mt", "both"]:
         # write the MT to a new output path
-        matrix.write(f"{actual_output_path}.mt")
+        matrix.write(f"{actual_output_path}.mt", overwrite=True)
 
     # if VCF, export as a VCF as well
     if out_format in ["vcf", "both"]:
