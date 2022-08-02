@@ -9,14 +9,14 @@ Optionally with the --vcf flag, write as a VCF
 Optionally with both --chr and --pos specified, subset to a specific locus
 """
 
+from argparse import ArgumentParser
 import logging
 import sys
-
-from argparse import ArgumentParser
 
 import hail as hl
 
 from cpg_utils.hail_batch import output_path
+from cpg_utils.config import get_config
 
 
 def subset_to_samples(matrix: hl.MatrixTable, samples: list[str]) -> hl.MatrixTable:
@@ -91,8 +91,10 @@ def main(
     -------
 
     """
-
-    hl.init(default_reference="GRCh38")
+    hl.init_batch(
+        default_reference="GRCh38",
+        billing_project=get_config()["hail"]["billing_project"],
+    )
     matrix = hl.read_matrix_table(mt_path)
 
     if samples:
