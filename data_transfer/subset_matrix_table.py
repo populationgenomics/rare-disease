@@ -101,7 +101,7 @@ def main(
     matrix = hl.read_matrix_table(mt_path)
 
     if samples:
-        matrix = subset_to_samples(matrix, samples, remove_hom_ref=restrict_sites)
+        matrix = subset_to_samples(matrix, samples, remove_hom_ref=remove_hom_ref)
 
     if chrom and pos:
         matrix = subset_to_locus(matrix=matrix, chrom=chrom, pos=pos)
