@@ -19,13 +19,16 @@ from cpg_utils.hail_batch import output_path, init_batch
 from cpg_utils.config import get_config
 
 
-def subset_to_samples(matrix: hl.MatrixTable, samples: list[str]) -> hl.MatrixTable:
+def subset_to_samples(
+    matrix: hl.MatrixTable, samples: list[str], remove_hom_ref: bool
+) -> hl.MatrixTable:
     """
     reduce the MatrixTable to a subset
     Parameters
     ----------
     matrix :
     samples :
+    remove_hom_ref :
 
     Returns
     -------
@@ -41,8 +44,9 @@ def subset_to_samples(matrix: hl.MatrixTable, samples: list[str]) -> hl.MatrixTa
 
     filt_mt = matrix.filter_cols(hl.literal(set(samples)).contains(matrix.s))
 
-    # # optional - filter to variants with at least one alt call in these samples
-    # call_filt_matrix = filt_mt.filter_entries(filt_mt.GT.is_non_ref())
+    # optional - filter to variants with at least one alt call in these samples
+    if remove_hom_ref:
+        filt_mt = filt_mt.filter_entries(filt_mt.GT.is_non_ref())
 
     return filt_mt
 
@@ -72,9 +76,10 @@ def main(
     mt_path: str,
     output_root: str,
     samples: list[str],
-    vcf: bool,
+    out_format: str,
     chrom: str | None,
     pos: int | None,
+    remove_hom_ref: bool,
 ):
     """
 
@@ -83,9 +88,10 @@ def main(
     mt_path : path to input MatrixTable
     output_root :
     samples :
-    vcf :
+    out_format : whether to write as a MT, VCF, or Both
     chrom :
     pos :
+    remove_hom_ref :
 
     Returns
     -------
@@ -95,7 +101,7 @@ def main(
     matrix = hl.read_matrix_table(mt_path)
 
     if samples:
-        matrix = subset_to_samples(matrix, samples)
+        matrix = subset_to_samples(matrix, samples, remove_hom_ref=restrict_sites)
 
     if chrom and pos:
         matrix = subset_to_locus(matrix=matrix, chrom=chrom, pos=pos)
@@ -106,11 +112,12 @@ def main(
         f'cpg-{get_config()["workflow"]["dataset"]}-test',
     )
 
-    # write the MT to a new output path
-    matrix.write(f"{actual_output_path}.mt")
+    if out_format in ["mt", "both"]:
+        # write the MT to a new output path
+        matrix.write(f"{actual_output_path}.mt")
 
     # if VCF, export as a VCF as well
-    if vcf:
+    if out_format in ["vcf", "both"]:
         hl.export_vcf(matrix, f"{actual_output_path}.vcf.bgz", tabix=True)
 
 
@@ -136,11 +143,23 @@ if __name__ == "__main__":
     )
     parser.add_argument("-s", help="one or more sample IDs", nargs="+", default=[])
     parser.add_argument(
-        "--vcf", help="write output as a VCF", action="store_true", default=False
+        "--format",
+        help="write output in this format",
+        default="mt",
+        choices=["both", "mt", "vcf"],
     )
     parser.add_argument("--chr", help="chrom portion of a locus", required=False)
     parser.add_argument(
         "--pos", help="pos portion of a locus", required=False, type=int
+    )
+    parser.add_argument(
+        "--alts_only",
+        help=(
+            "the output subset will only contain sites "
+            "where the sub-selected samples have alt calls"
+        ),
+        action="store_true",
+        default=False,
     )
     args = parser.parse_args()
 
@@ -153,7 +172,8 @@ if __name__ == "__main__":
         mt_path=args.i,
         output_root=args.out,
         samples=args.s,
-        vcf=args.vcf,
+        out_format=args.vcf,
         chrom=args.chr,
         pos=args.pos,
+        remove_hom_ref=args.alts_only,
     )
