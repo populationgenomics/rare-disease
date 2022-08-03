@@ -45,7 +45,7 @@ def subset_to_samples(
 
     missing_samples = samples.difference(set(mt.s.collect()))
     if missing_samples:
-        raise Exception(f"Sample(s) missing from subset: {', '.join(missing_samples)}")
+        raise Exception(f'Sample(s) missing from subset: {", ".join(missing_samples)}')
 
     mt = mt.filter_cols(hl.set(samples).contains(mt.s))
 
@@ -72,7 +72,7 @@ def subset_to_locus(mt: hl.MatrixTable, locus: hl.IntervalExpression) -> hl.Matr
 
     mt = mt.filter_rows(locus.contains(mt.locus))
     if mt.count_rows() == 0:
-        raise Exception(f"No rows remain after applying Locus filter {locus}")
+        raise Exception(f'No rows remain after applying Locus filter {locus}')
     return mt
 
 
@@ -114,16 +114,16 @@ def main(
         f'cpg-{get_config()["workflow"]["dataset"]}-test',
     )
 
-    if out_format in ["mt", "both"]:
+    if out_format in ['mt', 'both']:
         # write the MT to a new output path
-        mt.write(f"{actual_output_path}.mt", overwrite=True)
+        mt.write(f'{actual_output_path}.mt', overwrite=True)
 
     # if VCF, export as a VCF as well
-    if out_format in ["vcf", "both"]:
-        hl.export_vcf(mt, f"{actual_output_path}.vcf.bgz", tabix=True)
+    if out_format in ['vcf', 'both']:
+        hl.export_vcf(mt, f'{actual_output_path}.vcf.bgz', tabix=True)
 
 
-def clean_locus(contig: str, pos: str) -> hl.IntervalExpression:
+def clean_locus(contig: str, pos: str) -> hl.IntervalExpression | None:
     """
 
     Parameters
@@ -136,8 +136,11 @@ def clean_locus(contig: str, pos: str) -> hl.IntervalExpression:
     A parsed hail locus. For a point change this will be the result of
     parsing "contig:pos-pos+1"
     """
-    if "-" in pos:
-        start, end = map(int, pos.split("-"))
+    if not all([contig, pos]):
+        return None
+
+    if '-' in pos:
+        start, end = map(int, pos.split('-'))
 
         # quick validation that we only received 2 values
         assert isinstance(int, start)
@@ -151,57 +154,56 @@ def clean_locus(contig: str, pos: str) -> hl.IntervalExpression:
         start = int(pos)
         end = start + 1
 
-    return hl.parse_locus_interval(f"{contig}:{start}-{end}")
+    return hl.parse_locus_interval(f'{contig}:{start}-{end}')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
 
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(module)s:%(lineno)d - %(message)s",
-        datefmt="%Y-%M-%d %H:%M:%S",
+        format='%(asctime)s %(levelname)s %(module)s:%(lineno)d - %(message)s',
+        datefmt='%Y-%M-%d %H:%M:%S',
         stream=sys.stderr,
     )
 
     parser = ArgumentParser()
-    parser.add_argument("-i", help="Path to the input MatrixTable", required=True)
+    parser.add_argument('-i', help='Path to the input MatrixTable', required=True)
     parser.add_argument(
-        "--out",
-        help="Prefix for MT/VCF name ('output' will become output.vcf.bgz or output.mt)",
+        '--out',
+        help='Prefix for MT/VCF name\n'
+        '("output" will become output.vcf.bgz or output.mt)',
         required=True,
     )
     parser.add_argument(
-        "-s", help="One or more sample IDs, whitespace delimited", nargs="+"
+        '-s', help='One or more sample IDs, whitespace delimited', nargs='+'
     )
     parser.add_argument(
-        "--format",
-        help="Write output in this format",
-        default="mt",
-        choices=["both", "mt", "vcf"],
+        '--format',
+        help='Write output in this format',
+        default='mt',
+        choices=['both', 'mt', 'vcf'],
     )
-    parser.add_argument("--chr", help="Contig portion of a locus", required=False)
+    parser.add_argument('--chr', help='Contig portion of a locus', required=False)
     parser.add_argument(
-        "--pos",
+        '--pos',
         help='Pos portion of a locus. Can be "12345" or "12345-67890" for a range',
         required=False,
     )
     parser.add_argument(
-        "--keep_ref",
-        help="Output will retain all sites, even where the sample subset is HomRef",
-        action="store_true",
+        '--keep_ref',
+        help='Output will retain all sites, even where the sample subset is HomRef',
+        action='store_true',
     )
     args, unknown = parser.parse_known_args()
 
     if unknown:
         raise Exception(f'Unknown args, could not parse: "{unknown}"')
 
-    locus_interval = None
     if any([args.chr, args.pos]) and not all([args.chr, args.pos]):
         raise Exception(
-            f"When defining a Locus, provide both Chr & Pos: {args.chr}, {args.pos}"
+            f'When defining a Locus, provide both Chr & Pos: {args.chr}, {args.pos}'
         )
-    elif all([args.chr, args.pos]):
-        locus_interval = clean_locus(args.chr, args.pos)
+    locus_interval = clean_locus(args.chr, args.pos)
 
     main(
         mt_path=args.i,
