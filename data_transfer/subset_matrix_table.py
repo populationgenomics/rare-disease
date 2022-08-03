@@ -143,8 +143,8 @@ def clean_locus(contig: str, pos: str) -> hl.IntervalExpression | None:
         start, end = map(int, pos.split('-'))
 
         # quick validation that we only received 2 values
-        assert isinstance(int, start)
-        assert isinstance(int, end)
+        assert isinstance(start, int)
+        assert isinstance(end, int)
 
         assert start <= end
 
