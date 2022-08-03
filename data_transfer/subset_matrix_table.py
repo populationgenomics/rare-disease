@@ -171,7 +171,7 @@ if __name__ == "__main__":
         mt_path=args.i,
         output_root=args.out,
         samples=args.s,
-        out_format=args.vcf,
+        out_format=args.format,
         chrom=args.chr,
         pos=args.pos,
         remove_hom_ref=args.alts_only,
