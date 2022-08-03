@@ -52,7 +52,7 @@ def subset_to_samples(
     # optional - filter to variants with at least one alt call in these samples
     if not keep_hom_ref:
         mt = hl.variant_qc(mt)
-        mt.filter_rows(mt.variant_qc.n_non_ref > 0)
+        mt = mt.filter_rows(mt.variant_qc.n_non_ref > 0)
         mt = mt.drop('variant_qc')
 
     return mt
