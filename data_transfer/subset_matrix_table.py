@@ -105,7 +105,7 @@ def main(
     if samples:
         mt = subset_to_samples(mt, samples=samples, keep_hom_ref=keep_hom_ref)
 
-    if locus:
+    if isinstance(locus, hl.IntervalExpression):
         mt = subset_to_locus(mt, locus=locus)
 
     # create the output path; make sure we're only ever writing to test
