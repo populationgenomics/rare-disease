@@ -13,14 +13,13 @@ Default behaviour is to remove any sites where the requested samples
     are all HomRef. All sites can be retained with --keep_ref
 """
 
-import asyncio
 from argparse import ArgumentParser
 import logging
 import sys
 
 import hail as hl
 
-from cpg_utils.hail_batch import output_path, genome_build, remote_tmpdir
+from cpg_utils.hail_batch import output_path, init_batch
 from cpg_utils.config import get_config
 
 
@@ -100,13 +99,8 @@ def main(
     -------
 
     """
-    asyncio.new_event_loop().run_until_complete(
-        hl.init_batch(
-            default_reference=genome_build(),
-            billing_project=get_config()['hail']['billing_project'],
-            remote_tmpdir=remote_tmpdir(),
-        )
-    )
+
+    init_batch()
     mt = hl.read_matrix_table(mt_path)
 
     if samples:
