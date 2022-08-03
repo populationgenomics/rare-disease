@@ -100,7 +100,6 @@ def main(
 
     """
 
-    init_batch()
     mt = hl.read_matrix_table(mt_path)
 
     if samples:
@@ -204,6 +203,8 @@ if __name__ == '__main__':
         raise Exception(
             f'When defining a Locus, provide both Chr & Pos: {args.chr}, {args.pos}'
         )
+
+    init_batch()
     locus_interval = clean_locus(args.chr, args.pos)
 
     main(
