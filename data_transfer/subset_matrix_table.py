@@ -211,7 +211,7 @@ if __name__ == '__main__':
         mt_path=args.i,
         output_root=args.out,
         samples=set(args.s),
-        out_format=args.vcf,
+        out_format=args.format,
         locus=locus_interval,
         keep_hom_ref=args.keep_ref,
     )
