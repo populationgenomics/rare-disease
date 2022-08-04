@@ -35,6 +35,7 @@ OUTPUT_VCFS = output_path('single_sample_vcfs')
 
 # create a logger
 logger = logging.getLogger(__file__)
+logger.setLevel(level=logging.INFO)
 
 
 def mt_to_vcf(input_mt: str, header_lines: str | None, samples: set[str]):
@@ -253,7 +254,7 @@ def main(input_file: str, header: str | None):
         cpg_id = validation_lookup[sample_id]
         full_path = ss_file.absolute()
         truth_bed, truth_vcf = get_sample_truth(cpg_id)
-        logger.info(truth_bed, truth_vcf, full_path, cpg_id, sample_id)
+        print(truth_bed, truth_vcf, full_path, cpg_id, sample_id)
         comparison_job(
             batch=batch,
             ss_vcf=full_path,
