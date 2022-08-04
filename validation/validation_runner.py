@@ -281,7 +281,7 @@ def main(input_file: str, header: str | None):
     )
 
     single_sample_files = AnyPath(OUTPUT_VCFS).glob('*.vcf.bgz')
-    logger.info(f'Single Sample files: {", ".join(single_sample_files)}')
+    logger.info(f'Single Sample files: {", ".join(map(str, single_sample_files))}')
 
     # for each sample, use metamist to pull the corresponding truth and VCF
     # THEN GO AT IT BABY
