@@ -132,7 +132,7 @@ def comparison_job(
 
     """
 
-    job = batch.new_job(name=f'compare_{sample}')
+    job = batch.new_job(name=f'Compare {sample}')
     job.image(HAPPY_IMAGE)
     job.memory('20Gi')
     vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': ss_vcf + '.tbi'})
@@ -267,19 +267,21 @@ def main(input_file: str, header: str | None):
         default_memory='highmem',
     )
 
-    prior_job = None
-
     input_path = Path(input_file)
-    if input_path.suffix == '.mt':
-        # requires conversion to vcf
-        prior_job = mt_to_vcf(
-            batch=batch,
-            input_file=input_file,
-            header_lines=header,
-            samples=list(validation_lookup.keys()),
-        )
+    if input_path.suffix != '.mt':
+        logger.error('Expected a MT as input file')
+        raise Exception('Expected a MT as input file')
+
+    # requires conversion to vcf
+    prior_job = mt_to_vcf(
+        batch=batch,
+        input_file=input_file,
+        header_lines=header,
+        samples=list(validation_lookup.keys()),
+    )
 
     single_sample_files = AnyPath(OUTPUT_VCFS).glob('*.vcf.bgz')
+    logger.info(f'Single Sample files: {", ".join(single_sample_files)}')
 
     # for each sample, use metamist to pull the corresponding truth and VCF
     # THEN GO AT IT BABY
@@ -289,6 +291,7 @@ def main(input_file: str, header: str | None):
         cpg_id = validation_lookup[sample_id]
         full_path = ss_file.absolute()
         truth_bed, truth_vcf = get_sample_truth(cpg_id)
+        logger.info(truth_bed, truth_vcf, full_path, cpg_id, sample_id)
         comparison_job(
             batch=batch,
             ss_vcf=full_path,
