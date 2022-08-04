@@ -105,9 +105,12 @@ def comparison_job(batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: s
         **{'vcf': truth_vcf, 'index': f'{truth_vcf}.tbi'}
     )
     truth_bed = batch.read_input(truth_bed)
-    refgenome = batch.read_input(
+    refgenome = (
         'gs://cpg-reference/hg38/v0/dragen_reference/'
         'Homo_sapiens_assembly38_masked.fasta'
+    )
+    batch_ref = batch.read_input_group(
+        **{'fasta': refgenome, 'index': f'{refgenome}.fai'}
     )
 
     # hap.py outputs:
@@ -137,15 +140,17 @@ def comparison_job(batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: s
 
     # in future don't regenerate SDF...
     job.command(
-        f'java -jar -Xmx16G /vcfeval/RTG.jar format -o refgenome_sdf {refgenome} && '
+        f'java -jar -Xmx16G /vcfeval/RTG.jar '
+        f'format -o refgenome_sdf '
+        f'{batch_ref["fasta"]} && '
         f'mv {vcf_input["vcf"]} input.vcf.gz && '
         f'mv {vcf_input["index"]} input.vcf.gz.tbi && '
         f'mkdir {job.output} && '
         f'hap.py {truth_input["vcf"]} input.vcf.gz '
-        f'-r {refgenome} -R {truth_bed} '
+        f'-r {batch_ref["fasta"]} -R {truth_bed} '
         f'-o {job.output}/output --engine=vcfeval '
         f'--engine-vcfeval-path=/vcfeval/rtg '
-        f'--engine-vcfeval-template refgenome.sdf '
+        f'--engine-vcfeval-template refgenome_sdf '
         f'--preprocess-truth'
     )
     batch.write_output(job.output, os.path.join(output_path('comparison'), sample))
