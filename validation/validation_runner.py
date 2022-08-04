@@ -98,6 +98,7 @@ def comparison_job(batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: s
     """
 
     job = batch.new_job(name=f'Compare {sample}')
+    print(F'I HAVE MADE A NEW JOB: {job}')
     job.image(HAPPY_IMAGE)
     job.memory('20Gi')
     vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': ss_vcf + '.tbi'})
