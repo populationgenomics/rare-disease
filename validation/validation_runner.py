@@ -10,18 +10,12 @@ from pathlib import Path
 from argparse import ArgumentParser
 
 from cloudpathlib import AnyPath
+import hail as hl
 import hailtop.batch as hb
-from cpg_utils.config import get_config
 
-from cpg_utils.git import (
-    prepare_git_job,
-    get_git_commit_ref_of_current_repository,
-    get_organisation_name_from_current_directory,
-    get_repo_name_from_current_directory,
-)
+from cpg_utils.config import get_config
 from cpg_utils.hail_batch import (
-    authenticate_cloud_credentials_in_job,
-    copy_common_env,
+    init_batch,
     output_path,
     remote_tmpdir,
     image_path,
@@ -43,79 +37,50 @@ OUTPUT_VCFS = output_path('single_sample_vcfs')
 logger = logging.getLogger(__file__)
 
 
-def set_job_resources(
-    job: hb.batch.job.Job,
-    auth=False,
-    git=False,
-    image: str | None = None,
-    prior_job: hb.batch.job.Job | None = None,
-    memory: str = 'standard',
-):
-    """
-    applied resources to the job
-    :param job:
-    :param auth: if true, authenticate gcloud in this container
-    :param git: if true, pull this repository into container
-    :param image:
-    :param prior_job:
-    :param memory:
-    """
-    # apply all settings
-    job.cpu(2).image(image or DEFAULT_IMAGE).memory(memory).storage('20G')
-
-    if prior_job is not None:
-        job.depends_on(prior_job)
-
-    if auth:
-        authenticate_cloud_credentials_in_job(job)
-
-    if git:
-        # copy the relevant scripts into a Driver container instance
-        prepare_git_job(
-            job=job,
-            organisation=get_organisation_name_from_current_directory(),
-            repo_name=get_repo_name_from_current_directory(),
-            commit=get_git_commit_ref_of_current_repository(),
-        )
-
-
-def mt_to_vcf(
-    batch: hb.Batch, input_file: str, header_lines: str | None, samples: list[str]
-):
+def mt_to_vcf(input_mt: str, header_lines: str | None, samples: set[str]):
     """
     takes a MT and converts to VCF
     adds in extra header lines for VQSR filters
-    :param batch:
-    :param input_file:
+    :param input_mt:
     :param header_lines:
     :param samples:
     :return:
     """
-    mt_to_vcf_job = batch.new_job(name='Convert MT to Single Sample VCFs')
+    init_batch()
 
-    copy_common_env(mt_to_vcf_job)
+    full_mt = hl.read_matrix_table(input_mt)
 
-    set_job_resources(mt_to_vcf_job, git=True, auth=True)
-
-    job_cmd = (
-        f'PYTHONPATH=$(pwd) python3 {MT_TO_VCF_SCRIPT} '
-        f'--input {input_file} '
-        f'--output {OUTPUT_VCFS} '
-        f'--samples {" ".join(samples)} '
+    samples_in_jc = set(full_mt.s.collect()).intersection(samples)
+    logging.info(
+        f'Extracting these samples from the joint-call: {" ".join(samples_in_jc)}'
     )
 
-    if header_lines:
-        job_cmd += f'--additional_header {header_lines}'
+    # extract all present samples into a separate file
+    for sample in samples_in_jc:
 
-    logger.info(f'Command MT>VCF: {job_cmd}')
+        logging.info(f'Processing: {sample}')
 
-    mt_to_vcf_job.command(job_cmd)
-    return mt_to_vcf_job
+        sample_path = os.path.join(str(output_path), f'{sample}.vcf.bgz')
+
+        if AnyPath(sample_path).exists():
+            print(f'no action taken, {sample_path} already exists')
+            continue
+
+        # filter to this column
+        mt = full_mt.filter_cols(full_mt.s == sample)
+
+        # filter to this sample's non-ref calls
+        mt = hl.variant_qc(mt)
+        mt = mt.filter_rows(mt.variant_qc.n_non_ref > 0)
+        hl.export_vcf(
+            mt,
+            sample_path,
+            append_to_header=header_lines,
+            tabix=True,
+        )
 
 
-def comparison_job(
-    batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: str, prior_job
-):
+def comparison_job(batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: str):
     """
 
     Parameters
@@ -125,7 +90,6 @@ def comparison_job(
     sample :
     truth_vcf :
     truth_bed :
-    prior_job :
 
     Returns
     -------
@@ -183,7 +147,6 @@ def comparison_job(
         f'--engine-vcfeval-template refgenome.sdf '
         f'--preprocess-truth'
     )
-    job.depends_on(prior_job)
     batch.write_output(job.output, os.path.join(output_path('comparison'), sample))
 
 
@@ -273,11 +236,10 @@ def main(input_file: str, header: str | None):
         raise Exception('Expected a MT as input file')
 
     # requires conversion to vcf
-    prior_job = mt_to_vcf(
-        batch=batch,
-        input_file=input_file,
+    mt_to_vcf(
+        input_mt=input_file,
         header_lines=header,
-        samples=list(validation_lookup.keys()),
+        samples=set(validation_lookup.keys()),
     )
 
     single_sample_files = AnyPath(OUTPUT_VCFS).glob('*.vcf.bgz')
@@ -296,7 +258,6 @@ def main(input_file: str, header: str | None):
             batch=batch,
             ss_vcf=full_path,
             sample=sample_id,
-            prior_job=prior_job,
             truth_bed=truth_bed,
             truth_vcf=truth_vcf,
         )
