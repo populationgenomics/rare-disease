@@ -100,9 +100,9 @@ def comparison_job(batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: s
     job = batch.new_job(name=f'Compare {sample}')
     job.image(HAPPY_IMAGE)
     job.memory('20Gi')
-    vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': ss_vcf + '.tbi'})
+    vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': f'{ss_vcf}.tbi'})
     truth_input = batch.read_input_group(
-        **{'vcf': truth_vcf, 'index': truth_vcf + '.tbi'}
+        **{'vcf': truth_vcf, 'index': f'{truth_vcf}.tbi'}
     )
     truth_bed = batch.read_input(truth_bed)
     refgenome = batch.read_input(
