@@ -100,7 +100,7 @@ def mt_to_vcf(
     job_cmd = (
         f'PYTHONPATH=$(pwd) python3 {MT_TO_VCF_SCRIPT} '
         f'--input {input_file} '
-        f'--output {OUTPUT_VCFS}'
+        f'--output {OUTPUT_VCFS} '
         f'--samples {" ".join(samples)} '
     )
 
