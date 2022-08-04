@@ -257,10 +257,10 @@ def main(input_file: str, header: str | None):
         print(truth_bed, truth_vcf, full_path, cpg_id, sample_id)
         comparison_job(
             batch=batch,
-            ss_vcf=full_path,
+            ss_vcf=str(full_path),
             sample=sample_id,
-            truth_bed=truth_bed,
-            truth_vcf=truth_vcf,
+            truth_bed=str(truth_bed),
+            truth_vcf=str(truth_vcf),
         )
 
     # twist_bed = 'gs://cpg-validation-test/Twist_Exome_Core_Covered_Targets_hg38.bed'
