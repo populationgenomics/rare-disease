@@ -60,7 +60,7 @@ def mt_to_vcf(input_mt: str, header_lines: str | None, samples: set[str]):
 
         logging.info(f'Processing: {sample}')
 
-        sample_path = os.path.join(str(output_path), f'{sample}.vcf.bgz')
+        sample_path = os.path.join(OUTPUT_VCFS, f'{sample}.vcf.bgz')
 
         if AnyPath(sample_path).exists():
             print(f'no action taken, {sample_path} already exists')
