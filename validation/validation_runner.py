@@ -98,7 +98,6 @@ def comparison_job(batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: s
     """
 
     job = batch.new_job(name=f'Compare {sample}')
-    print(F'I HAVE MADE A NEW JOB: {job}')
     job.image(HAPPY_IMAGE)
     job.memory('20Gi')
     vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': ss_vcf + '.tbi'})
@@ -244,8 +243,8 @@ def main(input_file: str, header: str | None):
         samples=set(validation_lookup.keys()),
     )
 
-    single_sample_files = AnyPath(OUTPUT_VCFS).glob('*.vcf.bgz')
-    print(f'Single Sample files: {", ".join(map(str, single_sample_files))}')
+    single_sample_files = list(AnyPath(OUTPUT_VCFS).glob('*.vcf.bgz'))
+    print(f'Single Sample files: {single_sample_files}')
 
     # for each sample, use metamist to pull the corresponding truth and VCF
     # THEN GO AT IT BABY
