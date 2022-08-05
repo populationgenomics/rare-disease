@@ -141,15 +141,13 @@ def comparison_job(batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: s
     # in future don't regenerate SDF...
     job.command(
         f'java -jar -Xmx16G /vcfeval/RTG.jar '
-        f'format -o refgenome_sdf '
-        f'{batch_ref["fasta"]} && '
-        f'mv {vcf_input["vcf"]} input.vcf.gz && '
-        f'mv {vcf_input["index"]} input.vcf.gz.tbi && '
+        f'format -o refgenome_sdf {batch_ref["fasta"]} && '
         f'mkdir {job.output} && '
-        f'hap.py {truth_input["vcf"]} input.vcf.gz '
+        f'hap.py {truth_input["vcf"]} {vcf_input["vcf"]} '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
         f'-o {job.output}/output --engine=vcfeval '
         f'--engine-vcfeval-path=/vcfeval/rtg '
+        f'--threads 10 --leftshift '
         f'--engine-vcfeval-template refgenome_sdf '
         f'--preprocess-truth'
     )
