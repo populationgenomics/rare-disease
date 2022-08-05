@@ -99,7 +99,7 @@ This analysis object would be of type `QC`, to differentiate the analysis inputs
 
 ## Validation Process
 
-The validation is being carried out using [Hap.py](https://github.com/Illumina/hap.py) and [RTG's vcfeval](https://github.com/RealTimeGenomics/rtg-tools), both installed within the CPG Docker image `happy-vcfeval`. This uses Hap.py to conduct the comparison, whilst using vcfeval as the comparison engine (making use of its superior)
+The validation is being carried out using [Hap.py](https://github.com/Illumina/hap.py) and [RTG's vcfeval](https://github.com/RealTimeGenomics/rtg-tools), both installed within the CPG Docker image `happy-vcfeval`. This uses Hap.py to conduct the comparison, whilst using vcfeval as the comparison engine (making use of its superior variant normalisation, in keeping with best practice advice)
 
 
 
