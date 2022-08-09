@@ -25,12 +25,7 @@ from sample_metadata.model.analysis_query_model import AnalysisQueryModel
 from sample_metadata.model.analysis_type import AnalysisType
 
 
-DEFAULT_IMAGE = get_config()['workflow']['driver_image']
-HAPPY_IMAGE = image_path('happy-vcfeval')
-assert DEFAULT_IMAGE, HAPPY_IMAGE
-
 MT_TO_VCF_SCRIPT = os.path.join(os.path.dirname(__file__), 'mt_to_vcf.py')
-QUERY_COMPARISON = os.path.join(os.path.dirname(__file__), 'hail_query_validate.py')
 OUTPUT_VCFS = output_path('single_sample_vcfs')
 
 # create a logger
@@ -81,7 +76,9 @@ def mt_to_vcf(input_mt: str, header_lines: str | None, samples: set[str]):
         )
 
 
-def comparison_job(batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: str):
+def comparison_job(
+    batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: str, reference_sdf: str
+):
     """
 
     Parameters
@@ -91,6 +88,7 @@ def comparison_job(batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: s
     sample :
     truth_vcf :
     truth_bed :
+    reference_sdf :
 
     Returns
     -------
@@ -98,7 +96,7 @@ def comparison_job(batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: s
     """
 
     job = batch.new_job(name=f'Compare {sample}')
-    job.image(HAPPY_IMAGE)
+    job.image(image_path('happy-vcfeval'))
     job.memory('20Gi')
     vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': f'{ss_vcf}.tbi'})
     truth_input = batch.read_input_group(
@@ -111,6 +109,25 @@ def comparison_job(batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: s
     )
     batch_ref = batch.read_input_group(
         **{'fasta': refgenome, 'index': f'{refgenome}.fai'}
+    )
+    sdf = batch.read_input_group(
+        format_log=f'{reference_sdf}/format.log',
+        mainIndex=f'{reference_sdf}/mainIndex',
+        namedata0=f'{reference_sdf}/namedata0',
+        nameIndex0=f'{reference_sdf}/nameIndex0',
+        namepointer0=f'{reference_sdf}/namepointer0',
+        reference=f'{reference_sdf}/reference.txt',
+        seqdata0=f'{reference_sdf}/seqdata0',
+        seqdata1=f'{reference_sdf}/seqdata1',
+        seqdata2=f'{reference_sdf}/seqdata2',
+        seqdata3=f'{reference_sdf}/seqdata3',
+        seqpointer0=f'{reference_sdf}/seqpointer0',
+        seqpointer1=f'{reference_sdf}/seqpointer1',
+        seqpointer2=f'{reference_sdf}/seqpointer2',
+        seqpointer3=f'{reference_sdf}/seqpointer3',
+        sequenceIndex0=f'{reference_sdf}/sequenceIndex0',
+        progress=f'{reference_sdf}/progress',
+        summary=f'{reference_sdf}/summary.txt',
     )
 
     # hap.py outputs:
@@ -128,27 +145,25 @@ def comparison_job(batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: s
 
     job.declare_resource_group(
         output={
-            'happy_extended.csv': '{root}/output.extended.csv',
-            'happy.vcf.gz': '{root}/output.vcf.gz',
-            'happy.vcf.gz.tbi': '{root}/output.vcf.gz.tbi',
-            'happy_roc.all.csv.gz': '{root}/output.roc.all.csv.gz',
-            'happy_metrics.json.gz': '{root}/output.metrics.json.gz',
-            'happy_runinfo.json': '{root}/output.runinfo.json',
-            'summary.csv': '{root}/output.summary.csv',
+            'happy_extended.csv': f'{reference_sdf}/output.extended.csv',
+            'happy.vcf.gz': f'{reference_sdf}/output.vcf.gz',
+            'happy.vcf.gz.tbi': f'{reference_sdf}/output.vcf.gz.tbi',
+            'happy_roc.all.csv.gz': f'{reference_sdf}/output.roc.all.csv.gz',
+            'happy_metrics.json.gz': f'{reference_sdf}/output.metrics.json.gz',
+            'happy_runinfo.json': f'{reference_sdf}/output.runinfo.json',
+            'summary.csv': f'{reference_sdf}/output.summary.csv',
         }
     )
 
-    # in future don't regenerate SDF...
+    # use pre.py?
     job.command(
-        f'java -jar -Xmx16G /vcfeval/RTG.jar '
-        f'format -o refgenome_sdf {batch_ref["fasta"]} && '
         f'mkdir {job.output} && '
         f'hap.py {truth_input["vcf"]} {vcf_input["vcf"]} '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
         f'-o {job.output}/output --engine=vcfeval '
         f'--engine-vcfeval-path=/vcfeval/rtg '
         f'--threads 10 --leftshift '
-        f'--engine-vcfeval-template refgenome_sdf '
+        f'--engine-vcfeval-template {sdf} '
         f'--preprocess-truth'
     )
     batch.write_output(job.output, os.path.join(output_path('comparison'), sample))
@@ -187,6 +202,7 @@ def get_sample_truth(cpg_id: str) -> tuple[str, str]:
         projects=[get_config()['workflow']['dataset']],
         sample_ids=[cpg_id],
         type=AnalysisType('custom'),
+        meta={'type': 'validation'},
         active=True,
     )
     anal_api = AnalysisApi()
@@ -197,9 +213,9 @@ def get_sample_truth(cpg_id: str) -> tuple[str, str]:
             f'{cpg_id}, please set old analyses to active=False'
         )
 
-    analysis_meta = analyses[0]['meta']
-    truth_bed = analysis_meta.get('truth_bed')
-    truth_vcf = analysis_meta.get('truth_vcf')
+    analysis_object = analyses[0]
+    truth_vcf = analysis_object['output']
+    truth_bed = analysis_object['meta'].get('confident_region')
     assert (
         truth_bed and truth_vcf
     ), f'Missing one or both of the truth files: BED: {truth_bed}, VCF: {truth_vcf}'
@@ -247,7 +263,8 @@ def main(input_file: str, header: str | None):
     )
 
     single_sample_files = list(AnyPath(OUTPUT_VCFS).glob('*.vcf.bgz'))
-    print(f'Single Sample files: {single_sample_files}')
+
+    ref_sdf = 'gs://cpg-validation-test/refgenome_sdf'
 
     # for each sample, use metamist to pull the corresponding truth and VCF
     # THEN GO AT IT BABY
@@ -257,13 +274,13 @@ def main(input_file: str, header: str | None):
         cpg_id = validation_lookup[sample_id]
         full_path = ss_file.absolute()
         truth_bed, truth_vcf = get_sample_truth(cpg_id)
-        print(truth_bed, truth_vcf, full_path, cpg_id, sample_id)
         comparison_job(
             batch=batch,
             ss_vcf=str(full_path),
             sample=sample_id,
             truth_bed=str(truth_bed),
             truth_vcf=str(truth_vcf),
+            reference_sdf=ref_sdf,
         )
 
     # twist_bed = 'gs://cpg-validation-test/Twist_Exome_Core_Covered_Targets_hg38.bed'
