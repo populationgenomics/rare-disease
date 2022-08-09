@@ -145,20 +145,26 @@ def comparison_job(
 
     job.declare_resource_group(
         output={
-            'happy_extended.csv': f'{reference_sdf}/output.extended.csv',
-            'happy.vcf.gz': f'{reference_sdf}/output.vcf.gz',
-            'happy.vcf.gz.tbi': f'{reference_sdf}/output.vcf.gz.tbi',
-            'happy_roc.all.csv.gz': f'{reference_sdf}/output.roc.all.csv.gz',
-            'happy_metrics.json.gz': f'{reference_sdf}/output.metrics.json.gz',
-            'happy_runinfo.json': f'{reference_sdf}/output.runinfo.json',
-            'summary.csv': f'{reference_sdf}/output.summary.csv',
+            'happy_extended.csv': '{root}/output.extended.csv',
+            'happy.vcf.gz': '{root}/output.vcf.gz',
+            'happy.vcf.gz.tbi': '{root}/output.vcf.gz.tbi',
+            'happy_roc.all.csv.gz': '{root}/output.roc.all.csv.gz',
+            'happy_metrics.json.gz': '{root}/output.metrics.json.gz',
+            'happy_runinfo.json': '{root}/output.runinfo.json',
+            'summary.csv': '{root}/output.summary.csv',
+            'truth_pre.py': '{root}/prepy_truth.vcf.gz',
+            'query_pre.py': '{root}/prepy_query.vcf.gz',
         }
     )
 
-    # use pre.py?
+    # use pre.py to pre-process the truth and test data
     job.command(
         f'mkdir {job.output} && '
-        f'hap.py {truth_input["vcf"]} {vcf_input["vcf"]} '
+        f'pre.py {truth_input["vcf"]} {job.output["truth_pre.py"]} '
+        f'--pass-only -R {truth_bed} && '
+        f'pre.py {vcf_input["vcf"]} {job.output["query_pre.py"]} '
+        f'--pass-only -R {truth_bed} && '
+        f'hap.py {job.output["truth_pre.py"]} {job.output["query_pre.py"]} '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
         f'-o {job.output}/output --engine=vcfeval '
         f'--engine-vcfeval-path=/vcfeval/rtg '
