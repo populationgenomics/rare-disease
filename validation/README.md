@@ -45,7 +45,7 @@ Truth data is in the form of an expected set of variant calls, and a BED file. A
 
 The `meta` attribute in the Analysis objects permits storage of arbitrary data, so we can store any objects relevant to the anaylsis without creating more granular objects.
 
-An Analysis entry has been created for each sample, and `analysis.meta` contains pointers to relevant files, e.g.:
+An Analysis entry has been created for each sample, with `output` indicating the analysis product (the truth VCF) and `analysis.meta` containing a pointer to the confident region BED file to use:
 
 ```python
 from sample_metadata.apis import AnalysisApi
@@ -60,9 +60,9 @@ anal_api.create_new_analysis(
         sample_ids=['CPG_ID', 'CPG_ID2'],
         type=AnalysisType('custom'),
         status=AnalysisStatus('completed'),
+        output='gs://cpg-validation-test/HG001/HG001_GRCh38_1_22_v4.2.1_benchmark.vcf.gz',
         meta={
-            'truth_vcf': 'gs://cpg-validation-test/HG001/HG001_GRCh38_1_22_v4.2.1_benchmark.vcf.gz',
-            'truth_bed': 'gs://cpg-validation-test/HG001/HG001_GRCh38_1_22_v4.2.1_benchmark.bed',
+            'confident_region': 'gs://cpg-validation-test/HG001/HG001_GRCh38_1_22_v4.2.1_benchmark.bed',
         },
     ),
 )
