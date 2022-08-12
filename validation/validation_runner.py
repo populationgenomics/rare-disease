@@ -27,6 +27,7 @@ from sample_metadata.model.analysis_type import AnalysisType
 
 MT_TO_VCF_SCRIPT = os.path.join(os.path.dirname(__file__), 'mt_to_vcf.py')
 OUTPUT_VCFS = output_path('single_sample_vcfs')
+ANAL_API = AnalysisApi()
 
 # create a logger
 logger = logging.getLogger(__file__)
@@ -96,7 +97,7 @@ def comparison_job(
     """
 
     job = batch.new_job(name=f'Compare {sample}')
-    job.image(image_path('happy-vcfeval'))
+    job.image(image_path('happy'))
     job.memory('20Gi')
     vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': f'{ss_vcf}.tbi'})
     truth_input = batch.read_input_group(
@@ -157,20 +158,20 @@ def comparison_job(
         }
     )
 
+    # set arguments for pre-py
+    pre_args = f'-r {batch_ref["fasta"]} --pass-only -R {truth_bed}'
+
     # use pre.py to pre-process the truth and test data
     job.command(
         f'mkdir {job.output} && '
-        f'pre.py {truth_input["vcf"]} {job.output["truth_pre.py"]} '
-        f'--pass-only -R {truth_bed} && '
-        f'pre.py {vcf_input["vcf"]} {job.output["query_pre.py"]} '
-        f'--pass-only -R {truth_bed} && '
+        f'pre.py {truth_input["vcf"]} {job.output["truth_pre.py"]} {pre_args} && '
+        f'pre.py {vcf_input["vcf"]} {job.output["query_pre.py"]} {pre_args} && '
         f'hap.py {job.output["truth_pre.py"]} {job.output["query_pre.py"]} '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
         f'-o {job.output}/output --engine=vcfeval '
         f'--engine-vcfeval-path=/vcfeval/rtg '
         f'--threads 10 --leftshift '
-        f'--engine-vcfeval-template {sdf} '
-        f'--preprocess-truth'
+        f'--engine-vcfeval-template {sdf}'
     )
     batch.write_output(job.output, os.path.join(output_path('comparison'), sample))
 
@@ -192,7 +193,7 @@ def get_validation_samples() -> dict[str, str]:
     return dict(results)
 
 
-def get_sample_truth(cpg_id: str) -> tuple[str, str]:
+def get_sample_truth(cpg_id: str) -> tuple[str | None, str | None]:
     """
     query metamist for the sample truth
     Parameters
@@ -211,13 +212,17 @@ def get_sample_truth(cpg_id: str) -> tuple[str, str]:
         meta={'type': 'validation'},
         active=True,
     )
-    anal_api = AnalysisApi()
-    analyses = anal_api.query_analyses(analysis_query_model=a_query_model)
-    if len(analyses) != 1:
+    analyses = ANAL_API.query_analyses(analysis_query_model=a_query_model)
+    if len(analyses) > 1:
         logger.error(
             f'Multiple [custom] analysis objects were found for '
             f'{cpg_id}, please set old analyses to active=False'
         )
+        return None, None
+
+    if len(analyses) == 0:
+        logger.error(f'{cpg_id} has no Analysis entries')
+        return None, None
 
     analysis_object = analyses[0]
     truth_vcf = analysis_object['output']
@@ -280,6 +285,9 @@ def main(input_file: str, header: str | None):
         cpg_id = validation_lookup[sample_id]
         full_path = ss_file.absolute()
         truth_bed, truth_vcf = get_sample_truth(cpg_id)
+        if truth_bed is None:
+            logger.error(f'Skipping validation run for {cpg_id}')
+            continue
         comparison_job(
             batch=batch,
             ss_vcf=str(full_path),
