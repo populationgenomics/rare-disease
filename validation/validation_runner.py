@@ -46,8 +46,10 @@ def mt_to_vcf(input_mt: str, header_lines: str | None, samples: set[str]):
     init_batch()
 
     full_mt = hl.read_matrix_table(input_mt)
+    all_jc_samples = full_mt.s.collect()
+    logging.info(f'All Joint-call samples: {all_jc_samples}')
 
-    samples_in_jc = set(full_mt.s.collect()).intersection(samples)
+    samples_in_jc = set(all_jc_samples).intersection(samples)
     logging.info(
         f'Extracting these samples from the joint-call: {" ".join(samples_in_jc)}'
     )
@@ -249,6 +251,8 @@ def main(input_file: str, header: str | None):
 
     validation_lookup = get_validation_samples()
 
+    print(list(validation_lookup.keys()))
+
     service_backend = hb.ServiceBackend(
         billing_project=get_config()['hail']['billing_project'],
         remote_tmpdir=remote_tmpdir(),
@@ -280,6 +284,7 @@ def main(input_file: str, header: str | None):
     # for each sample, use metamist to pull the corresponding truth and VCF
     # THEN GO AT IT BABY
     # skip any samples without registered truth, complain
+    scheduled_jobs = False
     for ss_file in single_sample_files:
         sample_id = ss_file.name.split('.vcf.bgz')[0]
         cpg_id = validation_lookup[sample_id]
@@ -296,13 +301,16 @@ def main(input_file: str, header: str | None):
             truth_vcf=str(truth_vcf),
             reference_sdf=ref_sdf,
         )
+        scheduled_jobs = True
 
     # twist_bed = 'gs://cpg-validation-test/Twist_Exome_Core_Covered_Targets_hg38.bed'
 
-    batch.run(wait=False)
+    if scheduled_jobs:
+        batch.run(wait=False)
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     parser = ArgumentParser()
     parser.add_argument('-i', help='input_path')
     parser.add_argument('--header', help='header_lines_file', default=None)
