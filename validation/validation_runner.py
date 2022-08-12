@@ -251,8 +251,6 @@ def main(input_file: str, header: str | None):
 
     validation_lookup = get_validation_samples()
 
-    print(list(validation_lookup.keys()))
-
     service_backend = hb.ServiceBackend(
         billing_project=get_config()['hail']['billing_project'],
         remote_tmpdir=remote_tmpdir(),
@@ -286,8 +284,7 @@ def main(input_file: str, header: str | None):
     # skip any samples without registered truth, complain
     scheduled_jobs = False
     for ss_file in single_sample_files:
-        sample_id = ss_file.name.split('.vcf.bgz')[0]
-        cpg_id = validation_lookup[sample_id]
+        cpg_id = ss_file.name.split('.vcf.bgz')[0]
         full_path = ss_file.absolute()
         truth_bed, truth_vcf = get_sample_truth(cpg_id)
         if truth_bed is None:
@@ -296,7 +293,7 @@ def main(input_file: str, header: str | None):
         comparison_job(
             batch=batch,
             ss_vcf=str(full_path),
-            sample=sample_id,
+            sample=cpg_id,
             truth_bed=str(truth_bed),
             truth_vcf=str(truth_vcf),
             reference_sdf=ref_sdf,
