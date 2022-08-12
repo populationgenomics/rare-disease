@@ -155,25 +155,27 @@ def comparison_job(
             'happy_metrics.json.gz': '{root}/output.metrics.json.gz',
             'happy_runinfo.json': '{root}/output.runinfo.json',
             'summary.csv': '{root}/output.summary.csv',
-            'truth_pre.py': '{root}/prepy_truth.vcf.gz',
-            'query_pre.py': '{root}/prepy_query.vcf.gz',
+            # 'truth_pre.py': '{root}/prepy_truth.vcf.gz',
+            # 'query_pre.py': '{root}/prepy_query.vcf.gz',
         }
     )
 
-    # set arguments for pre-py
-    pre_args = f'-r {batch_ref["fasta"]} --pass-only -R {truth_bed}'
+    # pre.py use is cancelled out for now
+    # # set arguments for pre-py
+    # pre_args = f'-r {batch_ref["fasta"]} --pass-only -R {truth_bed}'
 
     # use pre.py to pre-process the truth and test data
     job.command(
         f'mkdir {job.output} && '
-        f'pre.py {truth_input["vcf"]} {job.output["truth_pre.py"]} {pre_args} && '
-        f'pre.py {vcf_input["vcf"]} {job.output["query_pre.py"]} {pre_args} && '
-        f'hap.py {job.output["truth_pre.py"]} {job.output["query_pre.py"]} '
+        # f'pre.py {truth_input["vcf"]} {job.output["truth_pre.py"]} {pre_args} && '
+        # f'pre.py {vcf_input["vcf"]} {job.output["query_pre.py"]} {pre_args} && '
+        f'hap.py {truth_input["vcf"]} {vcf_input["vcf"]} '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
         f'-o {job.output}/output --engine=vcfeval '
         f'--engine-vcfeval-path=/vcfeval/rtg '
         f'--threads 10 --leftshift '
-        f'--engine-vcfeval-template {sdf}'
+        f'--engine-vcfeval-template {sdf} '
+        f'--preprocess-truth'
     )
     batch.write_output(job.output, os.path.join(output_path('comparison'), sample))
 
