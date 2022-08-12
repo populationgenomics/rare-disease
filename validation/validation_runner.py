@@ -192,7 +192,7 @@ def get_validation_samples() -> dict[str, str]:
         project=get_config()['workflow']['dataset']
     )
     # pylint: disable=unnecessary-comprehension
-    return {y: x for x, y in results.items()}
+    return {y: x for x, y in results}
 
 
 def get_sample_truth(cpg_id: str) -> tuple[str | None, str | None]:
