@@ -167,8 +167,6 @@ def comparison_job(
     # use pre.py to pre-process the truth and test data
     job.command(
         f'mkdir {job.output} && '
-        # f'pre.py {truth_input["vcf"]} {job.output["truth_pre.py"]} {pre_args} && '
-        # f'pre.py {vcf_input["vcf"]} {job.output["query_pre.py"]} {pre_args} && '
         f'hap.py {truth_input["vcf"]} {vcf_input["vcf"]} '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
         f'-o {job.output}/output --engine=vcfeval '
