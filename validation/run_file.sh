@@ -10,5 +10,5 @@ analysis-runner \
   -o $DATE \
   --access-level test \
   validation/validation_runner.py \
-    -i gs://cpg-validation-main/mt/e51f4fb948f27a4130f4a56b32fd1ca8e7c0ad_867-validation.mt \
+    -i gs://cpg-validation-main/mt/986d792a448c66a8a5cfba65434e7d1ce9b1ff_1051-validation.mt \
     --header gs://cpg-validation-test/header_lines.txt
