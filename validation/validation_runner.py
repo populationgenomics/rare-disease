@@ -100,6 +100,7 @@ def comparison_job(
 
     job = batch.new_job(name=f'Compare {sample}')
     job.image(image_path('happy'))
+    job.image('australia-southeast1-docker.pkg.dev/cpg-common/images/happy-vcfeval:1.0')
     job.memory('20Gi')
     vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': f'{ss_vcf}.tbi'})
     truth_input = batch.read_input_group(
