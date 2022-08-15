@@ -153,10 +153,10 @@ def comparison_job(
     job.command(
         # f'md5sum {truth_input["vcf"]} && '
         # f'md5sum {vcf_input["vcf"]} && '
-        # f'mv {vcf_input["vcf"]} input.vcf.gz &&'
-        # f'mv {vcf_input["vcf"]}.tbi input.vcf.gz.tbi &&'
+        f'mv {vcf_input["vcf"]} input.vcf.gz &&'
+        f'mv {vcf_input["vcf"]}.tbi input.vcf.gz.tbi &&'
         f'mkdir {job.output} && '
-        f'hap.py {truth_input["vcf"]} {vcf_input["vcf"]} '
+        f'hap.py {truth_input["vcf"]} input.vcf.gz '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
         f'-o {job.output}/output '
         f'--engine-vcfeval-path=/opt/hap.py/libexec/rtg-tools-install/rtg '
