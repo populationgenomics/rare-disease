@@ -97,7 +97,6 @@ def comparison_job(
     -------
 
     """
-    print(reference_sdf)
 
     job = batch.new_job(name=f'Compare {sample}')
     job.image(image_path('happy'))
@@ -116,10 +115,10 @@ def comparison_job(
         **{'fasta': refgenome, 'index': f'{refgenome}.fai'}
     )
 
-    # # sdf loading as a Glob operation
-    # sdf = batch.read_input_group(
-    #     **{file.name: file.as_uri() for file in AnyPath(reference_sdf).glob('*')}
-    # )
+    # sdf loading as a Glob operation
+    sdf = batch.read_input_group(
+        **{file.name: file.as_uri() for file in AnyPath(reference_sdf).glob('*')}
+    )
 
     # hap.py outputs:
     # output.extended.csv
@@ -148,14 +147,21 @@ def comparison_job(
 
     # pre.py use is cancelled out for now
     # # set arguments for pre-py
-    # pre_args = f'-r {batch_ref["fasta"]} --pass-only -R {truth_bed}'
+    pre_args = f'-r {batch_ref["fasta"]} --pass-only -R {truth_bed}'
 
     # pre-process the truth and test data
     job.command(
+        f'pre.py {pre_args} {truth_input["vcf"]} truth.vcf.gz && '
+        f'tabix truth.vcf.gz && '
+        f'pre.py {pre_args} {vcf_input["vcf"]} query.vcf.gz && '
+        f'tabix query.vcf.gz && '
         f'mkdir {job.output} && '
-        f'hap.py {truth_input["vcf"]} {vcf_input["vcf"]} '
+        f'hap.py truth.vcf.gz query.vcf.gz '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
         f'-o {job.output}/output '
+        f'--engine-vcfeval-path=/opt/hap.py/libexec/rtg-tools-install/rtg '
+        f'--threads 10 '
+        f'--engine-vcfeval-template {sdf} --engine=vcfeval '
     )
     batch.write_output(job.output, os.path.join(output_path('comparison'), sample))
 
