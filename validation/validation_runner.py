@@ -153,9 +153,7 @@ def comparison_job(
     # pre-process the truth and test data
     job.command(
         f'pre.py {pre_args} {truth_input["vcf"]} truth.vcf.gz && '
-        f'tabix truth.vcf.gz && '
         f'pre.py {pre_args} {vcf_input["vcf"]} query.vcf.gz && '
-        f'tabix query.vcf.gz && '
         f'mkdir {job.output} && '
         f'hap.py truth.vcf.gz query.vcf.gz '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
