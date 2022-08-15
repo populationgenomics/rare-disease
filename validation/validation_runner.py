@@ -115,11 +115,10 @@ def comparison_job(
         **{'fasta': refgenome, 'index': f'{refgenome}.fai'}
     )
 
-    print(reference_sdf)
-    # # sdf loading as a Glob operation
-    # sdf = batch.read_input_group(
-    #     **{file.name: file.as_uri() for file in AnyPath(reference_sdf).glob('*')}
-    # )
+    # sdf loading as a Glob operation
+    sdf = batch.read_input_group(
+        **{file.name: file.as_uri() for file in AnyPath(reference_sdf).glob('*')}
+    )
 
     # hap.py outputs:
     # output.extended.csv
@@ -157,7 +156,10 @@ def comparison_job(
         f'mkdir {job.output} && '
         f'hap.py truth.vcf.gz query.vcf.gz '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
-        f'-o {job.output}/output --threads 10 '
+        f'-o {job.output}/output '
+        f'--engine-vcfeval-path=/opt/hap.py/libexec/rtg-tools-install/rtg '
+        f'--threads 10 '
+        f'--engine-vcfeval-template {sdf} --engine=vcfeval '
     )
     batch.write_output(job.output, os.path.join(output_path('comparison'), sample))
 
@@ -240,7 +242,7 @@ def main(input_file: str, header: str | None):
         remote_tmpdir=remote_tmpdir(),
     )
     batch = hb.Batch(
-        name='run without vcfeval preprocessing',
+        name='run validation bits and pieces',
         backend=service_backend,
         cancel_after_n_failures=1,
         default_timeout=6000,
