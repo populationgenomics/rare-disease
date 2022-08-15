@@ -162,7 +162,7 @@ def comparison_job(
         f'--engine-vcfeval-path=/opt/hap.py/libexec/rtg-tools-install/rtg '
         f'--threads 10 '
         f'--engine-vcfeval-template {sdf} --engine=vcfeval '
-        f'--preprocess-truth'
+        f'--preprocess-truth --pass-only '
     )
     batch.write_output(job.output, os.path.join(output_path('comparison'), sample))
 
