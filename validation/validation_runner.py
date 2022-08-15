@@ -100,8 +100,7 @@ def comparison_job(
 
     job = batch.new_job(name=f'Compare {sample}')
     job.image(image_path('happy'))
-    job.image('australia-southeast1-docker.pkg.dev/cpg-common/images/happy-vcfeval:1.0')
-    job.memory('20Gi')
+    job.memory('40Gi')
     vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': f'{ss_vcf}.tbi'})
     truth_input = batch.read_input_group(
         **{'vcf': truth_vcf, 'index': f'{truth_vcf}.tbi'}
@@ -114,24 +113,10 @@ def comparison_job(
     batch_ref = batch.read_input_group(
         **{'fasta': refgenome, 'index': f'{refgenome}.fai'}
     )
+
+    # sdf loading as a Glob operation
     sdf = batch.read_input_group(
-        format_log=f'{reference_sdf}/format.log',
-        mainIndex=f'{reference_sdf}/mainIndex',
-        namedata0=f'{reference_sdf}/namedata0',
-        nameIndex0=f'{reference_sdf}/nameIndex0',
-        namepointer0=f'{reference_sdf}/namepointer0',
-        reference=f'{reference_sdf}/reference.txt',
-        seqdata0=f'{reference_sdf}/seqdata0',
-        seqdata1=f'{reference_sdf}/seqdata1',
-        seqdata2=f'{reference_sdf}/seqdata2',
-        seqdata3=f'{reference_sdf}/seqdata3',
-        seqpointer0=f'{reference_sdf}/seqpointer0',
-        seqpointer1=f'{reference_sdf}/seqpointer1',
-        seqpointer2=f'{reference_sdf}/seqpointer2',
-        seqpointer3=f'{reference_sdf}/seqpointer3',
-        sequenceIndex0=f'{reference_sdf}/sequenceIndex0',
-        progress=f'{reference_sdf}/progress',
-        summary=f'{reference_sdf}/summary.txt',
+        **{file.name: file.as_uri() for file in AnyPath(reference_sdf).glob('*')}
     )
 
     # hap.py outputs:
@@ -156,8 +141,6 @@ def comparison_job(
             'happy_metrics.json.gz': '{root}/output.metrics.json.gz',
             'happy_runinfo.json': '{root}/output.runinfo.json',
             'summary.csv': '{root}/output.summary.csv',
-            # 'truth_pre.py': '{root}/prepy_truth.vcf.gz',
-            # 'query_pre.py': '{root}/prepy_query.vcf.gz',
         }
     )
 
@@ -165,15 +148,17 @@ def comparison_job(
     # # set arguments for pre-py
     # pre_args = f'-r {batch_ref["fasta"]} --pass-only -R {truth_bed}'
 
-    # use pre.py to pre-process the truth and test data
+    # pre-process the truth and test data
     job.command(
+        f'mv {vcf_input["vcf"]} input.vcf.gz &&'
+        f'mv {vcf_input["vcf"]}.tbi input.vcf.gz.tbi &&'
         f'mkdir {job.output} && '
-        f'hap.py {truth_input["vcf"]} {vcf_input["vcf"]} '
+        f'hap.py {truth_input["vcf"]} input.vcf.gz '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
-        f'-o {job.output}/output --engine=vcfeval '
-        f'--engine-vcfeval-path=/vcfeval/rtg '
+        f'-o {job.output}/output '
+        f'--engine-vcfeval-path=/opt/hap.py/libexec/rtg-tools-install/rtg '
         f'--threads 10 --leftshift '
-        f'--engine-vcfeval-template {sdf} '
+        f'--engine-vcfeval-template {sdf} --engine=vcfeval '
         f'--preprocess-truth'
     )
     batch.write_output(job.output, os.path.join(output_path('comparison'), sample))
