@@ -101,6 +101,7 @@ def comparison_job(
     job = batch.new_job(name=f'Compare {sample}')
     job.image(image_path('happy'))
     job.memory('40Gi')
+    job.storage('40Gi')
     vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': f'{ss_vcf}.tbi'})
     truth_input = batch.read_input_group(
         **{'vcf': truth_vcf, 'index': f'{truth_vcf}.tbi'}
@@ -150,10 +151,12 @@ def comparison_job(
 
     # pre-process the truth and test data
     job.command(
-        f'mv {vcf_input["vcf"]} input.vcf.gz &&'
-        f'mv {vcf_input["vcf"]}.tbi input.vcf.gz.tbi &&'
+        # f'md5sum {truth_input["vcf"]} && '
+        # f'md5sum {vcf_input["vcf"]} && '
+        # f'mv {vcf_input["vcf"]} input.vcf.gz &&'
+        # f'mv {vcf_input["vcf"]}.tbi input.vcf.gz.tbi &&'
         f'mkdir {job.output} && '
-        f'hap.py {truth_input["vcf"]} input.vcf.gz '
+        f'hap.py {truth_input["vcf"]} {vcf_input["vcf"]} '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
         f'-o {job.output}/output '
         f'--engine-vcfeval-path=/opt/hap.py/libexec/rtg-tools-install/rtg '
