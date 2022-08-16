@@ -150,7 +150,7 @@ def comparison_job(
         f'mkdir {job.output} && '
         f'hap.py {truth_input["vcf"]} {vcf_input["vcf"]} '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
-        f'-o {job.output}/output --leftshift --pass-only '
+        f'-o {job.output}/output --leftshift '
         f'--threads 10 --preprocess-truth '
         f'--engine-vcfeval-path=/opt/hap.py/libexec/rtg-tools-install/rtg '
         f'--engine-vcfeval-template {sdf} --engine=vcfeval '
@@ -260,8 +260,6 @@ def main(input_file: str, header: str | None):
     ref_sdf = 'gs://cpg-validation-test/refgenome_sdf'
 
     # for each sample, use metamist to pull the corresponding truth and VCF
-    # THEN GO AT IT BABY
-    # skip any samples without registered truth, complain
     scheduled_jobs = False
     for ss_file in single_sample_files:
         cpg_id = ss_file.name.split('.vcf.bgz')[0]
@@ -279,8 +277,6 @@ def main(input_file: str, header: str | None):
             reference_sdf=ref_sdf,
         )
         scheduled_jobs = True
-
-    # twist_bed = 'gs://cpg-validation-test/Twist_Exome_Core_Covered_Targets_hg38.bed'
 
     if scheduled_jobs:
         batch.run(wait=False)
