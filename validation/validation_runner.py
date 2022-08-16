@@ -9,9 +9,10 @@ import os
 from pathlib import Path
 from argparse import ArgumentParser
 
+from csv import DictReader
+import hailtop.batch as hb
 from cloudpathlib import AnyPath
 import hail as hl
-import hailtop.batch as hb
 
 from cpg_utils.config import get_config
 from cpg_utils.hail_batch import (
@@ -23,11 +24,23 @@ from cpg_utils.hail_batch import (
 from sample_metadata.apis import AnalysisApi, ParticipantApi
 from sample_metadata.model.analysis_query_model import AnalysisQueryModel
 from sample_metadata.model.analysis_type import AnalysisType
+from sample_metadata.model.analysis_model import AnalysisModel
+from sample_metadata.model.analysis_status import AnalysisStatus
 
 
 MT_TO_VCF_SCRIPT = os.path.join(os.path.dirname(__file__), 'mt_to_vcf.py')
 OUTPUT_VCFS = output_path('single_sample_vcfs')
 ANAL_API = AnalysisApi()
+SUMMARY_KEYS = {
+    'TRUTH.TOTAL': 'true_variants',
+    'QUERY.TOTAL': 'pipeline_variants',
+    'TRUTH.TP': 'matched_variants',
+    'TRUTH.FN': 'false_negatives',
+    'QUERY.FP': 'false_positives',
+    'METRIC.Recall': 'recall',
+    'METRIC.Precision': 'precision',
+    'METRIC.F1_Score': 'f1_score',
+}
 
 # create a logger
 logger = logging.getLogger(__file__)
@@ -156,6 +169,7 @@ def comparison_job(
         f'--engine-vcfeval-template {sdf} --engine=vcfeval '
     )
     batch.write_output(job.output, os.path.join(output_path('comparison'), sample))
+    return job
 
 
 def get_validation_samples() -> dict[str, str]:
@@ -171,7 +185,6 @@ def get_validation_samples() -> dict[str, str]:
     results = party.get_external_participant_id_to_internal_sample_id(
         project=get_config()['workflow']['dataset']
     )
-    # pylint: disable=unnecessary-comprehension
     return {y: x for x, y in results}
 
 
@@ -214,6 +227,76 @@ def get_sample_truth(cpg_id: str) -> tuple[str | None, str | None]:
     ), f'Missing one or both of the truth files: BED: {truth_bed}, VCF: {truth_vcf}'
 
     return truth_bed, truth_vcf
+
+
+def post_results(cpg_id, single_sample_vcf):
+    """
+    parses for all analysis results
+    parses the analysis summary
+    creates an inactive, completed, QC summary
+    posts to metamist
+
+    Parameters
+    ----------
+    cpg_id :
+    single_sample_vcf :
+
+    Returns
+    -------
+
+    """
+    results_path = output_path('comparison')
+
+    # cast as a list so we can iterate without emptying
+    sample_results = list(AnyPath(results_path).glob(f'{cpg_id}*'))
+    # pick out the summary file
+    summary_file = [file for file in sample_results if 'summary.csv' in file.name][0]
+    # populate a dictionary of results for this sample
+    summary_data = {'type': 'validation'}
+    with summary_file.open() as handle:
+        summary_reader = DictReader(handle)
+        for line in summary_reader:
+            summary_key = f'{line["Type"]}_{line["Filter"]}'
+            for sub_key, sub_value in SUMMARY_KEYS.items():
+                summary_data[f'{summary_key}::{sub_value}'] = str(line[sub_key])
+
+    for file in sample_results:
+        summary_data[file.name.replace(f'{cpg_id}.', '')] = file.absolute()
+
+    AnalysisApi().create_new_analysis(
+        project='validation',
+        analysis_model=AnalysisModel(
+            sample_ids=[cpg_id],
+            type=AnalysisType('qc'),
+            status=AnalysisStatus('completed'),
+            output=single_sample_vcf,
+            meta=summary_data,
+            active=False,
+        ),
+    )
+
+
+def post_results_job(
+    batch: hb.batch.Batch, dependency: hb.batch.job.Job, sample_id: str, ss_vcf: str
+):
+    """
+    post the results to THE METAMIST
+
+    Parameters
+    ----------
+    batch : batch to run the job in
+    dependency : the analysis job we're dependent on
+    sample_id : CPG ID
+    ss_vcf : single sample VCF file used/created
+
+    Returns
+    -------
+
+    """
+    post_job = batch.new_python_job(name=f'Update metamist for {sample_id}')
+    post_job.depends_on(dependency)
+    post_job.image(get_config()['workflow']['driver_image'])
+    post_job.call(post_results, sample_id, ss_vcf)
 
 
 def main(input_file: str, header: str | None):
@@ -268,13 +351,16 @@ def main(input_file: str, header: str | None):
         if truth_bed is None:
             logger.error(f'Skipping validation run for {cpg_id}')
             continue
-        comparison_job(
+        comparison = comparison_job(
             batch=batch,
             ss_vcf=str(full_path),
             sample=cpg_id,
             truth_bed=str(truth_bed),
             truth_vcf=str(truth_vcf),
             reference_sdf=ref_sdf,
+        )
+        post_results_job(
+            batch=batch, dependency=comparison, sample_id=cpg_id, ss_vcf=full_path
         )
         scheduled_jobs = True
 
