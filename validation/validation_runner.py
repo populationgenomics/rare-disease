@@ -145,20 +145,13 @@ def comparison_job(
         }
     )
 
-    # pre.py use is cancelled out for now
-    # # set arguments for pre-py
-    pre_args = f'-r {batch_ref["fasta"]} --pass-only -R {truth_bed}'
-
     # pre-process the truth and test data
     job.command(
-        f'pre.py {pre_args} {truth_input["vcf"]} truth.vcf.gz && '
-        f'pre.py {pre_args} {vcf_input["vcf"]} query.vcf.gz && '
         f'mkdir {job.output} && '
-        f'hap.py truth.vcf.gz query.vcf.gz '
+        f'hap.py {truth_input["vcf"]} {vcf_input["vcf"]} '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
         f'-o {job.output}/output '
         f'--engine-vcfeval-path=/opt/hap.py/libexec/rtg-tools-install/rtg '
-        f'--threads 10 '
         f'--engine-vcfeval-template {sdf} --engine=vcfeval '
     )
     batch.write_output(job.output, os.path.join(output_path('comparison'), sample))
