@@ -229,7 +229,7 @@ def get_sample_truth(cpg_id: str) -> tuple[str | None, str | None]:
     return truth_bed, truth_vcf
 
 
-def post_results(cpg_id, single_sample_vcf):
+def post_results(cpg_id, single_sample_vcf, truth_vcf: str, truth_bed: str):
     """
     parses for all analysis results
     parses the analysis summary
@@ -240,6 +240,8 @@ def post_results(cpg_id, single_sample_vcf):
     ----------
     cpg_id :
     single_sample_vcf :
+    truth_vcf :
+    truth_bed :
 
     Returns
     -------
@@ -252,7 +254,11 @@ def post_results(cpg_id, single_sample_vcf):
     # pick out the summary file
     summary_file = [file for file in sample_results if 'summary.csv' in file.name][0]
     # populate a dictionary of results for this sample
-    summary_data = {'type': 'validation'}
+    summary_data = {
+        'type': 'validation',
+        'truth_vcf': truth_vcf,
+        'truth_bed': truth_bed,
+    }
     with summary_file.open() as handle:
         summary_reader = DictReader(handle)
         for line in summary_reader:
@@ -277,7 +283,12 @@ def post_results(cpg_id, single_sample_vcf):
 
 
 def post_results_job(
-    batch: hb.batch.Batch, dependency: hb.batch.job.Job, sample_id: str, ss_vcf: str
+    batch: hb.batch.Batch,
+    dependency: hb.batch.job.Job,
+    sample_id: str,
+    ss_vcf: str,
+    truth_vcf: str,
+    truth_bed: str,
 ):
     """
     post the results to THE METAMIST
@@ -288,15 +299,18 @@ def post_results_job(
     dependency : the analysis job we're dependent on
     sample_id : CPG ID
     ss_vcf : single sample VCF file used/created
+    truth_vcf :
+    truth_bed :
 
     Returns
     -------
 
     """
     post_job = batch.new_python_job(name=f'Update metamist for {sample_id}')
-    post_job.depends_on(dependency)
+    print(dependency)
+    # post_job.depends_on(dependency)
     post_job.image(get_config()['workflow']['driver_image'])
-    post_job.call(post_results, sample_id, ss_vcf)
+    post_job.call(post_results, sample_id, ss_vcf, truth_vcf, truth_bed)
 
 
 def main(input_file: str, header: str | None):
@@ -351,16 +365,23 @@ def main(input_file: str, header: str | None):
         if truth_bed is None:
             logger.error(f'Skipping validation run for {cpg_id}')
             continue
-        comparison = comparison_job(
-            batch=batch,
-            ss_vcf=str(full_path),
-            sample=cpg_id,
-            truth_bed=str(truth_bed),
-            truth_vcf=str(truth_vcf),
-            reference_sdf=ref_sdf,
-        )
+        # comparison = comparison_job(
+        #     batch=batch,
+        #     ss_vcf=str(full_path),
+        #     sample=cpg_id,
+        #     truth_bed=str(truth_bed),
+        #     truth_vcf=str(truth_vcf),
+        #     reference_sdf=ref_sdf,
+        # )
+        comparison = 'skipped'
+        print(ref_sdf, truth_vcf)
         post_results_job(
-            batch=batch, dependency=comparison, sample_id=cpg_id, ss_vcf=full_path
+            batch=batch,
+            dependency=comparison,
+            sample_id=cpg_id,
+            ss_vcf=full_path,
+            truth_vcf=truth_vcf,
+            truth_bed=truth_bed,
         )
         scheduled_jobs = True
 
