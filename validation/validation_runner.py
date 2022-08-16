@@ -9,7 +9,6 @@ import os
 from pathlib import Path
 from argparse import ArgumentParser
 
-from csv import DictReader
 import hailtop.batch as hb
 from cloudpathlib import AnyPath
 import hail as hl
@@ -26,23 +25,12 @@ from cpg_utils.hail_batch import (
 from sample_metadata.apis import AnalysisApi, ParticipantApi
 from sample_metadata.model.analysis_query_model import AnalysisQueryModel
 from sample_metadata.model.analysis_type import AnalysisType
-from sample_metadata.model.analysis_model import AnalysisModel
-from sample_metadata.model.analysis_status import AnalysisStatus
 
 
 MT_TO_VCF_SCRIPT = os.path.join(os.path.dirname(__file__), 'mt_to_vcf.py')
+RESULTS_SCRIPT = os.path.join(os.path.dirname(__file__), 'parse_validation_results.py')
 OUTPUT_VCFS = output_path('single_sample_vcfs')
-ANAL_API = AnalysisApi()
-SUMMARY_KEYS = {
-    'TRUTH.TOTAL': 'true_variants',
-    'QUERY.TOTAL': 'pipeline_variants',
-    'TRUTH.TP': 'matched_variants',
-    'TRUTH.FN': 'false_negatives',
-    'QUERY.FP': 'false_positives',
-    'METRIC.Recall': 'recall',
-    'METRIC.Precision': 'precision',
-    'METRIC.F1_Score': 'f1_score',
-}
+REF_SDF = 'gs://cpg-validation-test/refgenome_sdf'
 
 # create a logger
 logger = logging.getLogger(__file__)
@@ -52,12 +40,15 @@ logger.setLevel(level=logging.INFO)
 def mt_to_vcf(input_mt: str, header_lines: str | None, samples: set[str]):
     """
     takes a MT and converts to VCF
-    adds in extra header lines for VQSR filters
-    :param input_mt:
-    :param header_lines:
-    :param samples:
-    :return:
+    optionally adds in extra header lines for VQSR filters
+
+    Parameters
+    ----------
+    input_mt : path to the MT to read into VCF
+    header_lines : optional; file containing additional header lines
+    samples : set of CPG sample IDs
     """
+
     init_batch()
 
     full_mt = hl.read_matrix_table(input_mt)
@@ -86,6 +77,7 @@ def mt_to_vcf(input_mt: str, header_lines: str | None, samples: set[str]):
         # filter to this sample's non-ref calls
         mt = hl.variant_qc(mt)
         mt = mt.filter_rows(mt.variant_qc.n_non_ref > 0)
+        # no need to drop the variant_qc field, its not selected into VCF
         hl.export_vcf(
             mt,
             sample_path,
@@ -95,18 +87,21 @@ def mt_to_vcf(input_mt: str, header_lines: str | None, samples: set[str]):
 
 
 def comparison_job(
-    batch, ss_vcf: str, sample: str, truth_vcf: str, truth_bed: str, reference_sdf: str
+    batch: hb.batch.Batch,
+    ss_vcf: str,
+    sample: str,
+    truth_vcf: str,
+    truth_bed: str,
 ):
     """
 
     Parameters
     ----------
-    batch :
-    ss_vcf :
-    sample :
-    truth_vcf :
-    truth_bed :
-    reference_sdf :
+    batch : the batch to run this job in
+    ss_vcf : single sample VCF to validate
+    sample : CPG ID
+    truth_vcf : truth variant source
+    truth_bed : confident region source
 
     Returns
     -------
@@ -132,7 +127,7 @@ def comparison_job(
 
     # sdf loading as a Glob operation
     sdf = batch.read_input_group(
-        **{file.name: file.as_uri() for file in AnyPath(reference_sdf).glob('*')}
+        **{file.name: file.as_uri() for file in AnyPath(REF_SDF).glob('*')}
     )
 
     # hap.py outputs:
@@ -160,7 +155,6 @@ def comparison_job(
         }
     )
 
-    # pre-process the truth and test data
     job.command(
         f'mkdir {job.output} && '
         f'hap.py {truth_input["vcf"]} {vcf_input["vcf"]} '
@@ -170,17 +164,19 @@ def comparison_job(
         f'--engine-vcfeval-path=/opt/hap.py/libexec/rtg-tools-install/rtg '
         f'--engine-vcfeval-template {sdf} --engine=vcfeval '
     )
+
+    # extract the results files
     batch.write_output(job.output, os.path.join(output_path('comparison'), sample))
     return job
 
 
 def get_validation_samples() -> dict[str, str]:
     """
-    query metamist for all sample IDs
-    return a dict of {external: CPG ID}
+    query metamist for all sample IDs in this dataset
+
     Returns
     -------
-
+    dict of {external: CPG ID}
     """
 
     party = ParticipantApi()
@@ -190,18 +186,19 @@ def get_validation_samples() -> dict[str, str]:
     return {y: x for x, y in results}
 
 
-def get_sample_truth(cpg_id: str) -> tuple[str | None, str | None]:
+def get_sample_truth(cpg_id: str) -> tuple[str, str]:
     """
     query metamist for the sample truth
+
     Parameters
     ----------
-    cpg_id :
+    cpg_id : CPG### format ID
 
     Returns
     -------
-    Path to the truth VCF and corresponding BED file
-
+    Path to the truth VCF and confident region BED file
     """
+
     a_query_model = AnalysisQueryModel(
         projects=[get_config()['workflow']['dataset']],
         sample_ids=[cpg_id],
@@ -209,79 +206,24 @@ def get_sample_truth(cpg_id: str) -> tuple[str | None, str | None]:
         meta={'type': 'validation'},
         active=True,
     )
-    analyses = ANAL_API.query_analyses(analysis_query_model=a_query_model)
+    analyses = AnalysisApi().query_analyses(analysis_query_model=a_query_model)
     if len(analyses) > 1:
-        logger.error(
+        raise Exception(
             f'Multiple [custom] analysis objects were found for '
             f'{cpg_id}, please set old analyses to active=False'
         )
-        return None, None
 
     if len(analyses) == 0:
-        logger.error(f'{cpg_id} has no Analysis entries')
-        return None, None
+        raise Exception(f'{cpg_id} has no Analysis entries')
 
     analysis_object = analyses[0]
-    truth_vcf = analysis_object['output']
+    truth_vcf = analysis_object.get('output')
     truth_bed = analysis_object['meta'].get('confident_region')
     assert (
         truth_bed and truth_vcf
     ), f'Missing one or both of the truth files: BED: {truth_bed}, VCF: {truth_vcf}'
 
     return truth_bed, truth_vcf
-
-
-def post_results(cpg_id, single_sample_vcf, truth_vcf: str, truth_bed: str):
-    """
-    parses for all analysis results
-    parses the analysis summary
-    creates an inactive, completed, QC summary
-    posts to metamist
-
-    Parameters
-    ----------
-    cpg_id :
-    single_sample_vcf :
-    truth_vcf :
-    truth_bed :
-
-    Returns
-    -------
-
-    """
-    results_path = output_path('comparison')
-
-    # cast as a list so we can iterate without emptying
-    sample_results = list(AnyPath(results_path).glob(f'{cpg_id}*'))
-    # pick out the summary file
-    summary_file = [file for file in sample_results if 'summary.csv' in file.name][0]
-    # populate a dictionary of results for this sample
-    summary_data = {
-        'type': 'validation',
-        'truth_vcf': truth_vcf,
-        'truth_bed': truth_bed,
-    }
-    with summary_file.open() as handle:
-        summary_reader = DictReader(handle)
-        for line in summary_reader:
-            summary_key = f'{line["Type"]}_{line["Filter"]}'
-            for sub_key, sub_value in SUMMARY_KEYS.items():
-                summary_data[f'{summary_key}::{sub_value}'] = str(line[sub_key])
-
-    for file in sample_results:
-        summary_data[file.name.replace(f'{cpg_id}.', '')] = file.absolute()
-
-    AnalysisApi().create_new_analysis(
-        project='validation',
-        analysis_model=AnalysisModel(
-            sample_ids=[cpg_id],
-            type=AnalysisType('qc'),
-            status=AnalysisStatus('completed'),
-            output=single_sample_vcf,
-            meta=summary_data,
-            active=False,
-        ),
-    )
 
 
 def post_results_job(
@@ -293,7 +235,7 @@ def post_results_job(
     truth_bed: str,
 ):
     """
-    post the results to THE METAMIST
+    post the results to THE METAMIST using companion script
 
     Parameters
     ----------
@@ -301,32 +243,31 @@ def post_results_job(
     dependency : the analysis job we're dependent on
     sample_id : CPG ID
     ss_vcf : single sample VCF file used/created
-    truth_vcf :
-    truth_bed :
-
-    Returns
-    -------
-
+    truth_vcf : source of truth variants
+    truth_bed : source of confident regions
     """
-    post_job = batch.new_python_job(name=f'Update metamist for {sample_id}')
+
+    post_job = batch.new_job(name=f'Update metamist for {sample_id}')
     post_job.depends_on(dependency)
     post_job.image(get_config()['workflow']['driver_image'])
     copy_common_env(post_job)
     authenticate_cloud_credentials_in_job(post_job)
-    post_job.call(post_results, sample_id, ss_vcf, truth_vcf, truth_bed)
+    job_cmd = (
+        f'PYTHONPATH=$(pwd) python3 {RESULTS_SCRIPT} '
+        f'--id {sample_id} '
+        f'--ss {ss_vcf} '
+        f'-t {truth_vcf} '
+        f'-b {truth_bed} '
+    )
+    post_job.command(job_cmd)
 
 
 def main(input_file: str, header: str | None):
     """
-
     Parameters
     ----------
-    input_file :
-    header :
-
-    Returns
-    -------
-
+    input_file : path to the MT representing this joint-call
+    header : any additional header lines to add when writing VCF
     """
 
     validation_lookup = get_validation_samples()
@@ -339,7 +280,6 @@ def main(input_file: str, header: str | None):
         name='run validation bits and pieces',
         backend=service_backend,
         cancel_after_n_failures=1,
-        default_timeout=6000,
         default_memory='highmem',
     )
 
@@ -357,9 +297,10 @@ def main(input_file: str, header: str | None):
 
     single_sample_files = list(AnyPath(OUTPUT_VCFS).glob('*.vcf.bgz'))
 
-    ref_sdf = 'gs://cpg-validation-test/refgenome_sdf'
-
     # for each sample, use metamist to pull the corresponding truth and VCF
+    # if there aren't any scheduled jobs, don't run the batch
+    # more elegant solution? Like... a batch without jobs shouldn't try and run
+    # or... batch.job_count()?
     scheduled_jobs = False
     for ss_file in single_sample_files:
         cpg_id = ss_file.name.split('.vcf.bgz')[0]
@@ -374,7 +315,6 @@ def main(input_file: str, header: str | None):
             sample=cpg_id,
             truth_bed=str(truth_bed),
             truth_vcf=str(truth_vcf),
-            reference_sdf=ref_sdf,
         )
         post_results_job(
             batch=batch,
