@@ -4,7 +4,6 @@
 run locally to upload the validation results to metamist
 """
 
-import logging
 from argparse import ArgumentParser
 from csv import DictReader
 
@@ -30,9 +29,6 @@ SUMMARY_KEYS = {
 }
 VCF_FOLDER = 'single_sample_vcfs'
 COMPARISON_FOLDER = 'comparison'
-
-logger = logging.getLogger(__file__)
-logger.setLevel(level=logging.INFO)
 
 
 def get_sample_truth(cpg_id: str, dataset: str) -> tuple[str, str]:
@@ -156,7 +152,6 @@ def samples_from_vcfs(folder: CloudPath) -> dict[str, str]:
     for file in [file for file in vcf_folder.glob('*') if file.suffix != '.tbi']:
         sample_id = file.name.split('.')[0]
         sample_vcf_dict[sample_id] = str(file.absolute())
-    print(sample_vcf_dict)
     return sample_vcf_dict
 
 
