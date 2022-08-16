@@ -20,6 +20,8 @@ from cpg_utils.hail_batch import (
     output_path,
     remote_tmpdir,
     image_path,
+    copy_common_env,
+    authenticate_cloud_credentials_in_job,
 )
 from sample_metadata.apis import AnalysisApi, ParticipantApi
 from sample_metadata.model.analysis_query_model import AnalysisQueryModel
@@ -310,6 +312,8 @@ def post_results_job(
     print(dependency)
     # post_job.depends_on(dependency)
     post_job.image(get_config()['workflow']['driver_image'])
+    copy_common_env(post_job)
+    authenticate_cloud_credentials_in_job(post_job)
     post_job.call(post_results, sample_id, ss_vcf, truth_vcf, truth_bed)
 
 
