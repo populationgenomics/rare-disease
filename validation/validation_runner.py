@@ -309,8 +309,7 @@ def post_results_job(
 
     """
     post_job = batch.new_python_job(name=f'Update metamist for {sample_id}')
-    print(dependency)
-    # post_job.depends_on(dependency)
+    post_job.depends_on(dependency)
     post_job.image(get_config()['workflow']['driver_image'])
     copy_common_env(post_job)
     authenticate_cloud_credentials_in_job(post_job)
@@ -369,16 +368,14 @@ def main(input_file: str, header: str | None):
         if truth_bed is None:
             logger.error(f'Skipping validation run for {cpg_id}')
             continue
-        # comparison = comparison_job(
-        #     batch=batch,
-        #     ss_vcf=str(full_path),
-        #     sample=cpg_id,
-        #     truth_bed=str(truth_bed),
-        #     truth_vcf=str(truth_vcf),
-        #     reference_sdf=ref_sdf,
-        # )
-        comparison = 'skipped'
-        print(ref_sdf, truth_vcf)
+        comparison = comparison_job(
+            batch=batch,
+            ss_vcf=str(full_path),
+            sample=cpg_id,
+            truth_bed=str(truth_bed),
+            truth_vcf=str(truth_vcf),
+            reference_sdf=ref_sdf,
+        )
         post_results_job(
             batch=batch,
             dependency=comparison,
