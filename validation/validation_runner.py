@@ -151,6 +151,7 @@ def comparison_job(
         f'hap.py {truth_input["vcf"]} {vcf_input["vcf"]} '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
         f'-o {job.output}/output '
+        f'--threads 10 --verbose '
         f'--engine-vcfeval-path=/opt/hap.py/libexec/rtg-tools-install/rtg '
         f'--engine-vcfeval-template {sdf} --engine=vcfeval '
     )
