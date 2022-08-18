@@ -223,7 +223,7 @@ def get_sample_truth(cpg_id: str) -> tuple[str, str]:
         truth_bed and truth_vcf
     ), f'Missing one or both of the truth files: BED: {truth_bed}, VCF: {truth_vcf}'
 
-    return truth_bed, truth_vcf
+    return truth_vcf, truth_bed
 
 
 def post_results_job(
@@ -305,16 +305,19 @@ def main(input_file: str, header: str | None):
     for ss_file in single_sample_files:
         cpg_id = ss_file.name.split('.vcf.bgz')[0]
         full_path = ss_file.absolute()
-        truth_bed, truth_vcf = get_sample_truth(cpg_id)
-        if truth_bed is None:
-            logger.error(f'Skipping validation run for {cpg_id}')
+        truth_vcf, truth_bed = get_sample_truth(cpg_id)
+
+        # we already assert that both are populated, so check one
+        if truth_vcf is None:
+            logger.error(f'Truth missing, skipping validation run for {cpg_id}')
             continue
+
         comparison = comparison_job(
             batch=batch,
             ss_vcf=str(full_path),
             sample=cpg_id,
-            truth_bed=str(truth_bed),
-            truth_vcf=str(truth_vcf),
+            truth_vcf=truth_vcf,
+            truth_bed=truth_bed,
         )
         post_results_job(
             batch=batch,

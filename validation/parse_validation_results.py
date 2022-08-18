@@ -3,7 +3,7 @@
 """
 run locally to upload the validation results to metamist
 """
-
+import logging
 from argparse import ArgumentParser
 from csv import DictReader
 
@@ -16,6 +16,7 @@ from sample_metadata.apis import AnalysisApi
 from sample_metadata.model.analysis_type import AnalysisType
 from sample_metadata.model.analysis_model import AnalysisModel
 from sample_metadata.model.analysis_status import AnalysisStatus
+from sample_metadata.model.analysis_query_model import AnalysisQueryModel
 
 
 ANAL_API = AnalysisApi()
@@ -29,6 +30,32 @@ SUMMARY_KEYS = {
     'METRIC.Precision': 'precision',
     'METRIC.F1_Score': 'f1_score',
 }
+
+
+def check_for_prior_result(cpg_id: str, comparison_folder: str) -> bool:
+    """
+    queries Metamist to make sure that the results were not already
+    logged in a prior process
+
+    Parameters
+    ----------
+    cpg_id : str
+    comparison_folder : str
+
+    Returns
+    -------
+    bool - if True, this result set was already logged
+    """
+
+    a_query_model = AnalysisQueryModel(
+        projects=[get_config()['workflow']['dataset']],
+        sample_ids=[cpg_id],
+        output=comparison_folder,
+    )
+    analyses = ANAL_API.query_analyses(analysis_query_model=a_query_model)
+    if len(analyses) > 0:
+        return False
+    return True
 
 
 def main(cpg_id: str, single_sample_vcf: str, truth_vcf: str, truth_bed: str):
@@ -46,7 +73,17 @@ def main(cpg_id: str, single_sample_vcf: str, truth_vcf: str, truth_bed: str):
     """
 
     # cast as a list so we can iterate without emptying
-    sample_results = list(CloudPath(output_path('comparison')).glob(f'{cpg_id}*'))
+    comparison_folder = output_path('comparison')
+
+    # if a result already exists, quietly exit so as not to cancel other sample's jobs
+    if check_for_prior_result(cpg_id=cpg_id, comparison_folder=comparison_folder):
+        logging.info(
+            f'Sample {cpg_id} already has validation '
+            f'results logged from {comparison_folder}, quitting'
+        )
+        return
+
+    sample_results = list(CloudPath(comparison_folder).glob(f'{cpg_id}*'))
 
     # pick out the summary file
     summary_file = [file for file in sample_results if 'summary.csv' in file.name][0]
@@ -54,6 +91,7 @@ def main(cpg_id: str, single_sample_vcf: str, truth_vcf: str, truth_bed: str):
     # populate a dictionary of results for this sample
     summary_data = {
         'type': 'validation_result',
+        'query_vcf': single_sample_vcf,
         'truth_vcf': truth_vcf,
         'truth_bed': truth_bed,
     }
@@ -74,7 +112,7 @@ def main(cpg_id: str, single_sample_vcf: str, truth_vcf: str, truth_bed: str):
             sample_ids=[cpg_id],
             type=AnalysisType('qc'),
             status=AnalysisStatus('completed'),
-            output=single_sample_vcf,
+            output=comparison_folder,
             meta=summary_data,
             active=True,
         ),
