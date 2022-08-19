@@ -315,6 +315,9 @@ def main(input_file: str, header: str | None):
         samples=set(validation_lookup.keys()),
     )
 
+    if len(sample_jobs) == 0:
+        raise Exception('No jobs/VCFs were created from this joint call')
+
     # iterate over the samples, and corresponding file paths/batch jobs
     for cpg_id, sample_data in sample_jobs.items():
         sample_vcf, vcf_job = sample_data
