@@ -50,57 +50,59 @@ logger = logging.getLogger(__file__)
 logger.setLevel(level=logging.INFO)
 
 
-def mt_to_vcf(input_mt: str, header_lines: str | None, samples: set[str]):
+def mt_to_vcf(
+    batch: hb.batch.Batch, input_mt: str, header_lines: str, samples: set[str]
+) -> dict[str, tuple[str, hb.batch.job.Job | None]]:
     """
     takes a MT and converts to VCF
     optionally adds in extra header lines for VQSR filters
+    returns a dictionary of all samples, their VCF paths
+    if the VCF didn't already exist, this also contains a batch job
 
     Parameters
     ----------
+    batch : batch to add jobs into
     input_mt : path to the MT to read into VCF
-    header_lines : optional; file containing additional header lines
+    header_lines : file containing additional header lines for VCF
     samples : set of CPG sample IDs
     """
 
+    # open the joint-call and check for the samples present
     init_batch()
-
-    full_mt = hl.read_matrix_table(input_mt)
-    all_jc_samples = full_mt.s.collect()
-    logging.info(f'All Joint-call samples: {all_jc_samples}')
-
+    all_jc_samples = hl.read_matrix_table(input_mt).s.collect()
     samples_in_jc = set(all_jc_samples).intersection(samples)
-    logging.info(
-        f'Extracting these samples from the joint-call: {" ".join(samples_in_jc)}'
-    )
+    logging.info(f'Extracting {" ".join(samples_in_jc)} from the joint-call')
+    sample_jobs = {}
 
-    # extract all present samples into a separate file
+    # extract all common samples into a separate file
     for sample in samples_in_jc:
-
-        logging.info(f'Processing: {sample}')
 
         sample_path = os.path.join(OUTPUT_VCFS, f'{sample}.vcf.bgz')
 
         if AnyPath(sample_path).exists():
-            print(f'no action taken, {sample_path} already exists')
+            sample_jobs[sample] = (sample_path, None)
+            print(f'No action taken, {sample_path} already exists')
             continue
 
-        # filter to this column
-        mt = full_mt.filter_cols(full_mt.s == sample)
+        job = batch.new_job(f'Extract {sample} from VCF')
+        job.image(get_config()['workflow']['driver_image'])
+        authenticate_cloud_credentials_in_job(job)
 
-        # filter to this sample's non-ref calls
-        mt = hl.variant_qc(mt)
-        mt = mt.filter_rows(mt.variant_qc.n_non_ref > 0)
-        # no need to drop the variant_qc field, its not selected into VCF
-        hl.export_vcf(
-            mt,
-            sample_path,
-            append_to_header=header_lines,
-            tabix=True,
+        job.command(
+            f'PYTHONPATH=$(pwd) python3 {MT_TO_VCF_SCRIPT} '
+            f'-i {input_mt} '
+            f'-s {sample} '
+            f'-o {sample_path} '
+            f'--header {header_lines}'
         )
+        sample_jobs[sample] = (sample_path, job)
+
+    return sample_jobs
 
 
 def comparison_job(
     batch: hb.batch.Batch,
+    dependency: hb.batch.job.Job | None,
     ss_vcf: str,
     sample: str,
     truth_vcf: str,
@@ -111,17 +113,18 @@ def comparison_job(
     Parameters
     ----------
     batch : the batch to run this job in
+    dependency : a previous job to wait for
     ss_vcf : single sample VCF to validate
     sample : CPG ID
     truth_vcf : truth variant source
     truth_bed : confident region source
-
-    Returns
-    -------
-
     """
 
     job = batch.new_job(name=f'Compare {sample}')
+
+    if dependency is not None:
+        job.depends_on(dependency)
+
     job.image(image_path('happy'))
     job.memory('20Gi')
     job.storage('20Gi')
@@ -304,23 +307,22 @@ def main(input_file: str, header: str | None):
         logger.error('Expected a MT as input file')
         raise Exception('Expected a MT as input file')
 
-    # requires conversion to vcf
-    mt_to_vcf(
+    # generate single sample vcfs
+    sample_jobs = mt_to_vcf(
+        batch=batch,
         input_mt=input_file,
         header_lines=header,
         samples=set(validation_lookup.keys()),
     )
 
-    single_sample_files = list(AnyPath(OUTPUT_VCFS).glob('*.vcf.bgz'))
+    # iterate over the samples, and corresponding file paths/batch jobs
+    for cpg_id, sample_data in sample_jobs.items():
+        sample_vcf, vcf_job = sample_data
 
-    # for each sample, use metamist to pull the corresponding truth and VCF
-    # if there aren't any scheduled jobs, don't run the batch
-    # more elegant solution? Like... a batch without jobs shouldn't try and run
-    # or... batch.job_count()?
-    scheduled_jobs = False
-    for ss_file in single_sample_files:
-        cpg_id = ss_file.name.split('.vcf.bgz')[0]
-        full_path = ss_file.absolute()
+        # for each sample, use metamist to pull the corresponding truth and VCF
+        # if there aren't any scheduled jobs, don't run the batch
+        # more elegant solution? Like... a batch without jobs shouldn't try and run
+        # or... batch.job_count()?
         truth_vcf, truth_bed = get_sample_truth(cpg_id)
 
         # we already assert that both are populated, so check one
@@ -330,7 +332,8 @@ def main(input_file: str, header: str | None):
 
         comparison = comparison_job(
             batch=batch,
-            ss_vcf=str(full_path),
+            dependency=vcf_job,
+            ss_vcf=sample_vcf,
             sample=cpg_id,
             truth_vcf=truth_vcf,
             truth_bed=truth_bed,
@@ -339,15 +342,13 @@ def main(input_file: str, header: str | None):
             batch=batch,
             dependency=comparison,
             sample_id=cpg_id,
-            ss_vcf=full_path,
+            ss_vcf=sample_vcf,
             truth_vcf=truth_vcf,
             truth_bed=truth_bed,
             joint_mt=input_file,
         )
-        scheduled_jobs = True
 
-    if scheduled_jobs:
-        batch.run(wait=False)
+    batch.run(wait=False)
 
 
 if __name__ == '__main__':
