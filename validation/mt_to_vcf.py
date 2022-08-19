@@ -1,6 +1,8 @@
 """
 Takes an input MT, and extracts a VCF-format representation.
 """
+
+
 import logging
 import os
 from argparse import ArgumentParser

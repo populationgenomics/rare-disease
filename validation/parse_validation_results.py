@@ -58,7 +58,9 @@ def check_for_prior_result(cpg_id: str, comparison_folder: str) -> bool:
     return True
 
 
-def main(cpg_id: str, single_sample_vcf: str, truth_vcf: str, truth_bed: str):
+def main(
+    cpg_id: str, single_sample_vcf: str, truth_vcf: str, truth_bed: str, joint_mt: str
+):
     """
     parses for this sample's analysis results
     parses the analysis summary CSV
@@ -70,6 +72,7 @@ def main(cpg_id: str, single_sample_vcf: str, truth_vcf: str, truth_bed: str):
     single_sample_vcf : The specific VCF generated and used in validation
     truth_vcf : the sample truth VCF
     truth_bed : the confident regions BED
+    joint_mt : the original joint-call MatrixTable
     """
 
     # cast as a list so we can iterate without emptying
@@ -91,6 +94,7 @@ def main(cpg_id: str, single_sample_vcf: str, truth_vcf: str, truth_bed: str):
     # populate a dictionary of results for this sample
     summary_data = {
         'type': 'validation_result',
+        'source_mt': joint_mt,
         'query_vcf': single_sample_vcf,
         'truth_vcf': truth_vcf,
         'truth_bed': truth_bed,
@@ -125,5 +129,12 @@ if __name__ == '__main__':
     parser.add_argument('--ss', help='single sample VCF used')
     parser.add_argument('-t', help='truth VCF used')
     parser.add_argument('-b', help='BED used')
+    parser.add_argument('--mt', help='Multisample MT')
     args = parser.parse_args()
-    main(args.id, single_sample_vcf=args.ss, truth_vcf=args.t, truth_bed=args.b)
+    main(
+        args.id,
+        single_sample_vcf=args.ss,
+        truth_vcf=args.t,
+        truth_bed=args.b,
+        joint_mt=args.mt,
+    )

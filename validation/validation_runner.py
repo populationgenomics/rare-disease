@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
 
+
 """
-wraps the validation script(s)
+Handles the validation process
+Input:
+- Path to MatrixTable
+Process:
+- Query Metamist for all validation samples
+- Extract each validation sample in the MT into a separate VCF
+- For each extracted VCF, find matched truth from Metamist
+- Run Hap.py validation, using vcfeval normalisation engine
+- Log results of validation into Metamist
+Results:
+- Single Sample VCF
+- Per-sample entry in Metamist logging results
 """
+
 
 import logging
 import os
@@ -233,6 +246,7 @@ def post_results_job(
     ss_vcf: str,
     truth_vcf: str,
     truth_bed: str,
+    joint_mt: str,
 ):
     """
     post the results to THE METAMIST using companion script
@@ -245,6 +259,7 @@ def post_results_job(
     ss_vcf : single sample VCF file used/created
     truth_vcf : source of truth variants
     truth_bed : source of confident regions
+    joint_mt : joint-call MatrixTable
     """
 
     post_job = batch.new_job(name=f'Update metamist for {sample_id}')
@@ -258,6 +273,7 @@ def post_results_job(
         f'--ss {ss_vcf} '
         f'-t {truth_vcf} '
         f'-b {truth_bed} '
+        f'--mt {joint_mt} '
     )
     post_job.command(job_cmd)
 
@@ -326,6 +342,7 @@ def main(input_file: str, header: str | None):
             ss_vcf=full_path,
             truth_vcf=truth_vcf,
             truth_bed=truth_bed,
+            joint_mt=input_file,
         )
         scheduled_jobs = True
 
