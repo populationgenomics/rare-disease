@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # https://github.com/populationgenomics/seqr-private/issues/8
 
+# 121.64 GiB (~ $25 egress)
 gsutil -m cp \
 	'gs://cpg-perth-neuro-main/cram/CPG13136.cram' 'gs://cpg-perth-neuro-main/cram/CPG13136.cram.crai' \
 	'gs://cpg-perth-neuro-main/cram/CPG13334.cram' 'gs://cpg-perth-neuro-main/cram/CPG13334.cram.crai' \
@@ -10,10 +11,12 @@ gsutil -m cp \
 	'gs://cpg-perth-neuro-main/cram/CPG222455.cram' 'gs://cpg-perth-neuro-main/cram/CPG222455.cram.crai' \
 	'gs://cpg-perth-neuro-release-requester-pays/'
 
+# 16.7 GiB (~ $4 AUD egress)
 gsutil -m cp \
 	'gs://cpg-ravenscroft-rdstudy-main/cram/CPG202655.cram' 'gs://cpg-ravenscroft-rdstudy-main/cram/CPG202655.cram.crai' \
 	'gs://cpg-ravenscroft-rdstudy-release-requester-pays/'
 
+# 816.44 GiB (~ $170 AUD egress)
 gsutil -m cp \
 	'gs://cpg-mito-disease-main/cram/CPG210815.cram' 'gs://cpg-mito-disease-main/cram/CPG210815.cram.crai' \
 	'gs://cpg-mito-disease-main/cram/CPG211409.cram' 'gs://cpg-mito-disease-main/cram/CPG211409.cram.crai' \
