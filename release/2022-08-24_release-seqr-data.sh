@@ -9,12 +9,12 @@ gsutil -m cp \
 	'gs://cpg-perth-neuro-main/cram/CPG222430.cram' 'gs://cpg-perth-neuro-main/cram/CPG222430.cram.crai' \
 	'gs://cpg-perth-neuro-main/cram/CPG222448.cram' 'gs://cpg-perth-neuro-main/cram/CPG222448.cram.crai' \
 	'gs://cpg-perth-neuro-main/cram/CPG222455.cram' 'gs://cpg-perth-neuro-main/cram/CPG222455.cram.crai' \
-	'gs://cpg-perth-neuro-release-requester-pays/'
+	'gs://cpg-perth-neuro-release/'
 
 # 16.7 GiB (~ $4 AUD egress)
 gsutil -m cp \
 	'gs://cpg-ravenscroft-rdstudy-main/cram/CPG202655.cram' 'gs://cpg-ravenscroft-rdstudy-main/cram/CPG202655.cram.crai' \
-	'gs://cpg-ravenscroft-rdstudy-release-requester-pays/'
+	'gs://cpg-ravenscroft-rdstudy-release/'
 
 # 816.44 GiB (~ $170 AUD egress)
 gsutil -m cp \
@@ -46,4 +46,4 @@ gsutil -m cp \
 	'gs://cpg-mito-disease-main/cram/CPG211318.cram' 'gs://cpg-mito-disease-main/cram/CPG211318.cram.crai' \
 	'gs://cpg-mito-disease-main/cram/CPG210823.cram' 'gs://cpg-mito-disease-main/cram/CPG210823.cram.crai' \
 	'gs://cpg-mito-disease-main/cram/CPG211235.cram' 'gs://cpg-mito-disease-main/cram/CPG211235.cram.crai' \
-	'gs://cpg-mito-disease-release-requester-pays/'
+	'gs://cpg-mito-disease-release/'
