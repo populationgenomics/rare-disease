@@ -2,7 +2,7 @@
 # https://github.com/populationgenomics/seqr-private/issues/8
 
 # 121.64 GiB (~ $25 egress)
-gsutil -m cp \
+gsutil -m -u perth-neuro cp \
 	'gs://cpg-perth-neuro-main/cram/CPG13136.cram' 'gs://cpg-perth-neuro-main/cram/CPG13136.cram.crai' \
 	'gs://cpg-perth-neuro-main/cram/CPG13334.cram' 'gs://cpg-perth-neuro-main/cram/CPG13334.cram.crai' \
 	'gs://cpg-perth-neuro-main/cram/CPG13342.cram' 'gs://cpg-perth-neuro-main/cram/CPG13342.cram.crai' \
@@ -12,12 +12,12 @@ gsutil -m cp \
 	'gs://cpg-perth-neuro-release/'
 
 # 16.7 GiB (~ $4 AUD egress)
-gsutil -m cp \
+gsutil -m -u ravenscroft-rdstudy cp \
 	'gs://cpg-ravenscroft-rdstudy-main/cram/CPG202655.cram' 'gs://cpg-ravenscroft-rdstudy-main/cram/CPG202655.cram.crai' \
 	'gs://cpg-ravenscroft-rdstudy-release/'
 
 # 816.44 GiB (~ $170 AUD egress)
-gsutil -m cp \
+gsutil -m -u mito-disease cp \
 	'gs://cpg-mito-disease-main/cram/CPG210815.cram' 'gs://cpg-mito-disease-main/cram/CPG210815.cram.crai' \
 	'gs://cpg-mito-disease-main/cram/CPG211409.cram' 'gs://cpg-mito-disease-main/cram/CPG211409.cram.crai' \
 	'gs://cpg-mito-disease-main/cram/CPG211359.cram' 'gs://cpg-mito-disease-main/cram/CPG211359.cram.crai' \
