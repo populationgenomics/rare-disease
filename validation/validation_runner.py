@@ -305,8 +305,9 @@ def main(input_file: str, header: str | None):
 
     # # set the path for this output
     # process the MT to get the name
-    mt_name = f'{input_path.name.replace(input_path.suffix, "")}_comparison'
-    validation_output_path = dataset_path(mt_name)
+    validation_output_path = dataset_path(
+        f'comparison/{input_path.name.replace(input_path.suffix, "")}'
+    )
 
     validation_lookup = get_validation_samples()
 
