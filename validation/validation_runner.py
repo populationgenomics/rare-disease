@@ -29,12 +29,13 @@ import hail as hl
 from cpg_utils.config import get_config
 from cpg_utils.hail_batch import (
     init_batch,
-    output_path,
+    dataset_path,
     remote_tmpdir,
     image_path,
     copy_common_env,
     authenticate_cloud_credentials_in_job,
 )
+from cpg_utils.workflows.batch import Batch
 from sample_metadata.apis import AnalysisApi, ParticipantApi
 from sample_metadata.model.analysis_query_model import AnalysisQueryModel
 from sample_metadata.model.analysis_type import AnalysisType
@@ -42,7 +43,6 @@ from sample_metadata.model.analysis_type import AnalysisType
 
 MT_TO_VCF_SCRIPT = os.path.join(os.path.dirname(__file__), 'mt_to_vcf.py')
 RESULTS_SCRIPT = os.path.join(os.path.dirname(__file__), 'parse_validation_results.py')
-OUTPUT_VCFS = output_path('single_sample_vcfs')
 REF_SDF = 'gs://cpg-validation-test/refgenome_sdf'
 
 # create a logger
@@ -51,7 +51,11 @@ logger.setLevel(level=logging.INFO)
 
 
 def mt_to_vcf(
-    batch: hb.batch.Batch, input_mt: str, header_lines: str, samples: set[str]
+    batch: Batch,
+    input_mt: str,
+    header_lines: str,
+    samples: set[str],
+    output_root: str,
 ) -> dict[str, tuple[str, hb.batch.job.Job | None]]:
     """
     takes a MT and converts to VCF
@@ -65,6 +69,7 @@ def mt_to_vcf(
     input_mt : path to the MT to read into VCF
     header_lines : file containing additional header lines for VCF
     samples : set of CPG sample IDs
+    output_root :
     """
 
     # open the joint-call and check for the samples present
@@ -77,11 +82,13 @@ def mt_to_vcf(
     # extract all common samples into a separate file
     for sample in samples_in_jc:
 
-        sample_path = os.path.join(OUTPUT_VCFS, f'{sample}.vcf.bgz')
+        sample_path = os.path.join(
+            output_root, 'single_sample_vcfs', f'{sample}.vcf.bgz'
+        )
 
         if AnyPath(sample_path).exists():
             sample_jobs[sample] = (sample_path, None)
-            print(f'No action taken, {sample_path} already exists')
+            logging.info(f'No action taken, {sample_path} already exists')
             continue
 
         job = batch.new_job(f'Extract {sample} from VCF')
@@ -101,12 +108,13 @@ def mt_to_vcf(
 
 
 def comparison_job(
-    batch: hb.batch.Batch,
+    batch: Batch,
     dependency: hb.batch.job.Job | None,
     ss_vcf: str,
     sample: str,
     truth_vcf: str,
     truth_bed: str,
+    output_root: str,
 ):
     """
 
@@ -118,6 +126,7 @@ def comparison_job(
     sample : CPG ID
     truth_vcf : truth variant source
     truth_bed : confident region source
+    output_root :
     """
 
     job = batch.new_job(name=f'Compare {sample}')
@@ -182,7 +191,7 @@ def comparison_job(
     )
 
     # extract the results files
-    batch.write_output(job.output, os.path.join(output_path('comparison'), sample))
+    batch.write_output(job.output, os.path.join(output_root, 'comparison', sample))
     return job
 
 
@@ -243,7 +252,7 @@ def get_sample_truth(cpg_id: str) -> tuple[str, str]:
 
 
 def post_results_job(
-    batch: hb.batch.Batch,
+    batch: Batch,
     dependency: hb.batch.job.Job,
     sample_id: str,
     ss_vcf: str,
@@ -289,23 +298,28 @@ def main(input_file: str, header: str | None):
     header : any additional header lines to add when writing VCF
     """
 
+    input_path = Path(input_file)
+    if input_path.suffix != '.mt':
+        logger.error('Expected a MT as input file')
+        raise Exception('Expected a MT as input file')
+
+    # # set the path for this output
+    # process the MT to get the name
+    mt_name = f'{input_path.name.replace(input_path.suffix, "")}_comparison'
+    validation_output_path = dataset_path(mt_name)
+
     validation_lookup = get_validation_samples()
 
     service_backend = hb.ServiceBackend(
         billing_project=get_config()['hail']['billing_project'],
         remote_tmpdir=remote_tmpdir(),
     )
-    batch = hb.Batch(
+    batch = Batch(
         name='run validation bits and pieces',
         backend=service_backend,
         cancel_after_n_failures=1,
         default_memory='highmem',
     )
-
-    input_path = Path(input_file)
-    if input_path.suffix != '.mt':
-        logger.error('Expected a MT as input file')
-        raise Exception('Expected a MT as input file')
 
     # generate single sample vcfs
     sample_jobs = mt_to_vcf(
@@ -313,6 +327,7 @@ def main(input_file: str, header: str | None):
         input_mt=input_file,
         header_lines=header,
         samples=set(validation_lookup.keys()),
+        output_root=validation_output_path,
     )
 
     if len(sample_jobs) == 0:
@@ -340,6 +355,7 @@ def main(input_file: str, header: str | None):
             sample=cpg_id,
             truth_vcf=truth_vcf,
             truth_bed=truth_bed,
+            output_root=validation_output_path,
         )
         post_results_job(
             batch=batch,
