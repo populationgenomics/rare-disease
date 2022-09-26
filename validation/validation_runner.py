@@ -27,6 +27,12 @@ from cloudpathlib import AnyPath
 import hail as hl
 
 from cpg_utils.config import get_config
+from cpg_utils.git import (
+    prepare_git_job,
+    get_git_commit_ref_of_current_repository,
+    get_organisation_name_from_current_directory,
+    get_repo_name_from_current_directory,
+)
 from cpg_utils.hail_batch import (
     init_batch,
     dataset_path,
@@ -53,7 +59,6 @@ logger.setLevel(level=logging.INFO)
 def mt_to_vcf(
     batch: Batch,
     input_mt: str,
-    header_lines: str,
     samples: set[str],
     output_root: str,
 ) -> dict[str, tuple[str, hb.batch.job.Job | None]]:
@@ -67,7 +72,6 @@ def mt_to_vcf(
     ----------
     batch : batch to add jobs into
     input_mt : path to the MT to read into VCF
-    header_lines : file containing additional header lines for VCF
     samples : set of CPG sample IDs
     output_root :
     """
@@ -94,13 +98,18 @@ def mt_to_vcf(
         job = batch.new_job(f'Extract {sample} from VCF')
         job.image(get_config()['workflow']['driver_image'])
         authenticate_cloud_credentials_in_job(job)
+        prepare_git_job(
+            job=job,
+            organisation=get_organisation_name_from_current_directory(),
+            repo_name=get_repo_name_from_current_directory(),
+            commit=get_git_commit_ref_of_current_repository(),
+        )
 
         job.command(
             f'PYTHONPATH=$(pwd) python3 {MT_TO_VCF_SCRIPT} '
             f'-i {input_mt} '
             f'-s {sample} '
             f'-o {sample_path} '
-            f'--header {header_lines}'
         )
         sample_jobs[sample] = (sample_path, job)
 
@@ -290,12 +299,11 @@ def post_results_job(
     post_job.command(job_cmd)
 
 
-def main(input_file: str, header: str | None):
+def main(input_file: str):
     """
     Parameters
     ----------
     input_file : path to the MT representing this joint-call
-    header : any additional header lines to add when writing VCF
     """
 
     input_path = Path(input_file)
@@ -326,7 +334,6 @@ def main(input_file: str, header: str | None):
     sample_jobs = mt_to_vcf(
         batch=batch,
         input_mt=input_file,
-        header_lines=header,
         samples=set(validation_lookup.keys()),
         output_root=validation_output_path,
     )
@@ -375,6 +382,5 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     parser = ArgumentParser()
     parser.add_argument('-i', help='input_path')
-    parser.add_argument('--header', help='header_lines_file', default=None)
     args = parser.parse_args()
-    main(input_file=args.i, header=args.header)
+    main(input_file=args.i)

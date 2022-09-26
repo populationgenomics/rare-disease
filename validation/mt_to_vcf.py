@@ -6,21 +6,17 @@ Takes an input MT, and extracts a VCF-format representation.
 from argparse import ArgumentParser
 
 import hail as hl
-from cpg_utils.hail_batch import init_batch
+
+from cpg_utils import to_path
+from cpg_utils.hail_batch import init_batch, output_path
 
 
-def main(
-    input_mt: str,
-    sample: str,
-    output_path: str,
-    additional_header: str | None = None,
-):
+def main(input_mt: str, sample: str, write_path: str):
     """
     takes an input MT, and reads it out as a VCF
     :param input_mt:
     :param sample: the sample to extract
-    :param output_path:
-    :param additional_header: file containing lines to append to header
+    :param write_path:
     :return:
     """
 
@@ -35,21 +31,21 @@ def main(
     # filter to this sample's non-ref calls
     mt = hl.variant_qc(mt)
     mt = mt.filter_rows(mt.variant_qc.n_non_ref > 0)
-    hl.export_vcf(mt, output_path, append_to_header=additional_header, tabix=True)
+
+    # this temp file needs to be in GCP, not local
+    # otherwise the batch that generates the file won't be able to read
+    additional_cloud_path = output_path('additional_header.txt', 'tmp')
+
+    with to_path(additional_cloud_path).open('w') as handle:
+        handle.write('##FILTER=<ID=VQSR,Description="VQSR triggered">')
+
+    hl.export_vcf(mt, write_path, append_to_header=additional_cloud_path, tabix=True)
 
 
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-i', help='input MT path')
     parser.add_argument('-o', help='directory to write VCFs out to')
-    parser.add_argument(
-        '--header', help='file containing any additional header lines', default=None
-    )
     parser.add_argument('-s', help='validation sample to target')
     args = parser.parse_args()
-    main(
-        input_mt=args.i,
-        output_path=args.o,
-        additional_header=args.header,
-        sample=args.s,
-    )
+    main(input_mt=args.i, write_path=args.o, sample=args.s)
