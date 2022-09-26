@@ -53,9 +53,7 @@ def check_for_prior_result(cpg_id: str, comparison_folder: str) -> bool:
         output=comparison_folder,
     )
     analyses = ANAL_API.query_analyses(analysis_query_model=a_query_model)
-    if len(analyses) > 0:
-        return False
-    return True
+    return len(analyses) > 0
 
 
 def main(
