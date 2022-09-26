@@ -32,6 +32,9 @@ def main(input_mt: str, sample: str, write_path: str):
     mt = hl.variant_qc(mt)
     mt = mt.filter_rows(mt.variant_qc.n_non_ref > 0)
 
+    # filter out any Filter-failures
+    mt = mt.filter_rows(mt.filters.length() == 0)
+
     # this temp file needs to be in GCP, not local
     # otherwise the batch that generates the file won't be able to read
     additional_cloud_path = output_path('additional_header.txt', 'tmp')
