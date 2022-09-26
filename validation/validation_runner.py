@@ -284,6 +284,13 @@ def post_results_job(
     """
 
     post_job = batch.new_job(name=f'Update metamist for {sample_id}')
+
+    prepare_git_job(
+        job=post_job,
+        organisation=get_organisation_name_from_current_directory(),
+        repo_name=get_repo_name_from_current_directory(),
+        commit=get_git_commit_ref_of_current_repository(),
+    )
     post_job.depends_on(dependency)
     post_job.image(get_config()['workflow']['driver_image'])
     copy_common_env(post_job)
