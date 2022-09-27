@@ -10,7 +10,6 @@ from csv import DictReader
 from cloudpathlib import CloudPath
 
 from cpg_utils.config import get_config
-from cpg_utils.hail_batch import output_path
 
 from sample_metadata.apis import AnalysisApi
 from sample_metadata.model.analysis_type import AnalysisType
@@ -57,7 +56,12 @@ def check_for_prior_result(cpg_id: str, comparison_folder: str) -> bool:
 
 
 def main(
-    cpg_id: str, single_sample_vcf: str, truth_vcf: str, truth_bed: str, joint_mt: str
+    cpg_id: str,
+    comparison_folder: str,
+    single_sample_vcf: str,
+    truth_vcf: str,
+    truth_bed: str,
+    joint_mt: str,
 ):
     """
     parses for this sample's analysis results
@@ -67,14 +71,12 @@ def main(
     Parameters
     ----------
     cpg_id : CPG#### Identifier
+    comparison_folder :
     single_sample_vcf : The specific VCF generated and used in validation
     truth_vcf : the sample truth VCF
     truth_bed : the confident regions BED
     joint_mt : the original joint-call MatrixTable
     """
-
-    # cast as a list so we can iterate without emptying
-    comparison_folder = output_path('comparison')
 
     # if a result already exists, quietly exit so as not to cancel other sample's jobs
     if check_for_prior_result(cpg_id=cpg_id, comparison_folder=comparison_folder):
@@ -124,13 +126,15 @@ def main(
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--id', help='CPG ID for this sample')
+    parser.add_argument('--folder', help='Location for results')
     parser.add_argument('--ss', help='single sample VCF used')
     parser.add_argument('-t', help='truth VCF used')
     parser.add_argument('-b', help='BED used')
     parser.add_argument('--mt', help='Multisample MT')
     args = parser.parse_args()
     main(
-        args.id,
+        cpg_id=args.id,
+        comparison_folder=args.folder,
         single_sample_vcf=args.ss,
         truth_vcf=args.t,
         truth_bed=args.b,

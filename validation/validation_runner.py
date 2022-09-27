@@ -35,7 +35,7 @@ from cpg_utils.git import (
 )
 from cpg_utils.hail_batch import (
     init_batch,
-    dataset_path,
+    output_path,
     remote_tmpdir,
     image_path,
     copy_common_env,
@@ -123,7 +123,7 @@ def comparison_job(
     sample: str,
     truth_vcf: str,
     truth_bed: str,
-    output_root: str,
+    comparison_folder: str,
 ):
     """
 
@@ -135,7 +135,7 @@ def comparison_job(
     sample : CPG ID
     truth_vcf : truth variant source
     truth_bed : confident region source
-    output_root :
+    comparison_folder :
     """
 
     job = batch.new_job(name=f'Compare {sample}')
@@ -200,7 +200,7 @@ def comparison_job(
     )
 
     # extract the results files
-    batch.write_output(job.output, os.path.join(output_root, 'comparison', sample))
+    batch.write_output(job.output, os.path.join(comparison_folder, sample))
     return job
 
 
@@ -268,6 +268,7 @@ def post_results_job(
     truth_vcf: str,
     truth_bed: str,
     joint_mt: str,
+    comparison_folder: str,
 ):
     """
     post the results to THE METAMIST using companion script
@@ -281,6 +282,7 @@ def post_results_job(
     truth_vcf : source of truth variants
     truth_bed : source of confident regions
     joint_mt : joint-call MatrixTable
+    comparison_folder :
     """
 
     post_job = batch.new_job(name=f'Update metamist for {sample_id}')
@@ -298,6 +300,7 @@ def post_results_job(
     job_cmd = (
         f'PYTHONPATH=$(pwd) python3 {RESULTS_SCRIPT} '
         f'--id {sample_id} '
+        f'--folder {comparison_folder} '
         f'--ss {ss_vcf} '
         f'-t {truth_vcf} '
         f'-b {truth_bed} '
@@ -320,8 +323,8 @@ def main(input_file: str):
 
     # # set the path for this output
     # process the MT to get the name
-    validation_output_path = dataset_path(
-        f'comparison/{input_path.name.replace(input_path.suffix, "")}'
+    validation_output_path = output_path(
+        f'{input_path.name.replace(input_path.suffix, "")}'
     )
 
     validation_lookup = get_validation_samples()
@@ -348,6 +351,8 @@ def main(input_file: str):
     if len(sample_jobs) == 0:
         raise Exception('No jobs/VCFs were created from this joint call')
 
+    comparison_folder = os.path.join(validation_output_path, 'comparison')
+
     # iterate over the samples, and corresponding file paths/batch jobs
     for cpg_id, sample_data in sample_jobs.items():
         sample_vcf, vcf_job = sample_data
@@ -370,7 +375,7 @@ def main(input_file: str):
             sample=cpg_id,
             truth_vcf=truth_vcf,
             truth_bed=truth_bed,
-            output_root=validation_output_path,
+            comparison_folder=comparison_folder,
         )
         post_results_job(
             batch=batch,
@@ -380,6 +385,7 @@ def main(input_file: str):
             truth_vcf=truth_vcf,
             truth_bed=truth_bed,
             joint_mt=input_file,
+            comparison_folder=comparison_folder,
         )
 
     batch.run(wait=False)
