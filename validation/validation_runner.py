@@ -27,9 +27,15 @@ from cloudpathlib import AnyPath
 import hail as hl
 
 from cpg_utils.config import get_config
+from cpg_utils.git import (
+    prepare_git_job,
+    get_git_commit_ref_of_current_repository,
+    get_organisation_name_from_current_directory,
+    get_repo_name_from_current_directory,
+)
 from cpg_utils.hail_batch import (
     init_batch,
-    dataset_path,
+    output_path,
     remote_tmpdir,
     image_path,
     copy_common_env,
@@ -53,7 +59,6 @@ logger.setLevel(level=logging.INFO)
 def mt_to_vcf(
     batch: Batch,
     input_mt: str,
-    header_lines: str,
     samples: set[str],
     output_root: str,
 ) -> dict[str, tuple[str, hb.batch.job.Job | None]]:
@@ -67,7 +72,6 @@ def mt_to_vcf(
     ----------
     batch : batch to add jobs into
     input_mt : path to the MT to read into VCF
-    header_lines : file containing additional header lines for VCF
     samples : set of CPG sample IDs
     output_root :
     """
@@ -94,13 +98,18 @@ def mt_to_vcf(
         job = batch.new_job(f'Extract {sample} from VCF')
         job.image(get_config()['workflow']['driver_image'])
         authenticate_cloud_credentials_in_job(job)
+        prepare_git_job(
+            job=job,
+            organisation=get_organisation_name_from_current_directory(),
+            repo_name=get_repo_name_from_current_directory(),
+            commit=get_git_commit_ref_of_current_repository(),
+        )
 
         job.command(
             f'PYTHONPATH=$(pwd) python3 {MT_TO_VCF_SCRIPT} '
             f'-i {input_mt} '
             f'-s {sample} '
             f'-o {sample_path} '
-            f'--header {header_lines}'
         )
         sample_jobs[sample] = (sample_path, job)
 
@@ -114,7 +123,7 @@ def comparison_job(
     sample: str,
     truth_vcf: str,
     truth_bed: str,
-    output_root: str,
+    comparison_folder: str,
 ):
     """
 
@@ -126,7 +135,7 @@ def comparison_job(
     sample : CPG ID
     truth_vcf : truth variant source
     truth_bed : confident region source
-    output_root :
+    comparison_folder :
     """
 
     job = batch.new_job(name=f'Compare {sample}')
@@ -191,7 +200,7 @@ def comparison_job(
     )
 
     # extract the results files
-    batch.write_output(job.output, os.path.join(output_root, 'comparison', sample))
+    batch.write_output(job.output, os.path.join(comparison_folder, sample))
     return job
 
 
@@ -259,6 +268,7 @@ def post_results_job(
     truth_vcf: str,
     truth_bed: str,
     joint_mt: str,
+    comparison_folder: str,
 ):
     """
     post the results to THE METAMIST using companion script
@@ -272,9 +282,17 @@ def post_results_job(
     truth_vcf : source of truth variants
     truth_bed : source of confident regions
     joint_mt : joint-call MatrixTable
+    comparison_folder :
     """
 
     post_job = batch.new_job(name=f'Update metamist for {sample_id}')
+
+    prepare_git_job(
+        job=post_job,
+        organisation=get_organisation_name_from_current_directory(),
+        repo_name=get_repo_name_from_current_directory(),
+        commit=get_git_commit_ref_of_current_repository(),
+    )
     post_job.depends_on(dependency)
     post_job.image(get_config()['workflow']['driver_image'])
     copy_common_env(post_job)
@@ -282,6 +300,7 @@ def post_results_job(
     job_cmd = (
         f'PYTHONPATH=$(pwd) python3 {RESULTS_SCRIPT} '
         f'--id {sample_id} '
+        f'--folder {comparison_folder} '
         f'--ss {ss_vcf} '
         f'-t {truth_vcf} '
         f'-b {truth_bed} '
@@ -290,12 +309,11 @@ def post_results_job(
     post_job.command(job_cmd)
 
 
-def main(input_file: str, header: str | None):
+def main(input_file: str):
     """
     Parameters
     ----------
     input_file : path to the MT representing this joint-call
-    header : any additional header lines to add when writing VCF
     """
 
     input_path = Path(input_file)
@@ -305,8 +323,8 @@ def main(input_file: str, header: str | None):
 
     # # set the path for this output
     # process the MT to get the name
-    validation_output_path = dataset_path(
-        f'comparison/{input_path.name.replace(input_path.suffix, "")}'
+    validation_output_path = output_path(
+        f'{input_path.name.replace(input_path.suffix, "")}'
     )
 
     validation_lookup = get_validation_samples()
@@ -326,13 +344,14 @@ def main(input_file: str, header: str | None):
     sample_jobs = mt_to_vcf(
         batch=batch,
         input_mt=input_file,
-        header_lines=header,
         samples=set(validation_lookup.keys()),
         output_root=validation_output_path,
     )
 
     if len(sample_jobs) == 0:
         raise Exception('No jobs/VCFs were created from this joint call')
+
+    comparison_folder = os.path.join(validation_output_path, 'comparison')
 
     # iterate over the samples, and corresponding file paths/batch jobs
     for cpg_id, sample_data in sample_jobs.items():
@@ -356,7 +375,7 @@ def main(input_file: str, header: str | None):
             sample=cpg_id,
             truth_vcf=truth_vcf,
             truth_bed=truth_bed,
-            output_root=validation_output_path,
+            comparison_folder=comparison_folder,
         )
         post_results_job(
             batch=batch,
@@ -366,6 +385,7 @@ def main(input_file: str, header: str | None):
             truth_vcf=truth_vcf,
             truth_bed=truth_bed,
             joint_mt=input_file,
+            comparison_folder=comparison_folder,
         )
 
     batch.run(wait=False)
@@ -375,6 +395,5 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     parser = ArgumentParser()
     parser.add_argument('-i', help='input_path')
-    parser.add_argument('--header', help='header_lines_file', default=None)
     args = parser.parse_args()
-    main(input_file=args.i, header=args.header)
+    main(input_file=args.i)
