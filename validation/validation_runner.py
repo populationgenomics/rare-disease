@@ -26,6 +26,7 @@ import hailtop.batch as hb
 from cloudpathlib import AnyPath
 import hail as hl
 
+from cpg_utils import to_path
 from cpg_utils.config import get_config
 from cpg_utils.git import (
     prepare_git_job,
@@ -124,6 +125,7 @@ def comparison_job(
     truth_vcf: str,
     truth_bed: str,
     comparison_folder: str,
+    stratification: str | None = None,
 ):
     """
 
@@ -136,6 +138,7 @@ def comparison_job(
     truth_vcf : truth variant source
     truth_bed : confident region source
     comparison_folder :
+    stratification : path to stratification BED data
     """
 
     job = batch.new_job(name=f'Compare {sample}')
@@ -188,8 +191,7 @@ def comparison_job(
             'summary.csv': '{root}/output.summary.csv',
         }
     )
-
-    job.command(
+    command = (
         f'mkdir {job.output} && '
         f'hap.py {truth_input["vcf"]} {vcf_input["vcf"]} '
         f'-r {batch_ref["fasta"]} -R {truth_bed} '
@@ -198,6 +200,31 @@ def comparison_job(
         f'--engine-vcfeval-path=/opt/hap.py/libexec/rtg-tools-install/rtg '
         f'--engine-vcfeval-template {sdf} --engine=vcfeval '
     )
+
+    # allow for stratification
+    if stratification:
+        strat_folder = to_path(stratification)
+        assert strat_folder.exists(), (
+            f'provided folder {stratification} does ' 'not exist, or was not accessible'
+        )
+
+        definitions = strat_folder / 'definition.tsv'
+        assert definitions.exists(), (
+            f'the region definition file ' f'{str(definitions)} does not exist'
+        )
+
+        strat_bed_files = list(strat_folder.glob('*.bed*'))
+        assert (
+            len(strat_bed_files) > 0
+        ), 'There were no bed files in the stratified BED folder'
+
+        # create a dictionary to pass to a the input generation
+        strat_dict = {'definition.tsv': definitions}
+        strat_dict.update({file.name: file.str for file in strat_bed_files})
+        batch_beds = batch.read_input_group(**strat_dict)
+        command += f'--stratification {batch_beds["definition.tsv"]}'
+
+    job.command(command)
 
     # extract the results files
     batch.write_output(job.output, os.path.join(comparison_folder, sample))
@@ -309,11 +336,12 @@ def post_results_job(
     post_job.command(job_cmd)
 
 
-def main(input_file: str):
+def main(input_file: str, stratification: str | None):
     """
     Parameters
     ----------
     input_file : path to the MT representing this joint-call
+    stratification : the path to the stratification BED files
     """
 
     input_path = Path(input_file)
@@ -376,6 +404,7 @@ def main(input_file: str):
             truth_vcf=truth_vcf,
             truth_bed=truth_bed,
             comparison_folder=comparison_folder,
+            stratification=stratification,
         )
         post_results_job(
             batch=batch,
@@ -395,5 +424,6 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     parser = ArgumentParser()
     parser.add_argument('-i', help='input_path')
+    parser.add_argument('-s', help='stratification BED directory')
     args = parser.parse_args()
-    main(input_file=args.i)
+    main(input_file=args.i, stratification=args.s)
