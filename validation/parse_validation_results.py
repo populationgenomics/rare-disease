@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 
 """
-run locally to upload the validation results to metamist
+Runs after the validation process to digest results
+A summary of those results are posted into Metamist
 """
+
+
 import logging
 from argparse import ArgumentParser
 from csv import DictReader
 
-from cloudpathlib import CloudPath
-
+from cpg_utils import to_path
 from cpg_utils.config import get_config
 
 from sample_metadata.apis import AnalysisApi
@@ -21,13 +23,8 @@ from sample_metadata.model.analysis_query_model import AnalysisQueryModel
 ANAL_API = AnalysisApi()
 SUMMARY_KEYS = {
     'TRUTH.TOTAL': 'true_variants',
-    'QUERY.TOTAL': 'pipeline_variants',
-    'TRUTH.TP': 'matched_variants',
-    'TRUTH.FN': 'false_negatives',
-    'QUERY.FP': 'false_positives',
     'METRIC.Recall': 'recall',
     'METRIC.Precision': 'precision',
-    'METRIC.F1_Score': 'f1_score',
 }
 
 
@@ -62,6 +59,7 @@ def main(
     truth_vcf: str,
     truth_bed: str,
     joint_mt: str,
+    stratified: str | None = None,
 ):
     """
     parses for this sample's analysis results
@@ -76,6 +74,7 @@ def main(
     truth_vcf : the sample truth VCF
     truth_bed : the confident regions BED
     joint_mt : the original joint-call MatrixTable
+    stratified : if analysis was stratified, this is the location of files
     """
 
     # if a result already exists, quietly exit so as not to cancel other sample's jobs
@@ -86,10 +85,11 @@ def main(
         )
         return
 
-    sample_results = list(CloudPath(comparison_folder).glob(f'{cpg_id}*'))
+    # list from the generator, so we can re-iterate
+    sample_results = list(to_path(comparison_folder).glob(f'{cpg_id}*'))
 
     # pick out the summary file
-    summary_file = [file for file in sample_results if 'summary.csv' in file.name][0]
+    summary_file = [file for file in sample_results if 'extended.csv' in file.name][0]
 
     # populate a dictionary of results for this sample
     summary_data = {
@@ -99,17 +99,27 @@ def main(
         'truth_vcf': truth_vcf,
         'truth_bed': truth_bed,
     }
+
+    if stratified:
+        summary_data['stratified'] = stratified
+
     with summary_file.open() as handle:
         summary_reader = DictReader(handle)
         for line in summary_reader:
-            summary_key = f'{line["Type"]}_{line["Filter"]}'
+            if line['Filter'] != 'PASS' or line['Subtype'] != '*':
+                continue
+
+            summary_key = f'{line["Type"]}_{line["Subset"]}'
             for sub_key, sub_value in SUMMARY_KEYS.items():
                 summary_data[f'{summary_key}::{sub_value}'] = str(line[sub_key])
 
+    # store the full paths of all files created during the analysis
     for file in sample_results:
         summary_data[file.name.replace(f'{cpg_id}.', '')] = str(file.absolute())
 
-    # should the output be the summary file rather than the VCF? Hmm
+    # print the contents, even if the metamist write fails (e.g. on test)
+    logging.info(summary_data)
+
     AnalysisApi().create_new_analysis(
         project=get_config()['workflow']['dataset'],
         analysis_model=AnalysisModel(
@@ -124,6 +134,7 @@ def main(
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     parser = ArgumentParser()
     parser.add_argument('--id', help='CPG ID for this sample')
     parser.add_argument('--folder', help='Location for results')
@@ -131,6 +142,9 @@ if __name__ == '__main__':
     parser.add_argument('-t', help='truth VCF used')
     parser.add_argument('-b', help='BED used')
     parser.add_argument('--mt', help='Multisample MT')
+    parser.add_argument(
+        '--stratified', help='Stratification files, if used', required=False
+    )
     args = parser.parse_args()
     main(
         cpg_id=args.id,
@@ -139,4 +153,5 @@ if __name__ == '__main__':
         truth_vcf=args.t,
         truth_bed=args.b,
         joint_mt=args.mt,
+        stratified=args.stratified,
     )

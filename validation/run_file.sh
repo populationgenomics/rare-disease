@@ -6,8 +6,9 @@ DATE=${1:-$(date +%F)}
 
 analysis-runner \
   --dataset validation \
-  --description "Run Exome Validation" \
+  --description "Run Exome Validation!" \
   -o $DATE \
-  --access-level standard \
+  --access-level test \
   validation/validation_runner.py \
-    -i gs://cpg-validation-main/exome/mt/dd7b2003026c7a6c70057a9c0f170074be6322_628-validation.mt
+    -i gs://cpg-validation-test/validation/copy/copy_of_exome_628.mt \
+    -s gs://cpg-validation-test/GRCh38_regions/twist
