@@ -219,7 +219,7 @@ def comparison_job(
         ), 'There were no bed files in the stratified BED folder'
 
         # create a dictionary to pass to a the input generation
-        strat_dict = {'definition.tsv': definitions}
+        strat_dict = {'definition.tsv': str(definitions)}
         strat_dict.update({file.name: str(file) for file in strat_bed_files})
         batch_beds = batch.read_input_group(**strat_dict)
         command += f'--stratification {batch_beds["definition.tsv"]}'
