@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
 """
-run locally to upload the validation results to metamist
+Runs after the validation process to digest results
+A summary of those results are posted into Metamist
 """
+
+
 import logging
 from argparse import ArgumentParser
 from csv import DictReader
@@ -110,8 +113,12 @@ def main(
             for sub_key, sub_value in SUMMARY_KEYS.items():
                 summary_data[f'{summary_key}::{sub_value}'] = str(line[sub_key])
 
+    # store the full paths of all files created during the analysis
     for file in sample_results:
         summary_data[file.name.replace(f'{cpg_id}.', '')] = str(file.absolute())
+
+    # print the contents, even if the metamist write fails (e.g. on test)
+    logging.info(summary_data)
 
     AnalysisApi().create_new_analysis(
         project=get_config()['workflow']['dataset'],
