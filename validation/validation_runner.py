@@ -296,6 +296,7 @@ def post_results_job(
     truth_bed: str,
     joint_mt: str,
     comparison_folder: str,
+    stratified: str | None = None,
 ):
     """
     post the results to THE METAMIST using companion script
@@ -310,6 +311,7 @@ def post_results_job(
     truth_bed : source of confident regions
     joint_mt : joint-call MatrixTable
     comparison_folder :
+    stratified : stratification files, if used
     """
 
     post_job = batch.new_job(name=f'Update metamist for {sample_id}')
@@ -333,6 +335,11 @@ def post_results_job(
         f'-b {truth_bed} '
         f'--mt {joint_mt} '
     )
+
+    # add stratification files if appropraite
+    if stratified:
+        job_cmd += f'--stratified {stratified}'
+
     post_job.command(job_cmd)
 
 
@@ -415,6 +422,7 @@ def main(input_file: str, stratification: str | None):
             truth_bed=truth_bed,
             joint_mt=input_file,
             comparison_folder=comparison_folder,
+            stratified=stratification,
         )
 
     batch.run(wait=False)
