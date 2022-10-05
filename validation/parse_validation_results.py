@@ -134,6 +134,7 @@ def main(
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     parser = ArgumentParser()
     parser.add_argument('--id', help='CPG ID for this sample')
     parser.add_argument('--folder', help='Location for results')
