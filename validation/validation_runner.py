@@ -147,8 +147,8 @@ def comparison_job(
         job.depends_on(dependency)
 
     job.image(image_path('happy'))
-    job.memory('20Gi')
-    job.storage('20Gi')
+    job.memory('40Gi')
+    job.storage('40Gi')
     vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': f'{ss_vcf}.tbi'})
     truth_input = batch.read_input_group(
         **{'vcf': truth_vcf, 'index': f'{truth_vcf}.tbi'}
@@ -169,16 +169,12 @@ def comparison_job(
 
     # hap.py outputs:
     # output.extended.csv
+    # output.vcf.gz
+    # output.vcf.gz.tbi
     # output.roc.all.csv.gz
     # output.metrics.json.gz
     # output.runinfo.json
-    # output.roc.Locations.INDEL.PASS.csv.gz
     # output.summary.csv
-    # output.roc.Locations.INDEL.csv.gz
-    # output.vcf.gz
-    # output.roc.Locations.SNP.PASS.csv.gz
-    # output.vcf.gz.tbi
-    # output.roc.Locations.SNP.csv.gz
 
     job.declare_resource_group(
         output={
