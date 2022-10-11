@@ -9,6 +9,7 @@ A summary of those results are posted into Metamist
 import logging
 from argparse import ArgumentParser
 from csv import DictReader
+import json
 
 from cpg_utils import to_path
 from cpg_utils.config import get_config
@@ -60,6 +61,7 @@ def main(
     truth_bed: str,
     joint_mt: str,
     stratified: str | None = None,
+    dry_run: bool = False,
 ):
     """
     parses for this sample's analysis results
@@ -75,6 +77,7 @@ def main(
     truth_bed : the confident regions BED
     joint_mt : the original joint-call MatrixTable
     stratified : if analysis was stratified, this is the location of files
+    dry_run : don't post to metamist
     """
 
     # if a result already exists, quietly exit so as not to cancel other sample's jobs
@@ -118,19 +121,20 @@ def main(
         summary_data[file.name.replace(f'{cpg_id}.', '')] = str(file.absolute())
 
     # print the contents, even if the metamist write fails (e.g. on test)
-    logging.info(summary_data)
+    logging.info(json.dumps(summary_data, indent=True))
 
-    AnalysisApi().create_new_analysis(
-        project=get_config()['workflow']['dataset'],
-        analysis_model=AnalysisModel(
-            sample_ids=[cpg_id],
-            type=AnalysisType('qc'),
-            status=AnalysisStatus('completed'),
-            output=comparison_folder,
-            meta=summary_data,
-            active=True,
-        ),
-    )
+    if not dry_run:
+        AnalysisApi().create_new_analysis(
+            project=get_config()['workflow']['dataset'],
+            analysis_model=AnalysisModel(
+                sample_ids=[cpg_id],
+                type=AnalysisType('qc'),
+                status=AnalysisStatus('completed'),
+                output=comparison_folder,
+                meta=summary_data,
+                active=True,
+            ),
+        )
 
 
 if __name__ == '__main__':
@@ -145,6 +149,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '--stratified', help='Stratification files, if used', required=False
     )
+    parser.add_argument(
+        '--dry_run', action='store_true', help="if present, don't write to metamist"
+    )
     args = parser.parse_args()
     main(
         cpg_id=args.id,
@@ -154,4 +161,5 @@ if __name__ == '__main__':
         truth_bed=args.b,
         joint_mt=args.mt,
         stratified=args.stratified,
+        dry_run=args.dry_run,
     )
