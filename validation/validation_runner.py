@@ -286,7 +286,6 @@ def get_sample_truth(cpg_id: str) -> tuple[str, str]:
 
 def post_results_job(
     batch: Batch,
-    dependency: hb.batch.job.Job,
     sample_id: str,
     ss_vcf: str,
     truth_vcf: str,
@@ -294,6 +293,7 @@ def post_results_job(
     joint_mt: str,
     comparison_folder: str,
     stratified: str | None = None,
+    no_post: bool = False,
 ):
     """
     post the results to THE METAMIST using companion script
@@ -301,7 +301,6 @@ def post_results_job(
     Parameters
     ----------
     batch : batch to run the job in
-    dependency : the analysis job we're dependent on
     sample_id : CPG ID
     ss_vcf : single sample VCF file used/created
     truth_vcf : source of truth variants
@@ -309,6 +308,7 @@ def post_results_job(
     joint_mt : joint-call MatrixTable
     comparison_folder :
     stratified : stratification files, if used
+    no_post : if true, prevent writes to metamist
     """
 
     post_job = batch.new_job(name=f'Update metamist for {sample_id}')
@@ -319,7 +319,6 @@ def post_results_job(
         repo_name=get_repo_name_from_current_directory(),
         commit=get_git_commit_ref_of_current_repository(),
     )
-    post_job.depends_on(dependency)
     post_job.image(get_config()['workflow']['driver_image'])
     copy_common_env(post_job)
     authenticate_cloud_credentials_in_job(post_job)
@@ -333,19 +332,24 @@ def post_results_job(
         f'--mt {joint_mt} '
     )
 
+    if no_post:
+        job_cmd += '--no_post '
+
     # add stratification files if appropraite
     if stratified:
         job_cmd += f'--stratified {stratified}'
 
     post_job.command(job_cmd)
+    return post_job
 
 
-def main(input_file: str, stratification: str | None):
+def main(input_file: str, stratification: str | None, no_post: bool = False):
     """
     Parameters
     ----------
     input_file : path to the MT representing this joint-call
     stratification : the path to the stratification BED files
+    no_post : if True, prevent writes to Metamist
     """
 
     input_path = Path(input_file)
@@ -410,9 +414,8 @@ def main(input_file: str, stratification: str | None):
             comparison_folder=comparison_folder,
             stratification=stratification,
         )
-        post_results_job(
+        result_job = post_results_job(
             batch=batch,
-            dependency=comparison,
             sample_id=cpg_id,
             ss_vcf=sample_vcf,
             truth_vcf=truth_vcf,
@@ -420,7 +423,10 @@ def main(input_file: str, stratification: str | None):
             joint_mt=input_file,
             comparison_folder=comparison_folder,
             stratified=stratification,
+            no_post=no_post,
         )
+
+        result_job.depends_on(comparison)
 
     batch.run(wait=False)
 
@@ -430,5 +436,8 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-i', help='input_path')
     parser.add_argument('-s', help='stratification BED directory')
+    parser.add_argument(
+        '--no_post', action='store_true', help='use to prevent metamist writes'
+    )
     args = parser.parse_args()
-    main(input_file=args.i, stratification=args.s)
+    main(input_file=args.i, stratification=args.s, no_post=args.no_post)
