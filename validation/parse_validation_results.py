@@ -61,7 +61,7 @@ def main(
     truth_bed: str,
     joint_mt: str,
     stratified: str | None = None,
-    no_post: bool = False,
+    dry_run: bool = False,
 ):
     """
     parses for this sample's analysis results
@@ -77,7 +77,7 @@ def main(
     truth_bed : the confident regions BED
     joint_mt : the original joint-call MatrixTable
     stratified : if analysis was stratified, this is the location of files
-    no_post : don't post to metamist
+    dry_run : don't post to metamist
     """
 
     # if a result already exists, quietly exit so as not to cancel other sample's jobs
@@ -123,7 +123,7 @@ def main(
     # print the contents, even if the metamist write fails (e.g. on test)
     logging.info(json.dumps(summary_data, indent=True))
 
-    if not no_post:
+    if not dry_run:
         AnalysisApi().create_new_analysis(
             project=get_config()['workflow']['dataset'],
             analysis_model=AnalysisModel(
@@ -150,7 +150,7 @@ if __name__ == '__main__':
         '--stratified', help='Stratification files, if used', required=False
     )
     parser.add_argument(
-        '--no_post', action='store_true', help="if present, don't write to metamist"
+        '--dry_run', action='store_true', help="if present, don't write to metamist"
     )
     args = parser.parse_args()
     main(
@@ -161,5 +161,5 @@ if __name__ == '__main__':
         truth_bed=args.b,
         joint_mt=args.mt,
         stratified=args.stratified,
-        no_post=args.no_post,
+        dry_run=args.dry_run,
     )

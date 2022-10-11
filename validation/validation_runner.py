@@ -293,7 +293,7 @@ def post_results_job(
     joint_mt: str,
     comparison_folder: str,
     stratified: str | None = None,
-    no_post: bool = False,
+    dry_run: bool = False,
 ):
     """
     post the results to THE METAMIST using companion script
@@ -308,7 +308,7 @@ def post_results_job(
     joint_mt : joint-call MatrixTable
     comparison_folder :
     stratified : stratification files, if used
-    no_post : if true, prevent writes to metamist
+    dry_run : if true, prevent writes to metamist
     """
 
     post_job = batch.new_job(name=f'Update metamist for {sample_id}')
@@ -332,8 +332,8 @@ def post_results_job(
         f'--mt {joint_mt} '
     )
 
-    if no_post:
-        job_cmd += '--no_post '
+    if dry_run:
+        job_cmd += '--dry_run '
 
     # add stratification files if appropraite
     if stratified:
@@ -343,13 +343,13 @@ def post_results_job(
     return post_job
 
 
-def main(input_file: str, stratification: str | None, no_post: bool = False):
+def main(input_file: str, stratification: str | None, dry_run: bool = False):
     """
     Parameters
     ----------
     input_file : path to the MT representing this joint-call
     stratification : the path to the stratification BED files
-    no_post : if True, prevent writes to Metamist
+    dry_run : if True, prevent writes to Metamist
     """
 
     input_path = Path(input_file)
@@ -423,7 +423,7 @@ def main(input_file: str, stratification: str | None, no_post: bool = False):
             joint_mt=input_file,
             comparison_folder=comparison_folder,
             stratified=stratification,
-            no_post=no_post,
+            dry_run=dry_run,
         )
 
         result_job.depends_on(comparison)
@@ -437,7 +437,7 @@ if __name__ == '__main__':
     parser.add_argument('-i', help='input_path')
     parser.add_argument('-s', help='stratification BED directory')
     parser.add_argument(
-        '--no_post', action='store_true', help='use to prevent metamist writes'
+        '--dry_run', action='store_true', help='use to prevent metamist writes'
     )
     args = parser.parse_args()
-    main(input_file=args.i, stratification=args.s, no_post=args.no_post)
+    main(input_file=args.i, stratification=args.s, dry_run=args.dry_run)
