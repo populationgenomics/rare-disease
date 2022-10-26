@@ -37,7 +37,7 @@ def get_family_id_to_participant_map(project: str) -> dict[str, list[dict]]:
 
 
 def copy_to_test(project: str, path: str):
-    'Copy a single file from a main bucket path to the equivalent test bucket'
+    "Copy a single file from a main bucket path to the equivalent test bucket"
     test_path = path.replace(
         f'cpg-{project}-main',
         f'cpg-{project}-test',
