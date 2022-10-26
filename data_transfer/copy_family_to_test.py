@@ -43,8 +43,8 @@ def copy_to_test(project: str, path: str):
         f'cpg-{project}-test',
     )
 
-    subprocess.run(f"gsutil cp {path} {test_path}", shell=True, check=True)
-    logging.info(f"Copied {test_path}")
+    subprocess.run(f'gsutil cp {path} {test_path}', shell=True, check=True)
+    logging.info(f'Copied {test_path}')
 
 
 def main(
@@ -80,17 +80,17 @@ def main(
     # Retrieve latest crams and gvcfs for selected samples
     sample_ids = [sample['id'] for sample in samples]
     latest_crams = AnalysisApi().get_latest_analysis_for_samples_and_type(
-        AnalysisType("cram"), project, request_body=sample_ids
+        AnalysisType('cram'), project, request_body=sample_ids
     )
     latest_gvcfs = AnalysisApi().get_latest_analysis_for_samples_and_type(
-        AnalysisType("gvcf"), project, request_body=sample_ids
+        AnalysisType('gvcf'), project, request_body=sample_ids
     )
 
     ## Copy files to test
     for cram in latest_crams:
         copy_to_test(project, cram['output'])
     for gvcf in latest_gvcfs:
-        copy_to_test(project, cram['output'])
+        copy_to_test(project, gvcf['output'])
 
 
 if __name__ == '__main__':
