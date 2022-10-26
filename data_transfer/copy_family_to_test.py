@@ -37,7 +37,7 @@ def get_family_id_to_participant_map(project: str) -> dict[str, list[dict]]:
 
 
 def copy_to_test(project: str, path: str):
-    "Copy a single file from a main bucket path to the equivalent test bucket"
+    'Copy a single file from a main bucket path to the equivalent test bucket'
     test_path = path.replace(
         f'cpg-{project}-main',
         f'cpg-{project}-test',
@@ -64,11 +64,23 @@ def main(
     """
 
     # Find all participants in the nominated families
-    participant_ids = []
     participants_by_ext_family_id = get_family_id_to_participant_map(project)
+    participant_ids = []
+    unknown_family_id = False
     for family_id in family_ids:
-        for participant in participants_by_ext_family_id[family_id]:
-            participant_ids.append(participant['individual_id'])
+        try:
+            for participant in participants_by_ext_family_id[family_id]:
+                participant_ids.append(participant['individual_id'])
+        except KeyError:
+            unknown_family_id = True
+            print(
+                f'Error: "{family_id}" is not a valid external family ID in '
+                f'project "{project}".',
+                file=sys.stderr,
+            )
+
+    if unknown_family_id:
+        sys.exit(1)
 
     # Retrieve active samples for these participants
     samples = SampleApi().get_samples(
@@ -86,7 +98,7 @@ def main(
         AnalysisType('gvcf'), project, request_body=sample_ids
     )
 
-    ## Copy files to test
+    # Copy files to test
     for cram in latest_crams:
         copy_to_test(project, cram['output'])
     for gvcf in latest_gvcfs:
