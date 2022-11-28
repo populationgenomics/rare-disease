@@ -138,7 +138,7 @@ def comparison_job(
     if dependency is not None:
         job.depends_on(dependency)
 
-    job.image(get_config()['image']['hap.py'])
+    job.image(get_config()['image']['happy'])
     job.memory('20Gi')
     job.storage('40Gi')
     job.cpu(2)
