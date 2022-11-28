@@ -8,8 +8,10 @@ analysis-runner \
   --dataset validation \
   --description "Run Genome Validation" \
   -o $DATE \
+  --config validation/validation.toml \
+  --image australia-southeast1-docker.pkg.dev/cpg-common/images/cpg_workflows \
   --access-level standard \
   validation/validation_runner.py \
-    -i gs://cpg-validation-main/mt/986d792a448c66a8a5cfba65434e7d1ce9b1ff_1051-validation.mt \
-    -s gs://cpg-validation-test/GRCh38_regions \
-    --no_post
+    -i gs://cpg-validation-main/mt/6ae7ac744240e459f9e38f794631957c066ae4_1359-validation.mt \
+    -s gs://cpg-validation-test/GRCh38_regions
+#    --dry_run
