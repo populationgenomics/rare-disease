@@ -35,14 +35,11 @@ from cpg_utils.git import (
     get_repo_name_from_current_directory,
 )
 from cpg_utils.hail_batch import (
-    init_batch,
     output_path,
-    remote_tmpdir,
-    image_path,
     copy_common_env,
     authenticate_cloud_credentials_in_job,
 )
-from cpg_utils.workflows.batch import Batch
+from cpg_workflows.batch import get_batch
 from sample_metadata.apis import AnalysisApi, ParticipantApi
 from sample_metadata.model.analysis_query_model import AnalysisQueryModel
 from sample_metadata.model.analysis_type import AnalysisType
@@ -58,27 +55,24 @@ logger.setLevel(level=logging.INFO)
 
 
 def mt_to_vcf(
-    batch: Batch,
     input_mt: str,
     samples: set[str],
     output_root: str,
 ) -> dict[str, tuple[str, hb.batch.job.Job | None]]:
     """
-    takes a MT and converts to VCF
+    converts MT to VCF
     optionally adds in extra header lines for VQSR filters
     returns a dictionary of all samples, their VCF paths
     if the VCF didn't already exist, this also contains a batch job
 
     Parameters
     ----------
-    batch : batch to add jobs into
     input_mt : path to the MT to read into VCF
     samples : set of CPG sample IDs
     output_root :
     """
 
     # open the joint-call and check for the samples present
-    init_batch()
     all_jc_samples = hl.read_matrix_table(input_mt).s.collect()
     samples_in_jc = set(all_jc_samples).intersection(samples)
     logging.info(f'Extracting {" ".join(samples_in_jc)} from the joint-call')
@@ -96,7 +90,7 @@ def mt_to_vcf(
             logging.info(f'No action taken, {sample_path} already exists')
             continue
 
-        job = batch.new_job(f'Extract {sample} from VCF')
+        job = get_batch().new_job(f'Extract {sample} from VCF')
         job.image(get_config()['workflow']['driver_image'])
         authenticate_cloud_credentials_in_job(job)
         prepare_git_job(
@@ -118,7 +112,6 @@ def mt_to_vcf(
 
 
 def comparison_job(
-    batch: Batch,
     dependency: hb.batch.job.Job | None,
     ss_vcf: str,
     sample: str,
@@ -131,7 +124,6 @@ def comparison_job(
 
     Parameters
     ----------
-    batch : the batch to run this job in
     dependency : a previous job to wait for
     ss_vcf : single sample VCF to validate
     sample : CPG ID
@@ -140,13 +132,13 @@ def comparison_job(
     comparison_folder :
     stratification : path to stratification BED data
     """
-
+    batch = get_batch()
     job = batch.new_job(name=f'Compare {sample}')
 
     if dependency is not None:
         job.depends_on(dependency)
 
-    job.image(image_path('happy'))
+    job.image(get_config()['image']['hap.py'])
     job.memory('20Gi')
     job.storage('40Gi')
     job.cpu(2)
@@ -285,7 +277,6 @@ def get_sample_truth(cpg_id: str) -> tuple[str, str]:
 
 
 def post_results_job(
-    batch: Batch,
     sample_id: str,
     ss_vcf: str,
     truth_vcf: str,
@@ -300,7 +291,6 @@ def post_results_job(
 
     Parameters
     ----------
-    batch : batch to run the job in
     sample_id : CPG ID
     ss_vcf : single sample VCF file used/created
     truth_vcf : source of truth variants
@@ -311,7 +301,7 @@ def post_results_job(
     dry_run : if true, prevent writes to metamist
     """
 
-    post_job = batch.new_job(name=f'Update metamist for {sample_id}')
+    post_job = get_batch().new_job(name=f'Update metamist for {sample_id}')
 
     prepare_git_job(
         job=post_job,
@@ -365,20 +355,10 @@ def main(input_file: str, stratification: str | None, dry_run: bool = False):
 
     validation_lookup = get_validation_samples()
 
-    service_backend = hb.ServiceBackend(
-        billing_project=get_config()['hail']['billing_project'],
-        remote_tmpdir=remote_tmpdir(),
-    )
-    batch = Batch(
-        name='run validation bits and pieces',
-        backend=service_backend,
-        cancel_after_n_failures=1,
-        default_memory='highmem',
-    )
+    batch = get_batch(name='run validation bits and pieces')
 
     # generate single sample vcfs
     sample_jobs = mt_to_vcf(
-        batch=batch,
         input_mt=input_file,
         samples=set(validation_lookup.keys()),
         output_root=validation_output_path,
@@ -405,7 +385,6 @@ def main(input_file: str, stratification: str | None, dry_run: bool = False):
             continue
 
         comparison = comparison_job(
-            batch=batch,
             dependency=vcf_job,
             ss_vcf=sample_vcf,
             sample=cpg_id,
@@ -415,7 +394,6 @@ def main(input_file: str, stratification: str | None, dry_run: bool = False):
             stratification=stratification,
         )
         result_job = post_results_job(
-            batch=batch,
             sample_id=cpg_id,
             ss_vcf=sample_vcf,
             truth_vcf=truth_vcf,
