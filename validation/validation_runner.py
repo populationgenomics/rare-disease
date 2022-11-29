@@ -140,8 +140,8 @@ def comparison_job(
         job.depends_on(dependency)
 
     job.image(get_config()['image']['happy'])
-    job.memory('30Gi')
-    job.storage('40Gi')
+    job.memory('80Gi')
+    job.storage('60Gi')
     job.cpu(4)
     vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': f'{ss_vcf}.tbi'})
     truth_input = batch.read_input_group(
