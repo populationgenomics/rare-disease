@@ -8,7 +8,7 @@ analysis-runner \
   --dataset validation \
   --description "Run Genome Validation" \
   -o $DATE \
-  --config validation/validation.toml \
+  --config validation/validation_conf.toml \
   --image australia-southeast1-docker.pkg.dev/cpg-common/images/cpg_workflows \
   --access-level standard \
   validation/validation_runner.py \

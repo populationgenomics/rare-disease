@@ -35,6 +35,7 @@ from cpg_utils.git import (
     get_repo_name_from_current_directory,
 )
 from cpg_utils.hail_batch import (
+    init_batch,
     output_path,
     copy_common_env,
     authenticate_cloud_credentials_in_job,
@@ -71,7 +72,7 @@ def mt_to_vcf(
     samples : set of CPG sample IDs
     output_root :
     """
-
+    init_batch()
     # open the joint-call and check for the samples present
     all_jc_samples = hl.read_matrix_table(input_mt).s.collect()
     samples_in_jc = set(all_jc_samples).intersection(samples)
