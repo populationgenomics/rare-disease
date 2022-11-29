@@ -10,8 +10,8 @@ analysis-runner \
   -o $DATE \
   --config validation/validation_conf.toml \
   --image australia-southeast1-docker.pkg.dev/cpg-common/images/cpg_workflows \
-  --access-level standard \
+  --access-level test \
   validation/validation_runner.py \
-    -i gs://cpg-validation-main/mt/6ae7ac744240e459f9e38f794631957c066ae4_1359-validation.mt \
+    -i gs://cpg-validation-test/validation/copy/copy_of_1359.mt \
     -s gs://cpg-validation-test/GRCh38_regions
 #    --dry_run
