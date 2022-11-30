@@ -35,6 +35,7 @@ from cpg_utils.git import (
     get_repo_name_from_current_directory,
 )
 from cpg_utils.hail_batch import (
+    init_batch,
     output_path,
     copy_common_env,
     authenticate_cloud_credentials_in_job,
@@ -71,7 +72,7 @@ def mt_to_vcf(
     samples : set of CPG sample IDs
     output_root :
     """
-
+    init_batch()
     # open the joint-call and check for the samples present
     all_jc_samples = hl.read_matrix_table(input_mt).s.collect()
     samples_in_jc = set(all_jc_samples).intersection(samples)
@@ -139,9 +140,9 @@ def comparison_job(
         job.depends_on(dependency)
 
     job.image(get_config()['image']['happy'])
-    job.memory('20Gi')
-    job.storage('40Gi')
-    job.cpu(2)
+    job.memory('100Gi')
+    job.storage('100Gi')
+    job.cpu(4)
     vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': f'{ss_vcf}.tbi'})
     truth_input = batch.read_input_group(
         **{'vcf': truth_vcf, 'index': f'{truth_vcf}.tbi'}
@@ -193,21 +194,19 @@ def comparison_job(
     # allow for stratification
     if stratification:
         strat_folder = to_path(stratification)
-        assert strat_folder.exists(), (
-            f'provided folder {stratification} does ' 'not exist, or was not accessible'
-        )
+        assert (
+            strat_folder.exists()
+        ), f'{stratification} does not exist, or was not accessible'
 
         definitions = strat_folder / 'definition.tsv'
-        assert definitions.exists(), (
-            f'the region definition file ' f'{str(definitions)} does not exist'
-        )
+        assert (
+            definitions.exists()
+        ), f'the region file {str(definitions)} does not exist'
 
         strat_bed_files = list(strat_folder.glob('*.bed*'))
-        assert (
-            len(strat_bed_files) > 0
-        ), 'There were no bed files in the stratified BED folder'
+        assert len(strat_bed_files) > 0, 'No bed files in the stratified BED folder'
 
-        # create a dictionary to pass to a the input generation
+        # create a dictionary to pass to input generation
         strat_dict = {'definition.tsv': str(definitions)}
         strat_dict.update({file.name: str(file) for file in strat_bed_files})
         batch_beds = batch.read_input_group(**strat_dict)
@@ -393,6 +392,7 @@ def main(input_file: str, stratification: str | None, dry_run: bool = False):
             comparison_folder=comparison_folder,
             stratification=stratification,
         )
+
         result_job = post_results_job(
             sample_id=cpg_id,
             ss_vcf=sample_vcf,
