@@ -140,8 +140,8 @@ def comparison_job(
         job.depends_on(dependency)
 
     job.image(get_config()['image']['happy'])
-    job.memory('80Gi')
-    job.storage('60Gi')
+    job.memory('100Gi')
+    job.storage('100Gi')
     job.cpu(4)
     vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': f'{ss_vcf}.tbi'})
     truth_input = batch.read_input_group(
@@ -194,21 +194,19 @@ def comparison_job(
     # allow for stratification
     if stratification:
         strat_folder = to_path(stratification)
-        assert strat_folder.exists(), (
-            f'provided folder {stratification} does ' 'not exist, or was not accessible'
-        )
+        assert (
+            strat_folder.exists()
+        ), f'{stratification} does not exist, or was not accessible'
 
         definitions = strat_folder / 'definition.tsv'
-        assert definitions.exists(), (
-            f'the region definition file ' f'{str(definitions)} does not exist'
-        )
+        assert (
+            definitions.exists()
+        ), f'the region file {str(definitions)} does not exist'
 
         strat_bed_files = list(strat_folder.glob('*.bed*'))
-        assert (
-            len(strat_bed_files) > 0
-        ), 'There were no bed files in the stratified BED folder'
+        assert len(strat_bed_files) > 0, 'No bed files in the stratified BED folder'
 
-        # create a dictionary to pass to a the input generation
+        # create a dictionary to pass to input generation
         strat_dict = {'definition.tsv': str(definitions)}
         strat_dict.update({file.name: str(file) for file in strat_bed_files})
         batch_beds = batch.read_input_group(**strat_dict)
@@ -394,6 +392,7 @@ def main(input_file: str, stratification: str | None, dry_run: bool = False):
             comparison_folder=comparison_folder,
             stratification=stratification,
         )
+
         result_job = post_results_job(
             sample_id=cpg_id,
             ss_vcf=sample_vcf,
