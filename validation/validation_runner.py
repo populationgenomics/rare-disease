@@ -149,7 +149,7 @@ def comparison_job(
     )
     truth_bed = batch.read_input(truth_bed)
     refgenome = (
-        'gs://cpg-reference/hg38/v0/dragen_reference/'
+        'gs://cpg-common-main/references/hg38/v0/dragen_reference/'
         'Homo_sapiens_assembly38_masked.fasta'
     )
     batch_ref = batch.read_input_group(
