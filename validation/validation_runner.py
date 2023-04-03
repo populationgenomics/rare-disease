@@ -66,13 +66,19 @@ def mt_to_vcf(
     returns a dictionary of all samples, their VCF paths
     if the VCF didn't already exist, this also contains a batch job
 
-    Parameters
-    ----------
-    input_mt : path to the MT to read into VCF
-    samples : set of CPG sample IDs
-    output_root :
+    Args:
+        input_mt (str): path to the MT to read into VCF
+        samples (set[str]): set of CPG sample IDs
+        output_root (str): root path to write the VCFs to
+
+    Returns:
+
     """
+
+    # initialise the batch
+    logging.info(f'Using billing project: {get_config()["hail"]["billing_project"]}')
     init_batch()
+
     # open the joint-call and check for the samples present
     all_jc_samples = hl.read_matrix_table(input_mt).s.collect()
     samples_in_jc = set(all_jc_samples).intersection(samples)
@@ -257,13 +263,13 @@ def get_sample_truth(cpg_id: str) -> tuple[str, str]:
     )
     analyses = AnalysisApi().query_analyses(analysis_query_model=a_query_model)
     if len(analyses) > 1:
-        raise Exception(
+        raise KeyError(
             f'Multiple [custom] analysis objects were found for '
             f'{cpg_id}, please set old analyses to active=False'
         )
 
     if len(analyses) == 0:
-        raise Exception(f'{cpg_id} has no Analysis entries')
+        raise ValueError(f'{cpg_id} has no Analysis entries')
 
     analysis_object = analyses[0]
     truth_vcf = analysis_object.get('output')
@@ -344,7 +350,7 @@ def main(input_file: str, stratification: str | None, dry_run: bool = False):
     input_path = Path(input_file)
     if input_path.suffix != '.mt':
         logger.error('Expected a MT as input file')
-        raise Exception('Expected a MT as input file')
+        raise ValueError('Expected a MT as input file')
 
     # # set the path for this output
     # process the MT to get the name
@@ -364,7 +370,7 @@ def main(input_file: str, stratification: str | None, dry_run: bool = False):
     )
 
     if len(sample_jobs) == 0:
-        raise Exception('No jobs/VCFs were created from this joint call')
+        raise ValueError('No jobs/VCFs were created from this joint call')
 
     comparison_folder = os.path.join(validation_output_path, 'comparison')
 

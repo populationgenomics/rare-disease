@@ -34,14 +34,12 @@ def check_for_prior_result(cpg_id: str, comparison_folder: str) -> bool:
     queries Metamist to make sure that the results were not already
     logged in a prior process
 
-    Parameters
-    ----------
-    cpg_id : str
-    comparison_folder : str
+    Args:
+        cpg_id (str): CPG#### Identifier
+        comparison_folder (str): the folder where the results are stored
 
-    Returns
-    -------
-    bool - if True, this result set was already logged
+    Returns:
+        bool - if True, this result set was already logged
     """
 
     a_query_model = AnalysisQueryModel(
@@ -68,16 +66,15 @@ def main(
     parses the analysis summary CSV
     posts a QC entry to metamist with meta.type=validation_result
 
-    Parameters
-    ----------
-    cpg_id : CPG#### Identifier
-    comparison_folder :
-    single_sample_vcf : The specific VCF generated and used in validation
-    truth_vcf : the sample truth VCF
-    truth_bed : the confident regions BED
-    joint_mt : the original joint-call MatrixTable
-    stratified : if analysis was stratified, this is the location of files
-    dry_run : don't post to metamist
+    Args:
+        cpg_id (str): CPG#### Identifier
+        comparison_folder (str): the folder where the results are stored
+        single_sample_vcf (str): The specific VCF generated and used in validation
+        truth_vcf (str): the sample truth VCF
+        truth_bed (str): the confident regions BED
+        joint_mt (str): the original joint-call MatrixTable
+        stratified (str): if analysis was stratified, this is the location of files
+        dry_run (bool): if True, don't post to metamist
     """
 
     # if a result already exists, quietly exit so as not to cancel other sample's jobs
@@ -107,8 +104,7 @@ def main(
         summary_data['stratified'] = stratified
 
     with summary_file.open() as handle:
-        summary_reader = DictReader(handle)
-        for line in summary_reader:
+        for line in DictReader(handle):
             if line['Filter'] != 'PASS' or line['Subtype'] != '*':
                 continue
 
