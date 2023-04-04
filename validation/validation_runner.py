@@ -19,6 +19,7 @@ Results:
 
 import logging
 import os
+import sys
 from pathlib import Path
 from argparse import ArgumentParser
 
@@ -416,7 +417,12 @@ def main(input_file: str, stratification: str | None, dry_run: bool = False):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(levelname)s %(module)s:%(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        stream=sys.stderr,
+    )
     parser = ArgumentParser()
     parser.add_argument('-i', help='input_path')
     parser.add_argument('-s', help='stratification BED directory')
