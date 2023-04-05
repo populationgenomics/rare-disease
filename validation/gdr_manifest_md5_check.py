@@ -56,9 +56,7 @@ def main():
         if expected_md5 == actual_md5:
             logging.info(f'match: {filename}')
         else:
-            logging.error(
-                f'mismatch: {filename}, {expected_md5=}, {actual_md5=}'
-            )
+            logging.error(f'mismatch: {filename}, {expected_md5=}, {actual_md5=}')
             any_errors = True
 
     if any_errors:
