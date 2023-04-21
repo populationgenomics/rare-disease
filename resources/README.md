@@ -1,234 +1,126 @@
-![CPG Logo](images/cpg_logo_1280x329.png)
+![CPG Logo](seqr_metadata_templates/images/cpg_logo_1280x329.png)
 
-# Organising rare disease data and metadata for seqr
+# Uploading your data to CPG's cloud - a quick guide
 
-## Table of Contents
+## Table of Contents <!-- omit from toc -->
 ---
-- [Organising rare disease data and metadata for seqr](#organising-rare-disease-data-and-metadata-for-seqr)
-  - [Table of Contents](#table-of-contents)
+- [Uploading your data to CPG's cloud - a quick guide](#uploading-your-data-to-cpgs-cloud---a-quick-guide)
+- [1. Background](#1-background)
   - [i. Purpose](#i-purpose)
-  - [ii. Background](#ii-background)
-  - [iii. Quick Links](#iii-quick-links)
-- [1. Genomic Data](#1-genomic-data)
-- [2. Pedigree\_template](#2-pedigree_template)
-- [3. Families\_metadata\_template (Optional)](#3-families_metadata_template-optional)
-- [4. Individuals\_metadata\_template](#4-individuals_metadata_template)
-- [5. Sample\_mapping\_template](#5-sample_mapping_template)
+  - [ii. The Google Cloud Platform](#ii-the-google-cloud-platform)
+  - [iii. Requirements](#iii-requirements)
+- [2. Authentication](#2-authentication)
+- [3. Upload your data](#3-upload-your-data)
+- [4. Finishing your transfer](#4-finishing-your-transfer)
+- [5. Getting Help](#5-getting-help)
 
 
 ---
+
+<br />
+
+# 1. Background
 ## i. Purpose
 
-The purpose of this document is to provide instructions on how to prepare project specific data and metadata for use in seqr<br /> related to an individual's family history (pedigree).
+The purpose of this document is to provide easy to follow instructions on how to transfer your genomic data to the CPG’s cloud storage.
 
 <br />
 
-## ii. Background
+## ii. The Google Cloud Platform
 
-The CPG utilises four distinct metadata files to provide information about samples to the variant curation team as they <br /> perform variant analysis in seqr.
+The Centre for Population Genomics currently uses Google’s cloud infrastructure to securely store data before it is ingested into Seqr and our metadata platform.<br />
+Each project is compartmentalised into its own corner of the Google cloud platform and named accordingly. <br />Projects are split up into “buckets”, which is Google’s term for storage disk. <br /> <br /> 
+**This document outlines how you can upload your data into the “upload” bucket of your project.**
 
-The four files are described in Table 1.
+## iii. Requirements
 
-A template for each of these files is provided in section iii. Quick Links, and instructions for filling out each template<br /> are included in this document.
-<br />
-<br />
+To successfully upload your data to the cloud bucket, you will need to install two services using the command line.
 
-#### **Table 1:** Definitions of the metadata files used in rare disease projects <!-- omit from toc -->
-|     **Metadata template**    |     **Required**    |     **Description**    |
-|:---:|:---:|:---|
-|     *Pedigree_template*    |     **Yes**    |     Template file used to describe the individuals in each dataset <br />and how they relate to other individuals in <br />the same dataset, mainly their parents.<br /><br />The information in this file is used to generate<br /> the participant pedigrees*.    |
-|     *Families_metadata_template*    |     No    |     Template file used to describe the families in each dataset. |
-|     *Individuals_metadata_template*    |     **Yes**    |     Template file used to describe the clinical information <br />related to individuals in each dataset. |
-|     *Sample_mapping_template*    |     **Yes**    |     Template file used to map individual IDs AND sample IDs<br /> back to the files that have been transferred. |
+1.	The Google cloud service for accessing the cloud: `gcloud`
+2.	The Google storage utility for accessing the buckets: `gsutil`
 
-*A pedigree is a structured description of the phenotypical and familial relationships between samples.
+-	**For large uploads (i.e., large batches of sequence data) you should access gcloud through your organisation’s server / HPC where your data is stored.**
+-	**If gcloud is not already installed in your organisation’s environment, coordinate with your systems administrator to install and activate gcloud.**
 
-The CPG uses the tool ‘GATK HaplotypeCaller’, which can incorporate pedigree information in the genomic analysis of samples.
+To install gcloud and gsutil, [follow these steps](https://cloud.google.com/sdk/docs/downloads-interactive#linux-mac). 
 
-<br />
+&emsp;&ensp;➢	&nbsp;If you are using Mac OS or Linux, you will need to open a terminal session and copy and paste the commands from the instructions in the above link.<br />
+&emsp;&ensp;➢	&nbsp;If you are using Windows, you can download an executable installer and follow the prompts to install.
 
-## iii. Quick Links
-All template files can be found [HERE](https://github.com/populationgenomics/rare-disease/).
-
-<br />
-<br />
-
-# 1. Genomic Data
-
-1.1     CPG’s bioinformatic pipelines use the following genomic data types:
-- FASTQ files
-- CRAM files
-- BAM files
-
-**Note:** CPG's preference is to use FASTQ files. In the absence of FASTQ files, BAM or CRAM files can be transferred.
-
-1.2.&emsp;For each FASTQ/BAM/CRAM file that is to be transferred, a corresponding MD5 file also needs to be transferred, <br /> &emsp;&emsp;&ensp;for data integrity QC to occur after the transfer.
-
-1.3.&emsp;Ensure that the genomic data files are transferred to a specific directory in the CPG’s cloud storage.<br /> &emsp;&emsp;&ensp;Appropriate directories include the date of the transfer in the directory path.
-
-1.4.&emsp;Further instructions can be found in this document:
-[Uploading your data to CPG cloud](https://github.com/populationgenomics/rare-disease/)
-
-<br />
-<br />
-
-# 2. Pedigree_template
-**Note**: The Individual_ID is used by CPG to internally track individuals.  <br /> &emsp;&emsp;&ensp;&ensp;If a new Individual_ID is provided in the metadata, a new individual will be created within our system.  <br />&emsp;&emsp;&ensp;&ensp;If providing new data for individuals that have already been included in metadata previously sent to CPG, <br /> &emsp;&emsp;&ensp;&ensp;please use the exact same Individual_ID.
-
-2.1.&emsp;Download the *pedigree_template* file from the CPG Rare-Disease github repository [here](https://github.com/populationgenomics/rare-disease/).
-
-2.2.&emsp;Information relating to **all** individuals should be documented in a single *pedigree_template* file.<br /> &emsp;&emsp;&ensp;&nbsp;If an individual appears in the Paternal ID or Maternal ID column, then that individual needs their own dedicated row.
-
-**Note**: You should only have one *pedigree_template* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many individuals as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *pedigree_template* files for each individual in your cohort/dataset.
-
-2.3.&emsp;Populate the *pedigree_template* according to Table 2. <br />
-&emsp;&emsp;&ensp;&nbsp;An example is given below in Table 3.
-
-2.4.&emsp;Ensure that the *pedigree_template* file is shared alongside your transfer.
-<br />
-<br />
-
-#### **Table 2:** Data dictionary for pedigree_template file describing inputs for template fields <!-- omit from toc -->
-| **Field label** | **Allowed Values** | **Notes** |
-|:---:|:---:|:---|
-| Family ID | Alphanumeric family ID | The combination of family and individual ID<br /> should uniquely identify a person.    |
-|     Individual ID    |     Alphanumeric individual   ID    | The combination of family and individual ID<br /> should uniquely identify a person. |
-|     Paternal ID    |     Alphanumeric paternal ID    | Individuals without parental data can use a 0<br /> in this column or leave it blank. |
-|     Maternal ID    |     Alphanumeric maternal ID    | Individuals without parental data can use a 0<br /> in this column or leave it blank. |
-|     Sex    | 0 = unknown<br />1 = male<br />2 = female | If an individual's sex is unknown, a 0 should <br />be used in this column. |
-|     Affected Status    | -9 = missing<br />0 = missing<br />1 = unaffected<br />2 = affected | Either -9 or 0 can be used to denote a <br />missing affected status for an individual.    |
-
-<br />
-<br />
-
-#### **Table 3:** Example of a populated pedigree_template file. <!-- omit from toc -->
-| **Family ID** | **Individual ID** | **Paternal ID** | **Maternal ID** | **Sex** | **Affected Status** |
-|---|---|---|---|---|---|
-|     FAM_001    |     IND_001    |     IND_003    |     IND_002    |     1    |     2    |
-|     FAM_001    |     IND_002    |          |          |     2    |     1    |
-|     FAM_001    |     IND_003    |          |          |     1    |     2    |
-|     FAM_002    |     IND_004    |          |     IND_005    |     2    |     2    |
-|     FAM_002    |     IND_005    |          |          |     2    |     2    |
-
-<br />
-<br />
-
-# 3. Families_metadata_template (Optional)
-
-3.1.&emsp;Download the *families_metadata_template* file from the CPG Rare-Disease github repository [here](https://github.com/populationgenomics/rare-disease/).
-
-3.2.&emsp;All information relating to families should be documented in a single *families_metadata_template* file.
-
-**Note**: You should only have **one** *families_metadata_template* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many families as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *families_metadata_template* files for each family in your cohort/dataset.
-
-3.3.&emsp;Populate the *families_metadata_template* according to Table 4.<br />
-&emsp;&emsp;&ensp;&nbsp;An example is given below in Table 5.
-
-3.4.&emsp;Ensure that the *families_metadata_template* file is shared alongside your transfer.
+Once you have installed gcloud, you will need to run the command `gcloud init` in a terminal window to successfully start the Google Cloud services command line interface.
 
 <br />
 
-#### **Table 4:** Data dictionary for families_metadata_template file describing inputs for the template fields <!-- omit from toc -->
-| **Field label** | **Allowed Values** | **Notes** |
-|:---:|:---:|:---|
-| Family ID | Alphanumeric family ID | The family ID should uniquely identify a family.    |
-|     Display Name   |     Alphanumeric Characters    | An optional secondary identifier. |
-|     Description    |     Alphanumeric Characters   | Clinical description of the family |
-|     Coded Phenotype    |     Comma-separated list of HPO codes for <br />phenotypes present in this family    | Coded clinical phenotypes related to the clinical <br /> description of the family, preferably in HPO terms. |
-
-
-<br />
+# 2. Authentication
+You will have been provided with a service account authorization key. This key, a json file shared via google drive, gives you the permission to upload your data into the bucket for your project. 
 <br />
 
-#### **Table 5:** Example of a populated families_metadata_template file. <!-- omit from toc -->
-| **Family ID** | **Display Name** | **Description** | **Coded Phenotype** |
-|---|---|---|---|
-| FAM_001    |  | Neurodegeneration, progressive motor degeneration, <br />ataxia, spasticity, dementia, regression, brain atrophy | HP:0002180 |
-| FAM_002 |  | Dilated cardiomyopathy, leukodystrophy | HP:0002415, HP:0001644 |
+![Warning](seqr_metadata_templates/images/key_warning.png)
 
-<br />
-<br />
+1.	Download the key from the Google drive you were provided via email. 
 
-
-# 4. Individuals_metadata_template
-4.1.&emsp;Download the *individuals_metadata_template* file from the CPG Rare-Disease github repository [here](https://github.com/populationgenomics/rare-disease/).
-
-4.2.&emsp;All information relating to individuals should be documented in a single *individuals_metadata_template* file.
-
-**Note:** You should only have **one** *individuals_metadata_template* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many individuals as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *individuals_metadata_template* files for each family in your cohort/dataset.
-
-4.3.&emsp;Populate the *individuals_metadata_template* according to Table 6.<br />
-&emsp;&emsp;&ensp;&nbsp;An example is given below in Table 7.
-
-**Note**: Only populate the fields that you have information for. Not every field needs to be populated in this template file.  <br />&emsp;&emsp;&ensp;&ensp;The more information you provide in the file, the better your experience will be in seqr.
-
-4.4.&emsp;Ensure that the *individuals_metadata_template* file is shared alongside your transfer.
+&emsp;&emsp;&ensp;&nbsp;The key should have a name like: 
+“`your-project-upload.json`” or “`your-project-shared.json`”.
 
 <br />
 
-#### **Table 6:** Data dictionary for individuals_metadata_template file describing inputs for the template fields. <!-- omit from toc -->
-| **Field label** | **Allowed Values** | **Notes** |
-|:---:|:---:|:---|
-| Family ID | Alphanumeric family ID | The   combination of family ID and individual ID should <br /> uniquely identify an individual. |
-| Individual ID | Alphanumeric individual ID |  |
-| HPO Terms (present) | Comma-separated list of HPO codes for <br /> phenotypes present in this individual | This field should have the HPO codes, not the descriptions. |
-| HPO Terms (absent) | Comma-separated list of HPO codes for <br />  phenotypes not present in this individual | This field should have the HPO codes, not the descriptions. |
-| Birth Year | Numeric year of birth. E.g. 2010 | If you have collected a DOB, e.g. 01-01-2001, <br /> please only include the **year** component. |
-| Death Year | Numeric year of death, if applicable. <br /> Leave blank otherwise. | If you have collected a DOD, e.g. 01-01-2001, <br /> please only include the **year** component. |
-| Age of Onset | **One of the following:** <br /><br />Embryonal onset,<br />Congenital onset, <br />Fetal onset, <br />Neonatal onset, <br />Infantile onset, <br />Childhood onset, <br />Juvenile onset, <br />Adult onset, <br />Young adult onset, <br />Middle age onset, <br />Late onset | *This is a rough suggestion, with no clinical source.* <br /> **Embryonal onset:** conception to 8 wks gestation <br /> **Fetal onset:** 9 wks gestation to birth<br /> **Congenital onset:** conception to birth <br /> **Neonatal onset:** birth to 1 month, <br /> **Infantile onset:** birth to 1 year<br /> **Childhood onset:** < 5 years<br /> **Juvenile onset:** < 17 years<br /> **Young adult onset:** < 25 years<br /> **Adult onset:** < 36 years<br /> **Middle age onset:** < 55 years<br /> **Late onset:** > 55 years
-| Individual Notes | Alphanumeric characters |   |
-| Consanguinity | true, false, or blank if unknown |   |
-| Other Affected Relatives | true, false, or blank if unknown |   |
-| Expected Mode of Inheritance | **Comma-separated list of the following:** <br />Sporadic, <br />Autosomal dominant inheritance, <br />Sex-limited autosomal dominant, <br />Male-limited autosomal dominant,<br /> Autosomal dominant contiguous gene syndrome, <br />Autosomal recessive inheritance,<br />Gonosomal inheritance, <br />X-linked inheritance, <br />X-linked recessive inheritance, <br />Y-linked inheritance, <br />X-linked dominant inheritance, <br />Multifactorial inheritance, <br />Mitochondrial inheritance |   |
-| Fertility Medications | true, false, or blank if unknown |   |
-| Intrauterine Insemination | true, false, or blank if unknown |   |
-| In Vitro Fertilization | true, false, or blank if unknown |   |
-| Intra-Cytoplasmic Sperm Injection | true, false, or blank if unknown |   |
-| Gestational Surrogacy | true, false, or blank if unknown |   |
-| Donor Egg | true, false, or blank if unknown |   |
-| Donor Sperm | true, false, or blank if unknown |   |
-| Maternal Ancestry | comma-separated list of ethnicities |   |
-| Paternal Ancestry | comma-separated list of ethnicities |   |
-| Pre-discovery OMIM disorders | comma-separated list of valid OMIM numbers |   |
-| Previously Tested Genes | comma-separated list of genes |   |
-| Candidate Genes | comma-separated list of genes |   |
+2.	Run the below command to activate your service account key.
+```shell
+gcloud auth activate-service-account --key-file your-key-name.json
+```
 
-<br />
-<br />
-
-#### **Table 7:** Example of a populated individuals_metadata_template file. <!-- omit from toc -->
-![Table 7](images/Individuals_metadata_template_example.png)
-
-<br />
-<br />
-
-# 5. Sample_mapping_template
-5.1.&emsp;Download the *sample_mapping_template* file from the CPG Rare-Disease github repository [here](https://github.com/populationgenomics/rare-disease/).
-
-5.2.&emsp;Populate the *sample_mapping_template* file according to Table 8. <br />
-&emsp;&emsp;&ensp;&nbsp;An example is given below in Table 9.
-
-5.3.&emsp;Ensure that the *sample_mapping_template* file is shared alongside your transfer.
+&emsp;&emsp;&ensp; Replace the text “`your-key-name`” with the filename of the key you just downloaded. <br />
+&emsp;&emsp;&ensp; If the key is stored in a different directory you will need to use the full path to the key, e.g.: `home/to/key/your-key-name.json`
 
 <br />
 
-#### **Table 8:** Data dictionary for sample_mapping_template file describing inputs for the template fields <!-- omit from toc -->
-| **Field label** | **Allowed Values** | **Notes** |
-|:---:|:---:|---|
-| Individual ID | Alphanumeric individual ID <br>(if different to the Sample ID)    | This column can be left blank if the <br>individual ID and the sample ID are <br>identical.    |
-| Sample ID | Alphanumeric sample ID    | A sample ID should be unique within a <br>project. Note that an individual can have <br>multiple samples.    |
-| Filenames | Comma-separated list of<br>filenames for this sample.    | If more than two files are provided, they <br>will be grouped automatically    |
-| Type | One of the following: WGS, WES    | WGS (whole-genome), or <br>WES (whole-exome) sequencing.<br><br>***If this field is blank*** <br>**the type will default to WGS.**<br> <br>**Note**: If a sample has both WES and WGS <br />sequence data, you should include a row <br />for each type.    |
+3.	Successfully activating your service account key will produce the output:
+
+```
+Activated service account credentials for: 
+[main-upload@your-project.iam.gserviceaccount.com]
+```
 
 <br />
+
+# 3. Upload your data
+
+To upload your data, use the gsutil copy command “`cp`”:
+```
+gsutil -m cp -r source destination   
+```
+
+Or use the gsutil remote sync command “`rsync`”:
+```
+gsutil -m rsync -r source destination
+```
+
+For example:
+```
+gsutil -m cp -r /path/to/data gs://cpg-your-project-upload/subdir/date/
+```
+
+&emsp;&ensp;➢	&nbsp;Replace `your-project` with the name of your project <br />
+&emsp;&ensp;➢	&nbsp;Replace `subdir` with the upload directory specified in the email<br />
+&emsp;&ensp;➢	&nbsp;Replace `date` with the upload date (e.g. “2023-01-01”)
+
 <br />
 
-#### **Table 9:** Example of a populated sample_mapping_template file. <!-- omit from toc -->
-| **Individual ID** | **Sample ID** | **File names** | **Type** |
-|---|---|---|---|
-| IND_001    | A0001 | A0001-R1.fastq.gz, A0001-R2.fastq.gz    | WGS    |
-| IND_001    | A0001    | A0001_WES-R1.fastq.gz, A0001_WES-R2.fastq.gz    | WES    |
-| IND_002    | A0002    | A002-R1.fastq.gz, A0002-R2.fastq.gz    | WGS    |
+**Note**:	Include the `-m` flag to upload your data faster by using parallel processing. <br />
+&emsp;&emsp;&ensp;&ensp;Include the `-r` flag to recursively upload all directories in your data folder.
 
 <br />
+
+# 4. Finishing your transfer
+A successful upload should result in the output:
+```
+Operation completed over n objects/xyz B
+```
+
+**Note**:	`n` is the number of files in your uploaded folder. <br />
+&emsp;&emsp;&ensp;&ensp;`xyz` is the total size of all the files uploaded
+
 <br />
+
+# 5. Getting Help
+If you require assistance with the above steps, contact CPG’s data ingestion coordinator [Edward Formaini](mailto:edward.formaini@populationgenomics.org.au)
