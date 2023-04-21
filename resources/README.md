@@ -29,7 +29,7 @@ The purpose of this document is to provide easy to follow instructions on how to
 ## ii. The Google Cloud Platform
 
 The Centre for Population Genomics currently uses Google’s cloud infrastructure to securely store data before it is ingested into Seqr and our metadata platform.<br />
-Each project is compartmentalised into its own corner of the Google cloud platform and named accordingly. <br />Projects are split up into “buckets”, which is Google’s term for storage disk. <br /> <br /> 
+Each project is compartmentalised into its own corner of the Google cloud platform and named accordingly. <br />Projects are split up into “buckets”, which is Google’s term for storage disk. <br /> <br />
 **This document outlines how you can upload your data into the “upload” bucket of your project.**
 
 ## iii. Requirements
@@ -42,7 +42,7 @@ To successfully upload your data to the cloud bucket, you will need to install t
 -	**For large uploads (i.e., large batches of sequence data) you should access gcloud through your organisation’s server / HPC where your data is stored.**
 -	**If gcloud is not already installed in your organisation’s environment, coordinate with your systems administrator to install and activate gcloud.**
 
-To install gcloud and gsutil, [follow these steps](https://cloud.google.com/sdk/docs/downloads-interactive#linux-mac). 
+To install gcloud and gsutil, [follow these steps](https://cloud.google.com/sdk/docs/downloads-interactive#linux-mac).
 
 &emsp;&ensp;➢	&nbsp;If you are using Mac OS or Linux, you will need to open a terminal session and copy and paste the commands from the instructions in the above link.<br />
 &emsp;&ensp;➢	&nbsp;If you are using Windows, you can download an executable installer and follow the prompts to install.
@@ -52,14 +52,14 @@ Once you have installed gcloud, you will need to run the command `gcloud init` i
 <br />
 
 # 2. Authentication
-You will have been provided with a service account authorization key. This key, a json file shared via google drive, gives you the permission to upload your data into the bucket for your project. 
+You will have been provided with a service account authorization key. This key, a json file shared via google drive, gives you the permission to upload your data into the bucket for your project.
 <br />
 
 ![Warning](seqr_metadata_templates/images/key_warning.png)
 
-1.	Download the key from the Google drive you were provided via email. 
+1.	Download the key from the Google drive you were provided via email.
 
-&emsp;&emsp;&ensp;&nbsp;The key should have a name like: 
+&emsp;&emsp;&ensp;&nbsp;The key should have a name like:
 “`your-project-upload.json`” or “`your-project-shared.json`”.
 
 <br />
@@ -77,7 +77,7 @@ gcloud auth activate-service-account --key-file your-key-name.json
 3.	Successfully activating your service account key will produce the output:
 
 ```
-Activated service account credentials for: 
+Activated service account credentials for:
 [main-upload@your-project.iam.gserviceaccount.com]
 ```
 
@@ -87,7 +87,7 @@ Activated service account credentials for:
 
 To upload your data, use the gsutil copy command “`cp`”:
 ```
-gsutil -m cp -r source destination   
+gsutil -m cp -r source destination
 ```
 
 Or use the gsutil remote sync command “`rsync`”:
