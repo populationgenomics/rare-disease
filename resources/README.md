@@ -19,17 +19,17 @@
 ---
 ## i. Purpose
 
-The purpose of this document is to provide instructions on how to prepare project specific data and metadata for use in seqr related to an individual's family history (pedigree).
+The purpose of this document is to provide instructions on how to prepare project specific data and metadata for use in seqr<br /> related to an individual's family history (pedigree).
 
 <br />
 
 ## ii. Background
 
-The CPG utilises four distinct metadata files to provide information about samples to the variant curation team as they perform variant analysis in seqr.
+The CPG utilises four distinct metadata files to provide information about samples to the variant curation team as they <br /> perform variant analysis in seqr.
 
 The four files are described in Table 1.
 
-A template for each of these files is provided in section iii. Quick Links, and instructions for filling out each template are included in this document.
+A template for each of these files is provided in section iii. Quick Links, and instructions for filling out each template<br /> are included in this document.
 <br />
 <br />
 
@@ -62,10 +62,9 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 
 **Note:** CPG's preference is to use FASTQ files. In the absence of FASTQ files, BAM or CRAM files can be transferred.
 
-1.2.&emsp;For each FASTQ/BAM/CRAM file that is to be transferred, a corresponding MD5 file also needs to be transferred, for data integrity QC to occur after the transfer.
+1.2.&emsp;For each FASTQ/BAM/CRAM file that is to be transferred, a corresponding MD5 file also needs to be transferred, <br /> &emsp;&emsp;&ensp;for data integrity QC to occur after the transfer.
 
-1.3.&emsp;Ensure that the genomic data files are transferred to a specific directory in the CPG’s cloud storage.
-Appropriate directories include the date of the transfer in the directory path.
+1.3.&emsp;Ensure that the genomic data files are transferred to a specific directory in the CPG’s cloud storage.<br /> &emsp;&emsp;&ensp;Appropriate directories include the date of the transfer in the directory path.
 
 1.4.&emsp;Further instructions can be found in this document:
 [Uploading your data to CPG cloud](https://github.com/populationgenomics/rare-disease/)
@@ -74,12 +73,13 @@ Appropriate directories include the date of the transfer in the directory path.
 <br />
 
 # 2. Pedigree_template
+**Note**: The Individual_ID is used by CPG to internally track individuals.  <br /> &emsp;&emsp;&ensp;&ensp;If a new Individual_ID is provided in the metadata, a new individual will be created within our system.  <br />&emsp;&emsp;&ensp;&ensp;If providing new data for individuals that have already been included in metadata previously sent to CPG, <br /> &emsp;&emsp;&ensp;&ensp;please use the exact same Individual_ID.
 
 2.1.&emsp;Download the *pedigree_template* file from the CPG Rare-Disease github repository [here](https://github.com/populationgenomics/rare-disease/).
 
-2.2.&emsp;Information relating to **all** individuals should be documented in a single *pedigree_template* file. If an individual appears in the Paternal ID or Maternal ID column, then that individual needs their own dedicated row.
+2.2.&emsp;Information relating to **all** individuals should be documented in a single *pedigree_template* file.<br /> &emsp;&emsp;&ensp;&nbsp;If an individual appears in the Paternal ID or Maternal ID column, then that individual needs their own dedicated row.
 
-Note: You should only have one *pedigree_template* file. <br />This single file can contain as many individuals as described in your cohort/dataset. <br />Do not create separate *pedigree_template* files for each individual in your cohort/dataset.
+**Note**: You should only have one *pedigree_template* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many individuals as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *pedigree_template* files for each individual in your cohort/dataset.
 
 2.3.&emsp;Populate the *pedigree_template* according to Table 2. <br />
 &emsp;&emsp;&ensp;&nbsp;An example is given below in Table 3.
@@ -119,7 +119,7 @@ Note: You should only have one *pedigree_template* file. <br />This single file 
 
 3.2.&emsp;All information relating to families should be documented in a single *families_metadata_template* file.
 
-**Note**: You should only have **one** *families_metadata_template* file. <br />This single file can contain as many families as described in your cohort/dataset. <br />Do not create separate *families_metadata_template* files for each family in your cohort/dataset.
+**Note**: You should only have **one** *families_metadata_template* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many families as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *families_metadata_template* files for each family in your cohort/dataset.
 
 3.3.&emsp;Populate the *families_metadata_template* according to Table 4.<br />
 &emsp;&emsp;&ensp;&nbsp;An example is given below in Table 5.
@@ -155,12 +155,12 @@ Note: You should only have one *pedigree_template* file. <br />This single file 
 
 4.2.&emsp;All information relating to individuals should be documented in a single *individuals_metadata_template* file.
 
-**Note:** You should only have **one** *individuals_metadata_template* file. <br />This single file can contain as many individuals as described in your cohort/dataset. <br />Do not create separate *individuals_metadata_template* files for each family in your cohort/dataset.
+**Note:** You should only have **one** *individuals_metadata_template* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many individuals as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *individuals_metadata_template* files for each family in your cohort/dataset.
 
 4.3.&emsp;Populate the *individuals_metadata_template* according to Table 6.<br />
 &emsp;&emsp;&ensp;&nbsp;An example is given below in Table 7.
 
-**Note**: Only populate the fields that you have information for. Not every field needs to be populated in this template file. <br />The more information you provide in the file, the better your experience will be in seqr.
+**Note**: Only populate the fields that you have information for. Not every field needs to be populated in this template file.  <br />&emsp;&emsp;&ensp;&ensp;The more information you provide in the file, the better your experience will be in seqr.
 
 4.4.&emsp;Ensure that the *individuals_metadata_template* file is shared alongside your transfer.
 
