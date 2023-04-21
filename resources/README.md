@@ -1,10 +1,10 @@
-![CPG Logo](seqr_metadata_templates/images/cpg_logo_1280x329.png)
+# Uploading your data to CPG's cloud - a quick guide <!-- omit from toc -->
 
-# Uploading your data to CPG's cloud - a quick guide
+![CPG Logo](seqr_metadata_templates/images/cpg_logo_1280x329.png)
 
 ## Table of Contents <!-- omit from toc -->
 ---
-- [Uploading your data to CPG's cloud - a quick guide](#uploading-your-data-to-cpgs-cloud---a-quick-guide)
+
 - [1. Background](#1-background)
   - [i. Purpose](#i-purpose)
   - [ii. The Google Cloud Platform](#ii-the-google-cloud-platform)
@@ -14,25 +14,25 @@
 - [4. Finishing your transfer](#4-finishing-your-transfer)
 - [5. Getting Help](#5-getting-help)
 
-
 ---
 
 <br />
 
-# 1. Background
-## i. Purpose
+## 1. Background
+
+### i. Purpose
 
 The purpose of this document is to provide easy to follow instructions on how to transfer your genomic data to the CPG’s cloud storage.
 
 <br />
 
-## ii. The Google Cloud Platform
+### ii. The Google Cloud Platform
 
 The Centre for Population Genomics currently uses Google’s cloud infrastructure to securely store data before it is ingested into Seqr and our metadata platform.<br />
 Each project is compartmentalised into its own corner of the Google cloud platform and named accordingly. <br />Projects are split up into “buckets”, which is Google’s term for storage disk. <br /> <br />
 **This document outlines how you can upload your data into the “upload” bucket of your project.**
 
-## iii. Requirements
+### iii. Requirements
 
 To successfully upload your data to the cloud bucket, you will need to install two services using the command line.
 
@@ -51,7 +51,8 @@ Once you have installed gcloud, you will need to run the command `gcloud init` i
 
 <br />
 
-# 2. Authentication
+## 2. Authentication
+
 You will have been provided with a service account authorization key. This key, a json file shared via google drive, gives you the permission to upload your data into the bucket for your project.
 <br />
 
@@ -65,7 +66,8 @@ You will have been provided with a service account authorization key. This key, 
 <br />
 
 2.	Run the below command to activate your service account key.
-```shell
+
+```
 gcloud auth activate-service-account --key-file your-key-name.json
 ```
 
@@ -83,19 +85,22 @@ Activated service account credentials for:
 
 <br />
 
-# 3. Upload your data
+## 3. Upload your data
 
 To upload your data, use the gsutil copy command “`cp`”:
+
 ```
 gsutil -m cp -r source destination
 ```
 
 Or use the gsutil remote sync command “`rsync`”:
+
 ```
 gsutil -m rsync -r source destination
 ```
 
 For example:
+
 ```
 gsutil -m cp -r /path/to/data gs://cpg-your-project-upload/subdir/date/
 ```
@@ -111,8 +116,10 @@ gsutil -m cp -r /path/to/data gs://cpg-your-project-upload/subdir/date/
 
 <br />
 
-# 4. Finishing your transfer
+## 4. Finishing your transfer
+
 A successful upload should result in the output:
+
 ```
 Operation completed over n objects/xyz B
 ```
@@ -122,5 +129,6 @@ Operation completed over n objects/xyz B
 
 <br />
 
-# 5. Getting Help
+## 5. Getting Help
+
 If you require assistance with the above steps, contact CPG’s data ingestion coordinator [Edward Formaini](mailto:edward.formaini@populationgenomics.org.au)

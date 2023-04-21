@@ -1,29 +1,26 @@
+# Organising rare disease data and metadata for seqr <!-- omit from toc -->
+
 ![CPG Logo](images/cpg_logo_1280x329.png)
 
-# Organising rare disease data and metadata for seqr
+## Table of Contents <!-- omit from toc -->
 
-## Table of Contents
 ---
-- [Organising rare disease data and metadata for seqr](#organising-rare-disease-data-and-metadata-for-seqr)
-  - [Table of Contents](#table-of-contents)
-  - [i. Purpose](#i-purpose)
-  - [ii. Background](#ii-background)
-  - [iii. Quick Links](#iii-quick-links)
+
 - [1. Genomic Data](#1-genomic-data)
 - [2. Pedigree\_template](#2-pedigree_template)
 - [3. Families\_metadata\_template (Optional)](#3-families_metadata_template-optional)
 - [4. Individuals\_metadata\_template](#4-individuals_metadata_template)
 - [5. Sample\_mapping\_template](#5-sample_mapping_template)
 
-
 ---
-## i. Purpose
+
+### i. Purpose
 
 The purpose of this document is to provide instructions on how to prepare project specific data and metadata for use in seqr<br /> related to an individual's family history (pedigree).
 
 <br />
 
-## ii. Background
+### ii. Background
 
 The CPG utilises four distinct metadata files to provide information about samples to the variant curation team as they <br /> perform variant analysis in seqr.
 
@@ -34,6 +31,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 <br />
 
 #### **Table 1:** Definitions of the metadata files used in rare disease projects <!-- omit from toc -->
+
 |     **Metadata template**    |     **Required**    |     **Description**    |
 |:---:|:---:|:---|
 |     *Pedigree_template*    |     **Yes**    |     Template file used to describe the individuals in each dataset <br />and how they relate to other individuals in <br />the same dataset, mainly their parents.<br /><br />The information in this file is used to generate<br /> the participant pedigrees*.    |
@@ -47,15 +45,17 @@ The CPG uses the tool ‘GATK HaplotypeCaller’, which can incorporate pedigree
 
 <br />
 
-## iii. Quick Links
+### iii. Quick Links
+
 All template files can be found [HERE](https://github.com/populationgenomics/rare-disease/).
 
 <br />
 <br />
 
-# 1. Genomic Data
+## 1. Genomic Data
 
 1.1     CPG’s bioinformatic pipelines use the following genomic data types:
+
 - FASTQ files
 - CRAM files
 - BAM files
@@ -72,7 +72,8 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 <br />
 <br />
 
-# 2. Pedigree_template
+## 2. Pedigree_template
+
 **Note**: The Individual_ID is used by CPG to internally track individuals.  <br /> &emsp;&emsp;&ensp;&ensp;If a new Individual_ID is provided in the metadata, a new individual will be created within our system.  <br />&emsp;&emsp;&ensp;&ensp;If providing new data for individuals that have already been included in metadata previously sent to CPG, <br /> &emsp;&emsp;&ensp;&ensp;please use the exact same Individual_ID.
 
 2.1.&emsp;Download the *pedigree_template* file from the CPG Rare-Disease github repository [here](https://github.com/populationgenomics/rare-disease/).
@@ -89,6 +90,7 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 <br />
 
 #### **Table 2:** Data dictionary for pedigree_template file describing inputs for template fields <!-- omit from toc -->
+
 | **Field label** | **Allowed Values** | **Notes** |
 |:---:|:---:|:---|
 | Family ID | Alphanumeric family ID | The combination of family and individual ID<br /> should uniquely identify a person.    |
@@ -102,6 +104,7 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 <br />
 
 #### **Table 3:** Example of a populated pedigree_template file. <!-- omit from toc -->
+
 | **Family ID** | **Individual ID** | **Paternal ID** | **Maternal ID** | **Sex** | **Affected Status** |
 |---|---|---|---|---|---|
 |     FAM_001    |     IND_001    |     IND_003    |     IND_002    |     1    |     2    |
@@ -113,7 +116,7 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 <br />
 <br />
 
-# 3. Families_metadata_template (Optional)
+## 3. Families_metadata_template (Optional)
 
 3.1.&emsp;Download the *families_metadata_template* file from the CPG Rare-Disease github repository [here](https://github.com/populationgenomics/rare-disease/).
 
@@ -129,6 +132,7 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 <br />
 
 #### **Table 4:** Data dictionary for families_metadata_template file describing inputs for the template fields <!-- omit from toc -->
+
 | **Field label** | **Allowed Values** | **Notes** |
 |:---:|:---:|:---|
 | Family ID | Alphanumeric family ID | The family ID should uniquely identify a family.    |
@@ -141,6 +145,7 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 <br />
 
 #### **Table 5:** Example of a populated families_metadata_template file. <!-- omit from toc -->
+
 | **Family ID** | **Display Name** | **Description** | **Coded Phenotype** |
 |---|---|---|---|
 | FAM_001    |  | Neurodegeneration, progressive motor degeneration, <br />ataxia, spasticity, dementia, regression, brain atrophy | HP:0002180 |
@@ -150,7 +155,8 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 <br />
 
 
-# 4. Individuals_metadata_template
+## 4. Individuals_metadata_template
+
 4.1.&emsp;Download the *individuals_metadata_template* file from the CPG Rare-Disease github repository [here](https://github.com/populationgenomics/rare-disease/).
 
 4.2.&emsp;All information relating to individuals should be documented in a single *individuals_metadata_template* file.
@@ -167,6 +173,7 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 <br />
 
 #### **Table 6:** Data dictionary for individuals_metadata_template file describing inputs for the template fields. <!-- omit from toc -->
+
 | **Field label** | **Allowed Values** | **Notes** |
 |:---:|:---:|:---|
 | Family ID | Alphanumeric family ID | The   combination of family ID and individual ID should <br /> uniquely identify an individual. |
@@ -197,12 +204,14 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 <br />
 
 #### **Table 7:** Example of a populated individuals_metadata_template file. <!-- omit from toc -->
+
 ![Table 7](images/Individuals_metadata_template_example.png)
 
 <br />
 <br />
 
-# 5. Sample_mapping_template
+## 5. Sample_mapping_template
+
 5.1.&emsp;Download the *sample_mapping_template* file from the CPG Rare-Disease github repository [here](https://github.com/populationgenomics/rare-disease/).
 
 5.2.&emsp;Populate the *sample_mapping_template* file according to Table 8. <br />
@@ -213,6 +222,7 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 <br />
 
 #### **Table 8:** Data dictionary for sample_mapping_template file describing inputs for the template fields <!-- omit from toc -->
+
 | **Field label** | **Allowed Values** | **Notes** |
 |:---:|:---:|---|
 | Individual ID | Alphanumeric individual ID <br>(if different to the Sample ID)    | This column can be left blank if the <br>individual ID and the sample ID are <br>identical.    |
@@ -224,6 +234,7 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 <br />
 
 #### **Table 9:** Example of a populated sample_mapping_template file. <!-- omit from toc -->
+
 | **Individual ID** | **Sample ID** | **File names** | **Type** |
 |---|---|---|---|
 | IND_001    | A0001 | A0001-R1.fastq.gz, A0001-R2.fastq.gz    | WGS    |
