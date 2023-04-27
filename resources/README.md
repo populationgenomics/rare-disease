@@ -3,6 +3,7 @@
 ![CPG Logo](images/cpg_logo_1280x329.png)
 
 ## Table of Contents <!-- omit from toc -->
+
 ---
 
 - [1. Background](#1-background)
@@ -121,7 +122,7 @@ gsutil -m cp -r /path/to/data gs://cpg-your-project-upload/subdir/date/
 
 A successful upload should result in the output:
 
-```
+```bash
 Operation completed over n objects/xyz B
 ```
 
