@@ -1,6 +1,6 @@
 # Organising rare disease data and metadata for seqr <!-- omit from toc -->
 
-![CPG Logo](images/cpg_logo_1280x329.png)
+![CPG Logo](../images/cpg_logo_1280x329.png)
 
 ## Table of Contents <!-- omit from toc -->
 
@@ -47,7 +47,10 @@ The CPG uses the tool ‘GATK HaplotypeCaller’, which can incorporate pedigree
 
 ### iii. Quick Links
 
-All template files can be found [HERE](https://github.com/populationgenomics/rare-disease/).
+1. [Excel templates](excel_templates/)<br />
+2. [csv templates](csv_templates/)<br />
+3. [tsv templates](tsv_templates/)<br />
+4. [Template data dictionaries](Template_data_dictionaries)
 
 <br />
 <br />
@@ -67,7 +70,7 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 1.3.&emsp;Ensure that the genomic data files are transferred to a specific directory in the CPG’s cloud storage.<br /> &emsp;&emsp;&ensp;Appropriate directories include the date of the transfer in the directory path.
 
 1.4.&emsp;Further instructions can be found in this document:
-[Uploading your data to CPG cloud](https://github.com/populationgenomics/rare-disease/)
+[Uploading your data to CPG cloud](../README.md)
 
 <br />
 <br />
@@ -76,7 +79,10 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 
 **Note**: The Individual_ID is used by CPG to internally track individuals.  <br /> &emsp;&emsp;&ensp;&ensp;If a new Individual_ID is provided in the metadata, a new individual will be created within our system.  <br />&emsp;&emsp;&ensp;&ensp;If providing new data for individuals that have already been included in metadata previously sent to CPG, <br /> &emsp;&emsp;&ensp;&ensp;please use the exact same Individual_ID.
 
-2.1.&emsp;Download the *pedigree_template* file from the CPG Rare-Disease github repository [here](https://github.com/populationgenomics/rare-disease/).
+2.1.&emsp;Download the *pedigree_template* file from the CPG Rare-Disease github repository.
+1. [Excel template](excel_templates/pedigree_template.xlsx)<br />
+2. [csv template](csv_templates/pedigree_template.csv)<br />
+3. [tsv template](tsv_templates/pedigree_template.tsv)<br />
 
 2.2.&emsp;Information relating to **all** individuals should be documented in a single *pedigree_template* file.<br /> &emsp;&emsp;&ensp;&nbsp;If an individual appears in the Paternal ID or Maternal ID column, then that individual needs their own dedicated row.
 
@@ -118,7 +124,10 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 
 ## 3. Families_metadata_template (Optional)
 
-3.1.&emsp;Download the *families_metadata_template* file from the CPG Rare-Disease github repository [here](https://github.com/populationgenomics/rare-disease/).
+3.1.&emsp;Download the *families_metadata_template* file from the CPG Rare-Disease github repository.
+1. [Excel template](excel_templates/families_metadata_template.xlsx)<br />
+2. [csv template](csv_templates/families_metadata_template.csv)<br />
+3. [tsv template](tsv_templates/families_metadata_template.tsv)<br />
 
 3.2.&emsp;All information relating to families should be documented in a single *families_metadata_template* file.
 
@@ -157,7 +166,10 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 
 ## 4. Individuals_metadata_template
 
-4.1.&emsp;Download the *individuals_metadata_template* file from the CPG Rare-Disease github repository [here](https://github.com/populationgenomics/rare-disease/).
+4.1.&emsp;Download the *individuals_metadata_template* file from the CPG Rare-Disease github repository.
+1. [Excel template](excel_templates/individuals_metadata_template.xlsx)<br />
+2. [csv template](csv_templates/individuals_metadata_template.csv)<br />
+3. [tsv template](tsv_templates/individuals_metadata_template.tsv)<br />
 
 4.2.&emsp;All information relating to individuals should be documented in a single *individuals_metadata_template* file.
 
@@ -205,14 +217,17 @@ All template files can be found [HERE](https://github.com/populationgenomics/rar
 
 #### **Table 7:** Example of a populated individuals_metadata_template file. <!-- omit from toc -->
 
-![Table 7](images/Individuals_metadata_template_example.png)
+![Table 7](../images/Individuals_metadata_template_example.png)
 
 <br />
 <br />
 
 ## 5. Sample_mapping_template
 
-5.1.&emsp;Download the *sample_mapping_template* file from the CPG Rare-Disease github repository [here](https://github.com/populationgenomics/rare-disease/).
+5.1.&emsp;Download the *sample_mapping_template* file from the CPG Rare-Disease github repository.
+1. [Excel template](excel_templates/sample_mapping_template.xlsx)<br />
+2. [csv template](csv_templates/sample_mapping_template.csv)<br />
+3. [tsv template](tsv_templates/sample_mapping_template.tsv)<br />
 
 5.2.&emsp;Populate the *sample_mapping_template* file according to Table 8. <br />
 &emsp;&emsp;&ensp;&nbsp;An example is given below in Table 9.

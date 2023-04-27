@@ -1,6 +1,6 @@
 # Uploading your data to CPG's cloud - a quick guide <!-- omit from toc -->
 
-![CPG Logo](seqr_metadata_templates/images/cpg_logo_1280x329.png)
+![CPG Logo](images/cpg_logo_1280x329.png)
 
 ## Table of Contents <!-- omit from toc -->
 ---
@@ -56,7 +56,7 @@ Once you have installed gcloud, you will need to run the command `gcloud init` i
 You will have been provided with a service account authorization key. This key, a json file shared via google drive, gives you the permission to upload your data into the bucket for your project.
 <br />
 
-![Warning](seqr_metadata_templates/images/key_warning.png)
+![Warning](images/key_warning.png)
 
 1.	Download the key from the Google drive you were provided via email.
 
@@ -72,7 +72,8 @@ gcloud auth activate-service-account --key-file your-key-name.json
 ```
 
 &emsp;&emsp;&ensp; Replace the text “`your-key-name`” with the filename of the key you just downloaded. <br />
-&emsp;&emsp;&ensp; If the key is stored in a different directory you will need to use the full path to the key, e.g.: `home/to/key/your-key-name.json`
+&emsp;&emsp;&ensp; If the key is stored in a different directory you will need to use the full path to the key, <br />
+&emsp;&emsp;&ensp; e.g.: `path/to/key/your-key-name.json`
 
 <br />
 
@@ -99,7 +100,7 @@ Or use the gsutil remote sync command “`rsync`”:
 gsutil -m rsync -r source destination
 ```
 
-For example:
+**For example**:
 
 ```
 gsutil -m cp -r /path/to/data gs://cpg-your-project-upload/subdir/date/
@@ -131,4 +132,4 @@ Operation completed over n objects/xyz B
 
 ## 5. Getting Help
 
-If you require assistance with the above steps, contact CPG’s data ingestion coordinator [Edward Formaini](mailto:edward.formaini@populationgenomics.org.au)
+If you require assistance with the above steps, contact CPG’s data ingestion coordinator [Edward Formaini](mailto:edward.formaini@populationgenomics.org.au) [edward.formaini@populationgenomics.org.au](mailto:edward.formaini@populationgenomics.org.au)
