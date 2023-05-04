@@ -84,7 +84,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 
 2. [CSV template](csv_templates/pedigree_template.csv)<br />
 
-2.2.&emsp;Information relating to **all** individuals should be documented in a single *pedigree_template* file.If an individual appears in the Paternal ID or Maternal ID column, then that individual needs their own dedicated row.
+2.2.&emsp;Information relating to **all** individuals should be documented in a single *pedigree_template* file. If an individual appears in the Paternal ID or Maternal ID column, then that individual needs their own dedicated row.
 
 **Note**: You should only have one *pedigree_template* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many individuals as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *pedigree_template* files for each individual in your cohort/dataset.
 
