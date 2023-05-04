@@ -39,6 +39,7 @@ def main(
     upload_bucket_name = f'cpg-{dataset}-main-upload'
 
     if not manifest_file_path.startswith('gs://'):
+        # empty file_prefix gets skipped
         manifest_file_path = os.path.join(
             f'gs://{upload_bucket_name}', file_prefix, manifest_file_path
         )
@@ -57,13 +58,13 @@ def main(
     for row in tsv_reader:
         filename = row[filename_column]
         expected_md5 = row[checksum_column]
-
-        # Read the checksum from the blob. The checksum is base64-encoded.
+        # empty file_prefix gets skipped
         check_blob = bucket.get_blob(os.path.join(file_prefix, filename))
         if not check_blob:
             logging.error(f'blob does not exist: {filename}')
             any_errors = True
             continue
+        # Read the checksum from the blob. The checksum is base64-encoded.
         actual_md5 = binascii.hexlify(
             base64.urlsafe_b64decode(check_blob.md5_hash)
         ).decode('utf-8')
