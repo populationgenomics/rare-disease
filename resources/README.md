@@ -19,19 +19,27 @@
 
 <br />
 
+
+
 ## 1. Background
 
 ### i. Purpose
 
 The purpose of this document is to provide easy to follow instructions on how to transfer your genomic data to the CPG’s cloud storage.
 
+ - [***Click here to go to the metadata templates***](seqr_metadata_templates)
+
 <br />
 
 ### ii. The Google Cloud Platform
 
-The Centre for Population Genomics currently uses Google’s cloud infrastructure to securely store data before it is ingested into Seqr and our metadata platform.<br />
-Each project is compartmentalised into its own corner of the Google cloud platform and named accordingly. <br />Projects are split up into “buckets”, which is Google’s term for storage disk. <br /> <br />
-**This document outlines how you can upload your data into the “upload” bucket of your project.**
+The Centre for Population Genomics currently uses Google’s cloud infrastructure to securely store data before it is ingested into Seqr and our metadata platform.
+Each project is compartmentalised into its own corner of the Google cloud platform and named accordingly. Projects are split up into “buckets”, which is Google’s term for storage disk.
+
+
+**This document outlines how you can transfer your data into the “upload” bucket of your project.**
+
+<br />
 
 ### iii. Requirements
 

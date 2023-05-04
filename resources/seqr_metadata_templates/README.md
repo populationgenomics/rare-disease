@@ -34,12 +34,12 @@ A template for each of these files is provided in section iii. Quick Links, and 
 
 |     **Metadata template**    |     **Required**    |     **Description**    |     **Download**     |
 |:---:|:---:|:---|:---:|
-|     *Pedigree_template*    |     **Yes**    |     Template file used to describe the individuals in each dataset and how they relate to other individuals in the same dataset, mainly their parents.<br /><br />The information in this file is used to generate the participant pedigrees*.    | [CSV](csv_templates/pedigree_template.csv) <br /> [Excel](excel_templates/pedigree_template.xlsx) |
-|     *Families_metadata_template*    |     No    |     Template file used to describe the families in each dataset. | [CSV](csv_templates/families_metadata_template.csv) <br /> [Excel](excel_templates/families_metadata_template.xlsx) |
-|     *Individuals_metadata_template*    |     **Yes**    |     Template file used to describe the clinical information related to individuals in each dataset. | [CSV](csv_templates/individuals_metadata_template.csv) <br /> [Excel](excel_templates/individuals_metadata_template.xlsx) |
-|     *Sample_mapping_template*    |     **Yes**    |     Template file used to map individual IDs AND sample IDs back to the files that have been transferred. | [CSV](csv_templates/sample_mapping_template.csv) <br /> [Excel](excel_templates/sample_mapping_template.xlsx) |
+|     *Pedigree_template*    |     **Yes**    |     Used to describe the individuals in each dataset and how they relate to other individuals in the same dataset, mainly their parents.<br /><br />The information in this file is used to generate the participant pedigrees*.    | [CSV](csv_templates/pedigree_template.csv) <br /> [Excel](excel_templates/pedigree_template.xlsx) |
+|     *Families_metadata_template*    |     No    |     Used to describe the families in each dataset. | [CSV](csv_templates/families_metadata_template.csv) <br /> [Excel](excel_templates/families_metadata_template.xlsx) |
+|     *Individuals_metadata_template*    |     **Yes**    |     Used to describe the clinical information related to individuals in each dataset. | [CSV](csv_templates/individuals_metadata_template.csv) <br /> [Excel](excel_templates/individuals_metadata_template.xlsx) |
+|     *Sample_mapping_template*    |     **Yes**    |     Used to map individual IDs AND sample IDs back to the files that have been transferred. | [CSV](csv_templates/sample_mapping_template.csv) <br /> [Excel](excel_templates/sample_mapping_template.xlsx) |
 
-*A pedigree is a structured description of the phenotypical and familial relationships between samples.
+*Pedigrees are the structured descriptions of the phenotypical and familial relationships between samples.
 
 <br />
 
@@ -64,7 +64,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 
 **Note:** CPG's preference is to use FASTQ files. In the absence of FASTQ files, BAM or CRAM files can be transferred.
 
-1.2.&emsp;For each FASTQ/BAM/CRAM file that is to be transferred, a corresponding MD5 file also needs to be transferred, for data integrity QC to occur after the transfer.
+1.2.&emsp;For each FASTQ/BAM/CRAM file that is to be transferred, a corresponding MD5 file needs to be included for data integrity QC checks to occur after the transfer.
 
 1.3.&emsp;Ensure that the genomic data files are transferred to a specific directory in the CPG’s cloud storage. We encourage you to include the date of the transfer in the directory path.
 
