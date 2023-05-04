@@ -19,7 +19,9 @@
 
 <br />
 
+### [***Click here to go directly to the metadata templates***](seqr_metadata_templates) <!-- omit from toc -->
 
+<br />
 
 ## 1. Background
 
@@ -27,7 +29,6 @@
 
 The purpose of this document is to provide easy to follow instructions on how to transfer your genomic data to the CPG’s cloud storage.
 
- - [***Click here to go to the metadata templates***](seqr_metadata_templates)
 
 <br />
 
