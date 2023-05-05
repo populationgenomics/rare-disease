@@ -13,18 +13,19 @@ Default behaviour is to remove any sites where the requested samples
     are all HomRef. All sites can be retained with --keep_ref
 """
 
-from argparse import ArgumentParser
 import logging
 import sys
+from argparse import ArgumentParser
 
 import hail as hl
-
-from cpg_utils.hail_batch import output_path, init_batch
 from cpg_utils.config import get_config
+from cpg_utils.hail_batch import init_batch, output_path
 
 
 def subset_to_samples(
-    mt: hl.MatrixTable, samples: set[str], keep_hom_ref: bool
+    mt: hl.MatrixTable,
+    samples: set[str],
+    keep_hom_ref: bool,
 ) -> hl.MatrixTable:
     """
     checks the requested sample subset exists in this joint call
@@ -177,7 +178,9 @@ if __name__ == '__main__':
         required=True,
     )
     parser.add_argument(
-        '-s', help='One or more sample IDs, whitespace delimited', nargs='+'
+        '-s',
+        help='One or more sample IDs, whitespace delimited',
+        nargs='+',
     )
     parser.add_argument(
         '--format',
@@ -203,7 +206,7 @@ if __name__ == '__main__':
 
     if any([args.chr, args.pos]) and not all([args.chr, args.pos]):
         raise Exception(
-            f'When defining a Locus, provide both Chr & Pos: {args.chr}, {args.pos}'
+            f'When defining a Locus, provide both Chr & Pos: {args.chr}, {args.pos}',
         )
 
     init_batch()

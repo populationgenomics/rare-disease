@@ -58,7 +58,7 @@ def main(presigned_url_file_path: str):
         # catch errors during the cURL
         j.command('set -euxo pipefail')
         j.command(
-            f'curl -L {quoted_url} | gsutil cp - {os.path.join(output_path, filename)}'
+            f'curl -L {quoted_url} | gsutil cp - {os.path.join(output_path, filename)}',
         )
 
     batch.run(wait=False)

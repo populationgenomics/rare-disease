@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 
 """Checks data transfer integrity for GDR cohorts by comparing MD5 checksums."""
-import os
 import base64
 import binascii
 import csv
 import logging
+import os
 import sys
 
 import click
 from cloudpathlib import AnyPath
-from google.cloud import storage
-
 from cpg_utils.config import get_config
-
+from google.cloud import storage
 
 try:
     DEFAULT_DATASET = get_config()['workflow']['dataset']
@@ -22,12 +20,12 @@ except (KeyError, AssertionError):
 
 
 def main(
-    dataset,
-    manifest_file_path,
-    filename_column,
-    checksum_column,
-    file_prefix='',
-    delimiter='\t',
+    dataset: str,
+    file_prefix: str = '',
+    filename_column: str = 'filename',
+    checksum_column: str = 'checksum',
+    manifest_file_path: str = 'manifest.txt',
+    delimiter: str = '\t',
 ):
     """Main entrypoint."""
     logging.basicConfig(
@@ -41,7 +39,9 @@ def main(
     if not manifest_file_path.startswith('gs://'):
         # empty file_prefix gets skipped
         manifest_file_path = os.path.join(
-            f'gs://{upload_bucket_name}', file_prefix, manifest_file_path
+            f'gs://{upload_bucket_name}',
+            file_prefix,
+            manifest_file_path,
         )
 
     logging.info(f'Fetching manifest from {manifest_file_path}')
@@ -66,7 +66,7 @@ def main(
             continue
         # Read the checksum from the blob. The checksum is base64-encoded.
         actual_md5 = binascii.hexlify(
-            base64.urlsafe_b64decode(check_blob.md5_hash)
+            base64.urlsafe_b64decode(check_blob.md5_hash),
         ).decode('utf-8')
 
         if expected_md5 == actual_md5:
@@ -82,9 +82,6 @@ def main(
         sys.exit(1)
 
 
-# MANIFEST_FILE = 'manifest.txt'
-# FILENAME_COLUMN = 'filename'
-# CHECKSUM_COLUMN = 'checksum'
 @click.command()
 @click.option(
     '--dataset',
@@ -106,11 +103,11 @@ def main(
     default='checksum',
 )
 def from_cli(
-    dataset,
-    file_prefix,
-    manifest_file_path,
-    filename_column,
-    checksum_column,
+    dataset: str,
+    file_prefix: str = '',
+    filename_column: str = 'filename',
+    checksum_column: str = 'checksum',
+    manifest_file_path: str = 'manifest.txt',
 ):
     """Run the script from the command line."""
     return main(

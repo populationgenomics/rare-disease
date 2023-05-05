@@ -19,32 +19,30 @@ Results:
 
 import logging
 import os
-from pathlib import Path
 from argparse import ArgumentParser
+from pathlib import Path
 
+import hail as hl
 import hailtop.batch as hb
 from cloudpathlib import AnyPath
-import hail as hl
-
 from cpg_utils import to_path
 from cpg_utils.config import get_config
 from cpg_utils.git import (
-    prepare_git_job,
     get_git_commit_ref_of_current_repository,
     get_organisation_name_from_current_directory,
     get_repo_name_from_current_directory,
+    prepare_git_job,
 )
 from cpg_utils.hail_batch import (
+    authenticate_cloud_credentials_in_job,
+    copy_common_env,
     init_batch,
     output_path,
-    copy_common_env,
-    authenticate_cloud_credentials_in_job,
 )
 from cpg_workflows.batch import get_batch
 from sample_metadata.apis import AnalysisApi, ParticipantApi
 from sample_metadata.model.analysis_query_model import AnalysisQueryModel
 from sample_metadata.model.analysis_type import AnalysisType
-
 
 MT_TO_VCF_SCRIPT = os.path.join(os.path.dirname(__file__), 'mt_to_vcf.py')
 RESULTS_SCRIPT = os.path.join(os.path.dirname(__file__), 'parse_validation_results.py')
@@ -83,7 +81,9 @@ def mt_to_vcf(
     for sample in samples_in_jc:
 
         sample_path = os.path.join(
-            output_root, 'single_sample_vcfs', f'{sample}.vcf.bgz'
+            output_root,
+            'single_sample_vcfs',
+            f'{sample}.vcf.bgz',
         )
 
         if AnyPath(sample_path).exists():
@@ -105,7 +105,7 @@ def mt_to_vcf(
             f'PYTHONPATH=$(pwd) python3 {MT_TO_VCF_SCRIPT} '
             f'-i {input_mt} '
             f'-s {sample} '
-            f'-o {sample_path} '
+            f'-o {sample_path} ',
         )
         sample_jobs[sample] = (sample_path, job)
 
@@ -143,9 +143,10 @@ def comparison_job(
     job.memory('100Gi')
     job.storage('100Gi')
     job.cpu(4)
-    vcf_input = batch.read_input_group(**{'vcf': ss_vcf, 'index': f'{ss_vcf}.tbi'})
+    vcf_input = batch.read_input_group(vcf=ss_vcf, index=f'{ss_vcf}.tbi')
     truth_input = batch.read_input_group(
-        **{'vcf': truth_vcf, 'index': f'{truth_vcf}.tbi'}
+        vcf=truth_vcf,
+        index=f'{truth_vcf}.tbi',
     )
     truth_bed = batch.read_input(truth_bed)
     refgenome = (
@@ -153,12 +154,13 @@ def comparison_job(
         'Homo_sapiens_assembly38_masked.fasta'
     )
     batch_ref = batch.read_input_group(
-        **{'fasta': refgenome, 'index': f'{refgenome}.fai'}
+        fasta=refgenome,
+        index=f'{refgenome}.fai',
     )
 
     # sdf loading as a Glob operation
     sdf = batch.read_input_group(
-        **{file.name: file.as_uri() for file in AnyPath(REF_SDF).glob('*')}
+        **{file.name: file.as_uri() for file in AnyPath(REF_SDF).glob('*')},
     )
 
     # hap.py outputs:
@@ -179,7 +181,7 @@ def comparison_job(
             'happy_metrics.json.gz': '{root}/output.metrics.json.gz',
             'happy_runinfo.json': '{root}/output.runinfo.json',
             'summary.csv': '{root}/output.summary.csv',
-        }
+        },
     )
     command = (
         f'mkdir {job.output} && '
@@ -230,7 +232,7 @@ def get_validation_samples() -> dict[str, str]:
 
     party = ParticipantApi()
     results = party.get_external_participant_id_to_internal_sample_id(
-        project=get_config()['workflow']['dataset']
+        project=get_config()['workflow']['dataset'],
     )
     return {y: x for x, y in results}
 
@@ -259,7 +261,7 @@ def get_sample_truth(cpg_id: str) -> tuple[str, str]:
     if len(analyses) > 1:
         raise Exception(
             f'Multiple [custom] analysis objects were found for '
-            f'{cpg_id}, please set old analyses to active=False'
+            f'{cpg_id}, please set old analyses to active=False',
         )
 
     if len(analyses) == 0:
@@ -349,7 +351,7 @@ def main(input_file: str, stratification: str | None, dry_run: bool = False):
     # # set the path for this output
     # process the MT to get the name
     validation_output_path = output_path(
-        f'{input_path.name.replace(input_path.suffix, "")}'
+        f'{input_path.name.replace(input_path.suffix, "")}',
     )
 
     validation_lookup = get_validation_samples()
@@ -415,7 +417,9 @@ if __name__ == '__main__':
     parser.add_argument('-i', help='input_path')
     parser.add_argument('-s', help='stratification BED directory')
     parser.add_argument(
-        '--dry_run', action='store_true', help='use to prevent metamist writes'
+        '--dry_run',
+        action='store_true',
+        help='use to prevent metamist writes',
     )
     args = parser.parse_args()
     main(input_file=args.i, stratification=args.s, dry_run=args.dry_run)
