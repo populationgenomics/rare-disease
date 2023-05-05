@@ -6,20 +6,18 @@ A summary of those results are posted into Metamist
 """
 
 
+import json
 import logging
 from argparse import ArgumentParser
 from csv import DictReader
-import json
 
 from cpg_utils import to_path
 from cpg_utils.config import get_config
-
 from sample_metadata.apis import AnalysisApi
-from sample_metadata.model.analysis_type import AnalysisType
 from sample_metadata.model.analysis_model import AnalysisModel
-from sample_metadata.model.analysis_status import AnalysisStatus
 from sample_metadata.model.analysis_query_model import AnalysisQueryModel
-
+from sample_metadata.model.analysis_status import AnalysisStatus
+from sample_metadata.model.analysis_type import AnalysisType
 
 ANAL_API = AnalysisApi()
 SUMMARY_KEYS = {
@@ -84,7 +82,7 @@ def main(
     if check_for_prior_result(cpg_id=cpg_id, comparison_folder=comparison_folder):
         logging.info(
             f'Sample {cpg_id} already has validation '
-            f'results logged from {comparison_folder}, quitting'
+            f'results logged from {comparison_folder}, quitting',
         )
         return
 
@@ -147,10 +145,14 @@ if __name__ == '__main__':
     parser.add_argument('-b', help='BED used')
     parser.add_argument('--mt', help='Multisample MT')
     parser.add_argument(
-        '--stratified', help='Stratification files, if used', required=False
+        '--stratified',
+        help='Stratification files, if used',
+        required=False,
     )
     parser.add_argument(
-        '--dry_run', action='store_true', help="if present, don't write to metamist"
+        '--dry_run',
+        action='store_true',
+        help="if present, don't write to metamist",
     )
     args = parser.parse_args()
     main(

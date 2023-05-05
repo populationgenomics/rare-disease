@@ -6,7 +6,6 @@ Takes an input MT, and extracts a VCF-format representation.
 from argparse import ArgumentParser
 
 import hail as hl
-
 from cpg_utils.hail_batch import init_batch
 
 
