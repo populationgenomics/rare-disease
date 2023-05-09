@@ -67,7 +67,10 @@ def get_sample_map(project: str):
     )
 
     samples = [
-        samples.get('samples')[0] for samples in samples_list if samples.get('samples')
+        sample
+        for samples_dict in samples_list
+        for sample in samples_dict.get('samples')
+        if samples_dict.get('samples')
     ]
 
     return {sample.get('id'): sample.get('externalId') for sample in samples if sample}
