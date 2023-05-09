@@ -60,7 +60,8 @@ def get_sample_map(project: str):
                     }
                 }
             }
-    """
+            """
+
     samples_list = (
         query(_query, {'projectName': project}).get('project').get('participants')
     )
