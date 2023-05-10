@@ -2,11 +2,12 @@ import csv
 import json
 import logging
 import os
-import subprocess
 import sys
 from datetime import datetime, timezone
+from zipfile import ZipFile
 
 import click
+from google.cloud import storage
 from sample_metadata.apis import FamilyApi, ParticipantApi, SampleApi
 from sample_metadata.graphql import query
 
@@ -15,9 +16,9 @@ SAPI = SampleApi()
 FAPI = FamilyApi()
 
 
-def get_individual_metadata(project: str):
-    """Returns all rows of seqr individual metadata for a project"""
-    return PAPI.get_individual_metadata_for_seqr(project).get('rows')
+def get_individual_metadata(dataset: str):
+    """Returns all rows of seqr individual metadata for a dataset"""
+    return PAPI.get_individual_metadata_for_seqr(dataset).get('rows')
 
 
 def get_hpo_terms(individual_metadata: list[dict]):
@@ -34,24 +35,24 @@ def get_hpo_terms(individual_metadata: list[dict]):
     return indiv_hpo_terms
 
 
-def get_pedigrees(project: str):
-    """Get all pedigree rows for a project"""
+def get_pedigrees(dataset: str):
+    """Get all pedigree rows for a dataset"""
     _query = """
-             query ProjectPedigree($projectName: String!) {
-                 project(name: $projectName) {
+             query DatasetPedigree($datasetName: String!) {
+                 project(name: $datasetName) {
                      pedigree
                  }
              }
              """
 
-    return query(_query, {'projectName': project}).get('project').get('pedigree')
+    return query(_query, {'datasetName': dataset})['project']['pedigree']
 
 
-def get_sample_map(project: str):
-    """Returns the internal id : external id sample map for a project"""
+def get_sample_map(dataset: str):
+    """Returns the internal id : external id sample map for a dataset"""
     _query = """
-            query ProjectSampleMap($projectName: String!) {
-                project(name: $projectName) {
+            query DatasetSampleMap($datasetName: String!) {
+                project(name: $datasetName) {
                     participants {
                         samples {
                             id
@@ -62,9 +63,7 @@ def get_sample_map(project: str):
             }
             """
 
-    samples_list = (
-        query(_query, {'projectName': project}).get('project').get('participants')
-    )
+    samples_list = query(_query, {'datasetName': dataset})['project']['participants']
 
     samples = [
         sample
@@ -77,12 +76,13 @@ def get_sample_map(project: str):
 
 
 def write_outputs(
+    dataset: str,
     individual_hpo_terms: dict[str, list],
     pedigrees: list[dict],
     sample_map: dict[str, str],
     output_path: str,
 ):
-    """Writes the HPO terms file, pedigree file, and sample map file to the output path"""
+    """Writes the two HPO terms files, pedigree file, and sample map file to a zip."""
 
     # HPO terms tsv
     with open(f'{output_path}/hpo_terms.tsv', 'w', encoding='utf-8') as f:
@@ -121,55 +121,54 @@ def write_outputs(
         json.dump(sample_map, f, indent=4, sort_keys=True)
     logging.info(f'Wrote sample ID map json to {output_path}.')
 
-    subprocess.run(
-        ['tar', '-zcvf', 'metadata.tar.gz', f'{output_path}'],  # noqa: S603, S607
-        check=True,
-        stderr=subprocess.DEVNULL,
-    )
-    logging.info('Compressed metadata into metadata.tar.gz.')
+    # Zip everything
+    with ZipFile(f'{dataset}_metadata.zip', 'w') as z:
+        z.write(f'{output_path}/hpo_terms.tsv')
+        z.write(f'{output_path}/hpo_terms.json')
+        z.write(f'{output_path}/pedigree.fam')
+        z.write(f'{output_path}/external_translation.json')
 
 
-def upload_metadata_to_release(project: str):
-    """Uploads the compressed metadata .tar.gz into a directory with today's date in the release bucket"""
+def upload_metadata_to_release(dataset: str):
+    """Uploads the compressed metadata.zip into a directory with today's date in the release bucket"""
     today = datetime.now(tz=timezone.utc).strftime('%Y-%m-%d')
-    release_path = f'gs://cpg-{project}-release/{today}/'
+    zip_upload_path = os.path.join(today, f'{dataset}_metadata.zip')
 
-    subprocess.run(
-        [  # noqa: S603, S607
-            'gcloud',
-            'storage',
-            '--billing-project',
-            project,
-            'cp',
-            './metadata.tar.gz',
-            release_path,
-        ],
-        check=True,
+    release_bucket = f'cpg-{dataset}-release'
+
+    client = storage.Client()
+    bucket = client.get_bucket(release_bucket)
+
+    zip_blob = bucket.blob(zip_upload_path)
+
+    zip_blob.upload_from_filename(f'{dataset}_metadata.zip')
+
+    logging.info(
+        f'Uploaded metadata.tar.gz to gs://{os.path.join(release_bucket, zip_upload_path,)}',
     )
-    logging.info(f'Uploaded metadata.tar.gz to {release_path}')
 
 
 @click.command()
-@click.option('--project')
+@click.option('--dataset')
 @click.option('--dry-run', is_flag=True)
-def main(project: str, dry_run: bool):
+def main(dataset: str, dry_run: bool):
     """Creates the metadata files and saves them to the output path"""
 
-    output_path = f'{project}_metadata'
+    output_path = f'{dataset}_metadata'
     if not os.path.exists(f'./{output_path}'):
         os.makedirs(f'./{output_path}')
 
-    individual_metadata = get_individual_metadata(project)
+    individual_metadata = get_individual_metadata(dataset)
     individual_hpo_terms = get_hpo_terms(individual_metadata)
 
-    pedigrees = get_pedigrees(project)
+    pedigrees = get_pedigrees(dataset)
 
-    sample_map = get_sample_map(project)
+    sample_map = get_sample_map(dataset)
 
-    write_outputs(individual_hpo_terms, pedigrees, sample_map, output_path)
+    write_outputs(dataset, individual_hpo_terms, pedigrees, sample_map, output_path)
 
     if not dry_run:
-        upload_metadata_to_release(project)
+        upload_metadata_to_release(dataset)
 
 
 if __name__ == '__main__':
