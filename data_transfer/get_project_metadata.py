@@ -148,6 +148,34 @@ def upload_metadata_to_release(dataset: str):
     )
 
 
+def copy_vcf_to_release(dataset: str):
+    """Copies the vcf created by the seqr loader to the metadata directory in the release bucket"""
+    _query = """
+             query AnalysisVCF($datasetName: String!) {
+                project(name: $datasetName) {
+                    analyses(type: CUSTOM, active: true) {
+                        id
+                        meta
+                        output
+                        timestampCompleted
+                    }
+                }
+             }
+             """
+
+    analyses = query(_query, {'datasetName': dataset})['project']['analyses']
+
+    vcf_analyses = [
+        analysis
+        for analysis in analyses
+        if ('type', 'dataset-vcf') in analysis['meta'].items()
+    ]
+
+    for analysis in vcf_analyses:
+        timestamp_str = analysis['timestampCompleted']
+        timstamp_dt = datetime.strptime(timestamp_str, '%y/%m/%dT%H:%M:%S')
+
+
 @click.command()
 @click.option('--dataset')
 @click.option('--dry-run', is_flag=True)
