@@ -50,16 +50,14 @@ def main(owncloud_curl_file_path: str):
     # may as well batch them to reduce the number of VMs
     for idx, curl in enumerate(owncloud_curls):
         url = curl.split(' ')[0]
-        filename = os.path.basename(url).split('&files=')[1]
+        filename = os.path.basename(url).split('&files=')[1].removesuffix("'")
         if '&downloadStartSecret' in filename:
             filename = filename.split('&downloadStartSecret')[0]
         j = batch.new_job(f'URL {idx} ({filename})')
         authenticate_cloud_credentials_in_job(job=j)
         # catch errors during the cURL
         j.command('set -euxo pipefail')
-        j.command(
-            f'curl -L {curl} | gsutil cp - \'{os.path.join(output_path, filename)}'
-        )
+        j.command(f'curl -L {curl} | gsutil cp - {os.path.join(output_path, filename)}')
 
     batch.run(wait=False)
 
