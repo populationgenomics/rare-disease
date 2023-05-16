@@ -1,7 +1,18 @@
+#!/usr/bin/env python3
+
+"""
+This scripts extracts the HPO terms for all individuals in a dataset, as
+well as the pedigree and internal-external sample ID mapping. These are
+saved to files on disk before being zipped and uploaded into the release
+bucket of the dataset, in a directory containing today's date.
+The latest dataset-vcf type analysis for the dataset is also uploaded.
+"""
+
 import csv
 import json
 import logging
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from zipfile import ZipFile
@@ -14,6 +25,8 @@ from sample_metadata.graphql import query
 PAPI = ParticipantApi()
 SAPI = SampleApi()
 FAPI = FamilyApi()
+
+TODAY = datetime.now(tz=timezone.utc).strftime('%Y-%m-%d')
 
 
 def get_individual_metadata(dataset: str):
@@ -131,8 +144,8 @@ def write_outputs(
 
 def upload_metadata_to_release(dataset: str):
     """Uploads the compressed metadata.zip into a directory with today's date in the release bucket"""
-    today = datetime.now(tz=timezone.utc).strftime('%Y-%m-%d')
-    zip_upload_path = os.path.join(today, f'{dataset}_metadata.zip')
+
+    zip_upload_path = os.path.join(TODAY, f'{dataset}_metadata.zip')
 
     release_bucket = f'cpg-{dataset}-release'
 
@@ -165,15 +178,59 @@ def copy_vcf_to_release(dataset: str):
 
     analyses = query(_query, {'datasetName': dataset})['project']['analyses']
 
+    # Filter the analyses down to those that have the meta field 'type': 'dataset-vcf'
     vcf_analyses = [
         analysis
         for analysis in analyses
         if ('type', 'dataset-vcf') in analysis['meta'].items()
     ]
 
+    if not vcf_analyses:
+        raise RuntimeError(f'{dataset}: No dataset-VCF analyses found.')
+
+    # Find the latest dataset-vcf analysis based on the timestamp
+    latest_analysis = None
     for analysis in vcf_analyses:
-        timestamp_str = analysis['timestampCompleted']
-        timstamp_dt = datetime.strptime(timestamp_str, '%y/%m/%dT%H:%M:%S')
+        if not analysis['timestampCompleted']:
+            continue
+        if not latest_analysis:
+            latest_analysis = analysis
+
+        current_analysis_timestamp = datetime.strptime(
+            analysis['timestampCompleted'],
+            '%Y-%m-%dT%H:%M:%S',
+        ).astimezone()
+        latest_analysis_ts = datetime.strptime(
+            latest_analysis['timestampCompleted'],
+            '%Y-%m-%dT%H:%M:%S',
+        ).astimezone()
+
+        if current_analysis_timestamp > latest_analysis_ts:
+            latest_analysis = analysis
+
+    if not latest_analysis:
+        raise RuntimeError(f'{dataset}: No completed dataset-VCF analyses found.')
+
+    # Save the paths to the .vcf.bgz and .vcf.bgz.tbi files and upload them to the release bucket
+    vcf_paths = [
+        latest_analysis['output'],
+        latest_analysis['output'] + '.tbi',
+    ]
+
+    release_path = f'gs://cpg-{dataset}-release/{TODAY}/'
+    subprocess.run(
+        [  # noqa: S603, S607
+            'gcloud',
+            'storage',
+            '--billing-project',
+            dataset,
+            'cp',
+            *vcf_paths,
+            release_path,
+        ],
+        check=True,
+    )
+    logging.info(f'Copied {vcf_paths} into {release_path}')
 
 
 @click.command()
@@ -197,6 +254,7 @@ def main(dataset: str, dry_run: bool):
 
     if not dry_run:
         upload_metadata_to_release(dataset)
+        copy_vcf_to_release(dataset)
 
 
 if __name__ == '__main__':
