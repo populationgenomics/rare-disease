@@ -57,7 +57,9 @@ def main(owncloud_curl_file_path: str):
         authenticate_cloud_credentials_in_job(job=j)
         # catch errors during the cURL
         j.command('set -euxo pipefail')
-        j.command(f'curl -L {curl} | gsutil cp - {os.path.join(output_path, filename)}')
+        j.command(
+            f'curl -L {curl} | gsutil cp - \'{os.path.join(output_path, filename)}'
+        )
 
     batch.run(wait=False)
 
