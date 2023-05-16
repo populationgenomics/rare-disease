@@ -1,11 +1,10 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3 # noqa: EXE001
 
 """
 Transfer data files from MCRI owncloud cURLs to a dataset's GCP main-upload bucket.
 """
 
 import os
-from shlex import quote
 
 import click
 import hailtop.batch as hb
@@ -18,7 +17,7 @@ from cpg_utils.hail_batch import (
 )
 
 
-@click.command('Transfer_datasets from signed URLs')
+@click.command('Transfer data from owncloud cURLs')
 @click.option('--owncloud-curl-file-path')
 def main(owncloud_curl_file_path: str):
     """
