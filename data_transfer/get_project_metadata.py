@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3  # noqa: EXE001
 
 """
 This scripts extracts the HPO terms for all individuals in a dataset, as
