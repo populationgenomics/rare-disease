@@ -21,7 +21,7 @@ from cpg_utils.hail_batch import (
 @click.option('--owncloud-curl-file-path')
 def main(owncloud_curl_file_path: str):
     """
-    Given a list of presigned URLs, download the files and upload them to GCS.
+    Given a list of cURL commands, download the files and upload them to GCS.
     GCP suffix in target GCP bucket is defined using analysis-runner's --output
     """
 
