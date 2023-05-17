@@ -53,7 +53,7 @@ def main(owncloud_curl_file_path: str):
         if '&downloadStartSecret' in filename:
             filename = filename.split('&downloadStartSecret')[0]
         if not filename:
-            filename = f'file_{idx}'
+            filename = f'file_{idx}.tar'
         j = batch.new_job(f'URL {idx} ({filename})')
         authenticate_cloud_credentials_in_job(job=j)
         # catch errors during the cURL
