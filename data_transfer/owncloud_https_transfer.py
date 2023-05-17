@@ -1,4 +1,4 @@
-#!/usr/bin/env python3 # noqa: EXE001
+#!/usr/bin/env python3
 
 """
 Transfer data files from MCRI owncloud cURLs to a dataset's GCP main-upload bucket.
@@ -52,6 +52,8 @@ def main(owncloud_curl_file_path: str):
         filename = os.path.basename(url).split('&files=')[1].removesuffix("'")
         if '&downloadStartSecret' in filename:
             filename = filename.split('&downloadStartSecret')[0]
+        if not filename:
+            filename = f'file_{idx}'
         j = batch.new_job(f'URL {idx} ({filename})')
         authenticate_cloud_credentials_in_job(job=j)
         # catch errors during the cURL
@@ -63,3 +65,4 @@ def main(owncloud_curl_file_path: str):
 
 if __name__ == '__main__':
     main()  # pylint: disable=no-value-for-parameter
+    # flake8: noqa
