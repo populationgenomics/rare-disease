@@ -171,6 +171,7 @@ def copy_vcf_to_release(dataset: str):
                         meta
                         output
                         timestampCompleted
+                        status
                     }
                 }
              }
@@ -183,33 +184,22 @@ def copy_vcf_to_release(dataset: str):
         analysis
         for analysis in analyses
         if ('type', 'dataset-vcf') in analysis['meta'].items()
+        and analysis['status'] == 'COMPLETED'
     ]
 
     if not vcf_analyses:
-        raise RuntimeError(f'{dataset}: No dataset-VCF analyses found.')
+        raise RuntimeError(f'{dataset}: No completed dataset-VCF analyses found.')
 
     # Find the latest dataset-vcf analysis based on the timestamp
-    latest_analysis = None
-    for analysis in vcf_analyses:
-        if not analysis['timestampCompleted']:
-            continue
-        if not latest_analysis:
-            latest_analysis = analysis
-
-        current_analysis_timestamp = datetime.strptime(
-            analysis['timestampCompleted'],
+    vcf_analyses = sorted(
+        vcf_analyses,
+        key=lambda a: datetime.strptime(
+            a['timestampCompleted'],
             '%Y-%m-%dT%H:%M:%S',
-        ).astimezone()
-        latest_analysis_ts = datetime.strptime(
-            latest_analysis['timestampCompleted'],
-            '%Y-%m-%dT%H:%M:%S',
-        ).astimezone()
+        ).astimezone(),
+    )
 
-        if current_analysis_timestamp > latest_analysis_ts:
-            latest_analysis = analysis
-
-    if not latest_analysis:
-        raise RuntimeError(f'{dataset}: No completed dataset-VCF analyses found.')
+    latest_analysis = vcf_analyses[-1]
 
     # Save the paths to the .vcf.bgz and .vcf.bgz.tbi files and upload them to the release bucket
     vcf_paths = [
