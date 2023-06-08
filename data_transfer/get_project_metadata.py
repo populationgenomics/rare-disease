@@ -19,18 +19,17 @@ from zipfile import ZipFile
 
 import click
 from google.cloud import storage
-from sample_metadata.apis import FamilyApi, ParticipantApi, SampleApi
+from sample_metadata.apis import ParticipantApi
 from sample_metadata.graphql import query
 
 PAPI = ParticipantApi()
-SAPI = SampleApi()
-FAPI = FamilyApi()
 
 TODAY = datetime.now(tz=timezone.utc).strftime('%Y-%m-%d')
 
 
 def get_individual_metadata(dataset: str):
     """Returns all rows of seqr individual metadata for a dataset"""
+    # TODO: replace this with GraphQL once seqr metadata fields are exposed
     return PAPI.get_individual_metadata_for_seqr(dataset).get('rows')
 
 
