@@ -1,0 +1,258 @@
+#!/usr/bin/env python3  # noqa: EXE001
+
+"""
+This scripts extracts the HPO terms for all individuals in a dataset, as
+well as the pedigree and internal-external sample ID mapping. These are
+saved to files on disk before being zipped and uploaded into the release
+bucket of the dataset, in a directory containing today's date.
+The latest dataset-vcf type analysis for the dataset is also uploaded.
+"""
+
+import csv
+import json
+import logging
+import os
+import subprocess
+import sys
+from datetime import datetime, timezone
+from zipfile import ZipFile
+
+import click
+from google.cloud import storage
+from sample_metadata.apis import ParticipantApi
+from sample_metadata.graphql import query
+
+PAPI = ParticipantApi()
+
+TODAY = datetime.now(tz=timezone.utc).strftime('%Y-%m-%d')
+
+
+def get_individual_metadata(dataset: str):
+    """Returns all rows of seqr individual metadata for a dataset"""
+    # TODO: replace this with GraphQL once seqr metadata fields are exposed
+    return PAPI.get_individual_metadata_for_seqr(dataset).get('rows')
+
+
+def get_hpo_terms(individual_metadata: list[dict]):
+    """Returns a mapping of individual ID to list of hpo terms"""
+    indiv_hpo_terms = {}
+    for row in individual_metadata:
+        indiv_id = row.get('individual_id')
+        hpo_terms = ''
+        if row.get('hpo_terms_present'):
+            hpo_terms = row.get('hpo_terms_present').split(',')
+
+        indiv_hpo_terms[indiv_id] = hpo_terms
+
+    return indiv_hpo_terms
+
+
+def get_pedigrees(dataset: str):
+    """Get all pedigree rows for a dataset"""
+    _query = """
+             query DatasetPedigree($datasetName: String!) {
+                 project(name: $datasetName) {
+                     pedigree
+                 }
+             }
+             """
+
+    return query(_query, {'datasetName': dataset})['project']['pedigree']
+
+
+def get_sample_map(dataset: str):
+    """Returns the internal id : external id sample map for a dataset"""
+    _query = """
+            query DatasetSampleMap($datasetName: String!) {
+                project(name: $datasetName) {
+                    participants {
+                        samples {
+                            id
+                            externalId
+                        }
+                    }
+                }
+            }
+            """
+
+    samples_list = query(_query, {'datasetName': dataset})['project']['participants']
+
+    samples = [
+        sample
+        for samples_dict in samples_list
+        for sample in samples_dict.get('samples')
+        if samples_dict.get('samples')
+    ]
+
+    return {sample.get('id'): sample.get('externalId') for sample in samples if sample}
+
+
+def write_outputs(
+    dataset: str,
+    individual_hpo_terms: dict[str, list],
+    pedigrees: list[dict],
+    sample_map: dict[str, str],
+    output_path: str,
+):
+    """Writes the two HPO terms files, pedigree file, and sample map file to a zip."""
+
+    # HPO terms tsv
+    with open(f'{output_path}/hpo_terms.tsv', 'w', encoding='utf-8') as f:
+        writer = csv.writer(f, delimiter='\t')
+        for individual, hpo_terms in individual_hpo_terms.items():
+            row = [individual, *list(hpo_terms)]
+            if row:
+                writer.writerow(row)
+    logging.info(f'Wrote HPO terms tsv to {output_path}.')
+
+    # HPO terms json
+    with open(f'{output_path}/hpo_terms.json', 'w') as f:
+        json.dump(individual_hpo_terms, f, indent=4, sort_keys=True)
+    logging.info(f'Wrote HPO terms json to {output_path}.')
+
+    # Pedigree file
+    with open(f'{output_path}/pedigree.fam', 'w', encoding='utf-8') as f:
+        writer = csv.writer(f, delimiter='\t')
+        writer.writerow(
+            [
+                'Family ID',
+                'Individual ID',
+                'Paternal ID',
+                'Maternal ID',
+                'Sex',
+                'Affected',
+            ],
+        )
+        for ped_row in pedigrees:
+            values = list(ped_row.values())
+            writer.writerow(values)
+    logging.info(f'Wrote pedigree to {output_path}.')
+
+    # Sample map
+    with open(f'{output_path}/external_translation.json', 'w') as f:
+        json.dump(sample_map, f, indent=4, sort_keys=True)
+    logging.info(f'Wrote sample ID map json to {output_path}.')
+
+    # Zip everything
+    with ZipFile(f'{dataset}_metadata.zip', 'w') as z:
+        z.write(f'{output_path}/hpo_terms.tsv')
+        z.write(f'{output_path}/hpo_terms.json')
+        z.write(f'{output_path}/pedigree.fam')
+        z.write(f'{output_path}/external_translation.json')
+
+
+def upload_metadata_to_release(dataset: str):
+    """Uploads the compressed metadata.zip into a directory with today's date in the release bucket"""
+
+    zip_upload_path = os.path.join(TODAY, f'{dataset}_metadata.zip')
+
+    release_bucket = f'cpg-{dataset}-release'
+
+    client = storage.Client()
+    bucket = client.get_bucket(release_bucket)
+
+    zip_blob = bucket.blob(zip_upload_path)
+
+    zip_blob.upload_from_filename(f'{dataset}_metadata.zip')
+
+    logging.info(
+        f'Uploaded metadata.tar.gz to gs://{os.path.join(release_bucket, zip_upload_path,)}',
+    )
+
+
+def copy_vcf_to_release(dataset: str):
+    """Copies the vcf created by the seqr loader to the metadata directory in the release bucket"""
+    _query = """
+             query AnalysisVCF($datasetName: String!) {
+                project(name: $datasetName) {
+                    analyses(type: CUSTOM, active: true) {
+                        id
+                        meta
+                        output
+                        timestampCompleted
+                        status
+                    }
+                }
+             }
+             """
+
+    analyses = query(_query, {'datasetName': dataset})['project']['analyses']
+
+    # Filter the analyses down to those that have the meta field 'type': 'dataset-vcf'
+    vcf_analyses = [
+        analysis
+        for analysis in analyses
+        if ('type', 'dataset-vcf') in analysis['meta'].items()
+        and analysis['status'] == 'COMPLETED'
+    ]
+
+    if not vcf_analyses:
+        raise RuntimeError(f'{dataset}: No completed dataset-VCF analyses found.')
+
+    # Find the latest dataset-vcf analysis based on the timestamp
+    vcf_analyses = sorted(
+        vcf_analyses,
+        key=lambda a: datetime.strptime(
+            a['timestampCompleted'],
+            '%Y-%m-%dT%H:%M:%S',
+        ).astimezone(),
+    )
+
+    latest_analysis = vcf_analyses[-1]
+
+    # Save the paths to the .vcf.bgz and .vcf.bgz.tbi files and upload them to the release bucket
+    vcf_paths = [
+        latest_analysis['output'],
+        latest_analysis['output'] + '.tbi',
+    ]
+
+    release_path = f'gs://cpg-{dataset}-release/{TODAY}/'
+    subprocess.run(
+        [  # noqa: S603, S607
+            'gcloud',
+            'storage',
+            '--billing-project',
+            dataset,
+            'cp',
+            *vcf_paths,
+            release_path,
+        ],
+        check=True,
+    )
+    logging.info(f'Copied {vcf_paths} into {release_path}')
+
+
+@click.command()
+@click.option('--dataset')
+@click.option('--dry-run', is_flag=True)
+def main(dataset: str, dry_run: bool):
+    """Creates the metadata files and saves them to the output path"""
+
+    output_path = f'{dataset}_metadata'
+    if not os.path.exists(f'./{output_path}'):
+        os.makedirs(f'./{output_path}')
+
+    individual_metadata = get_individual_metadata(dataset)
+    individual_hpo_terms = get_hpo_terms(individual_metadata)
+
+    pedigrees = get_pedigrees(dataset)
+
+    sample_map = get_sample_map(dataset)
+
+    write_outputs(dataset, individual_hpo_terms, pedigrees, sample_map, output_path)
+
+    if not dry_run:
+        upload_metadata_to_release(dataset)
+        copy_vcf_to_release(dataset)
+
+
+if __name__ == '__main__':
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(levelname)s %(module)s:%(lineno)d - %(message)s',
+        datefmt='%Y-%M-%d %H:%M:%S',
+        stream=sys.stderr,
+    )
+
+    # pylint: disable=no-value-for-parameter
+    main()
