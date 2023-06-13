@@ -27,7 +27,9 @@ def get_seqr_loads(bucket, prefix: str):  # noqa: ANN001
             continue
 
         # Some directories have no VCF, but we still want them
-        if (seqr_dir := blob.name.removeprefix(prefix).split('/')[0]) not in seqr_load_directories:
+        if (
+            seqr_dir := blob.name.removeprefix(prefix).split('/')[0]
+        ) not in seqr_load_directories:
             seqr_load_directories.add(seqr_dir)
 
         if blob.name.endswith('full.vcf.gz'):
