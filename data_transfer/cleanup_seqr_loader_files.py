@@ -39,7 +39,10 @@ def get_seqr_loads(bucket, prefix: str):  # noqa: ANN001
     logging.info(f'Found {len(seqr_load_directories)} seqr load directories')
     logging.info(f'Found {len(seqr_loads)} seqr loads with full VCF')
 
-    return seqr_loads, seqr_load_directories
+    load_folders = {path.removeprefix(prefix) for path in seqr_loads}
+    extra_folders = seqr_load_directories.difference(load_folders)
+
+    return seqr_loads, extra_folders
 
 
 def get_seqr_loads_to_delete(seqr_loads_dict: dict):
