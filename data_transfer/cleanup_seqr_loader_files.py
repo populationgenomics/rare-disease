@@ -75,8 +75,8 @@ def delete_seqr_load_files(seqr_loads_to_delete: list[str]):
     subprocess.run(
         [  # noqa: S603, S607
             'gsutil',
+            '-m',
             'rm',
-            '-f',
             '-r',
             *seqr_loads_to_delete,
         ],
@@ -101,9 +101,6 @@ def main(dry_run: bool):
 
     genome_loads_to_delete = get_seqr_loads_to_delete(seqr_loads_dict=genome_loads)
 
-    if not dry_run:
-        delete_seqr_load_files(genome_loads_to_delete)
-
     logging.info('EXOME')
     exome_loads, extra_exome_folders = get_seqr_loads(
         bucket=BUCKET,
@@ -115,7 +112,10 @@ def main(dry_run: bool):
 
     exome_loads_to_delete = get_seqr_loads_to_delete(seqr_loads_dict=exome_loads)
 
-    if not dry_run:
+    if not dry_run and genome_loads_to_delete:
+        delete_seqr_load_files(genome_loads_to_delete)
+
+    if not dry_run and exome_loads_to_delete:
         delete_seqr_load_files(exome_loads_to_delete)
 
 
