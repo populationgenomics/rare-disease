@@ -159,7 +159,7 @@ def upload_metadata_to_release(dataset: str, billing_project: str | None):
     else:
         client = storage.Client()
 
-    bucket = client.get_bucket(release_bucket)
+    bucket = client.bucket(release_bucket, user_project=billing_project)
 
     zip_blob = bucket.blob(zip_upload_path)
 
