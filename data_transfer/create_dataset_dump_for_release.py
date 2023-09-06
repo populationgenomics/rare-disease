@@ -147,14 +147,18 @@ def write_outputs(
         z.write(f'{output_path}/external_translation.json')
 
 
-def upload_metadata_to_release(dataset: str):
+def upload_metadata_to_release(dataset: str, billing_project: str | None):
     """Uploads the compressed metadata.zip into a directory with today's date in the release bucket"""
 
     zip_upload_path = os.path.join(TODAY, f'{dataset}_metadata.zip')
 
     release_bucket = f'cpg-{dataset}-release'
 
-    client = storage.Client()
+    if billing_project:
+        client = storage.Client(project=billing_project)
+    else:
+        client = storage.Client()
+
     bucket = client.get_bucket(release_bucket)
 
     zip_blob = bucket.blob(zip_upload_path)
@@ -299,8 +303,9 @@ def copy_vcf_to_release(dataset: str):
 
 @click.command()
 @click.option('--dataset')
+@click.option('--billing-project', default=None)
 @click.option('--dry-run', is_flag=True)
-def main(dataset: str, dry_run: bool):
+def main(dataset: str, billing_project: str | None, dry_run: bool):
     """Creates the metadata files and saves them to the output path"""
 
     output_path = f'{dataset}_metadata'
