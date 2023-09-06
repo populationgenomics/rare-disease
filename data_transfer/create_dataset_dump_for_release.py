@@ -2,10 +2,10 @@
 
 """
 This scripts extracts the HPO terms for all individuals in a dataset, as
-well as the pedigree and internal-external sample ID mapping. These are
+well as the pedigree and internal SG : external sample ID mapping. These are
 saved to files on disk before being zipped and uploaded into the release
 bucket of the dataset, in a directory containing today's date.
-The latest dataset-vcf type analysis for the dataset is also uploaded.
+The latest dataset-vcf type analyses for the dataset are also uploaded.
 """
 
 import csv
@@ -19,8 +19,8 @@ from zipfile import ZipFile
 
 import click
 from google.cloud import storage
-from sample_metadata.apis import ParticipantApi
-from sample_metadata.graphql import query
+from metamist.apis import ParticipantApi
+from metamist.graphql import query
 
 PAPI = ParticipantApi()
 
@@ -61,7 +61,7 @@ def get_pedigrees(dataset: str):
 
 
 def get_sample_map(dataset: str):
-    """Returns the internal id : external id sample map for a dataset"""
+    """Returns the internal SG id : external sample id mapping for a dataset."""
     _query = """
             query DatasetSampleMap($datasetName: String!) {
                 project(name: $datasetName) {
@@ -69,6 +69,9 @@ def get_sample_map(dataset: str):
                         samples {
                             id
                             externalId
+                            sequencingGroups {
+                                id
+                            }
                         }
                     }
                 }
@@ -84,7 +87,10 @@ def get_sample_map(dataset: str):
         if samples_dict.get('samples')
     ]
 
-    return {sample.get('id'): sample.get('externalId') for sample in samples if sample}
+    # Assuming only one sequencing group per sample
+    return {
+        sample['sequencingGroups'][0]['id']: sample['externalId'] for sample in samples
+    }
 
 
 def write_outputs(
@@ -165,7 +171,7 @@ def copy_vcf_to_release(dataset: str):
     _query = """
              query AnalysisVCF($datasetName: String!) {
                 project(name: $datasetName) {
-                    analyses(type: CUSTOM, active: true) {
+                    analyses(type: {eq: "CUSTOM"}, status: {eq: COMPLETED}) {
                         id
                         meta
                         output
@@ -183,42 +189,111 @@ def copy_vcf_to_release(dataset: str):
         analysis
         for analysis in analyses
         if ('type', 'dataset-vcf') in analysis['meta'].items()
-        and analysis['status'] == 'COMPLETED'
     ]
 
     if not vcf_analyses:
         raise RuntimeError(f'{dataset}: No completed dataset-VCF analyses found.')
 
-    # Find the latest dataset-vcf analysis based on the timestamp
-    vcf_analyses = sorted(
-        vcf_analyses,
-        key=lambda a: datetime.strptime(
-            a['timestampCompleted'],
-            '%Y-%m-%dT%H:%M:%S',
-        ).astimezone(),
-    )
+    vcf_paths = []
+    vcf_file_renames = {}
 
-    latest_analysis = vcf_analyses[-1]
-
-    # Save the paths to the .vcf.bgz and .vcf.bgz.tbi files and upload them to the release bucket
-    vcf_paths = [
-        latest_analysis['output'],
-        latest_analysis['output'] + '.tbi',
+    # Find the latest dataset-vcf analysis based on the timestamp - for both exome and genome
+    exome_vcf_analyses = [
+        analysis
+        for analysis in vcf_analyses
+        if analysis['meta'].get('sequencing_type') == 'exome'
     ]
 
+    if exome_vcf_analyses:
+        exome_vcf_analyses = sorted(
+            exome_vcf_analyses,
+            key=lambda a: datetime.strptime(
+                a['timestampCompleted'],
+                '%Y-%m-%dT%H:%M:%S',
+            ).astimezone(),
+        )
+        latest_exome_analysis = exome_vcf_analyses[-1]
+
+        latest_exome_analysis_date = datetime.strftime(
+            datetime.strptime(
+                latest_exome_analysis['timestampCompleted'],
+                '%Y-%m-%dT%H:%M:%S',
+            )
+            .astimezone()
+            .date(),
+            '%Y-%m-%d',
+        )
+
+        vcf_file_renames[
+            latest_exome_analysis['output']
+        ] = f'{latest_exome_analysis_date}_{dataset}_exomes.vcf.bgz'
+        vcf_file_renames[
+            latest_exome_analysis['output'] + '.tbi'
+        ] = f'{latest_exome_analysis_date}_{dataset}_exomes.vcf.bgz.tbi'
+
+        vcf_paths.extend(
+            [latest_exome_analysis['output'], latest_exome_analysis['output'] + '.tbi'],
+        )
+    else:
+        logging.info(f'{dataset}: No completed exome VCF analyses found.')
+
+    genome_vcf_analyses = [
+        analysis
+        for analysis in vcf_analyses
+        if analysis['meta'].get('sequencing_type') == 'genome'
+    ]
+    if genome_vcf_analyses:
+        genome_vcf_analyses = sorted(
+            genome_vcf_analyses,
+            key=lambda a: datetime.strptime(
+                a['timestampCompleted'],
+                '%Y-%m-%dT%H:%M:%S',
+            ).astimezone(),
+        )
+        latest_genome_analysis = genome_vcf_analyses[-1]
+
+        latest_genome_analysis_date = datetime.strftime(
+            datetime.strptime(
+                latest_genome_analysis['timestampCompleted'],
+                '%Y-%m-%dT%H:%M:%S',
+            )
+            .astimezone()
+            .date(),
+            '%Y-%m-%d',
+        )
+
+        vcf_file_renames[
+            latest_genome_analysis['output']
+        ] = f'{latest_genome_analysis_date}_{dataset}_genomes.vcf.bgz'
+        vcf_file_renames[
+            latest_genome_analysis['output'] + '.tbi'
+        ] = f'{latest_genome_analysis_date}_{dataset}_genomes.vcf.bgz.tbi'
+
+        vcf_paths.extend(
+            [
+                latest_genome_analysis['output'],
+                latest_genome_analysis['output'] + '.tbi',
+            ],
+        )
+    else:
+        logging.info(f'{dataset}: No completed genome VCF analyses found.')
+
+    # Save the paths to the .vcf.bgz and .vcf.bgz.tbi files and upload them to the release bucket
     release_path = f'gs://cpg-{dataset}-release/{TODAY}/'
-    subprocess.run(
-        [  # noqa: S603, S607
-            'gcloud',
-            'storage',
-            '--billing-project',
-            dataset,
-            'cp',
-            *vcf_paths,
-            release_path,
-        ],
-        check=True,
-    )
+    for vcf_file_path in vcf_paths:
+        release_file_path = os.path.join(release_path, vcf_file_renames[vcf_file_path])
+        subprocess.run(
+            [  # noqa: S603, S607
+                'gcloud',
+                'storage',
+                '--billing-project',
+                dataset,
+                'cp',
+                vcf_file_path,
+                release_file_path,
+            ],
+            check=True,
+        )
     logging.info(f'Copied {vcf_paths} into {release_path}')
 
 
