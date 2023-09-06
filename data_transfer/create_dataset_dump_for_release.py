@@ -195,6 +195,7 @@ def copy_vcf_to_release(dataset: str):
         raise RuntimeError(f'{dataset}: No completed dataset-VCF analyses found.')
 
     vcf_paths = []
+    vcf_file_renames = {}
 
     # Find the latest dataset-vcf analysis based on the timestamp - for both exome and genome
     exome_vcf_analyses = [
@@ -212,6 +213,24 @@ def copy_vcf_to_release(dataset: str):
             ).astimezone(),
         )
         latest_exome_analysis = exome_vcf_analyses[-1]
+
+        latest_exome_analysis_date = datetime.strftime(
+            datetime.strptime(
+                latest_exome_analysis['timestampCompleted'],
+                '%Y-%m-%dT%H:%M:%S',
+            )
+            .astimezone()
+            .date(),
+            '%Y-%m-%d',
+        )
+
+        vcf_file_renames[
+            latest_exome_analysis['output']
+        ] = f'{latest_exome_analysis_date}_{dataset}_exomes.vcf.bgz'
+        vcf_file_renames[
+            latest_exome_analysis['output'] + '.tbi'
+        ] = f'{latest_exome_analysis_date}_{dataset}_exomes.vcf.bgz.tbi'
+
         vcf_paths.extend(
             [latest_exome_analysis['output'], latest_exome_analysis['output'] + '.tbi'],
         )
@@ -232,6 +251,24 @@ def copy_vcf_to_release(dataset: str):
             ).astimezone(),
         )
         latest_genome_analysis = genome_vcf_analyses[-1]
+
+        latest_genome_analysis_date = datetime.strftime(
+            datetime.strptime(
+                latest_genome_analysis['timestampCompleted'],
+                '%Y-%m-%dT%H:%M:%S',
+            )
+            .astimezone()
+            .date(),
+            '%Y-%m-%d',
+        )
+
+        vcf_file_renames[
+            latest_genome_analysis['output']
+        ] = f'{latest_genome_analysis_date}_{dataset}_genomes.vcf.bgz'
+        vcf_file_renames[
+            latest_genome_analysis['output'] + '.tbi'
+        ] = f'{latest_genome_analysis_date}_{dataset}_genomes.vcf.bgz.tbi'
+
         vcf_paths.extend(
             [
                 latest_genome_analysis['output'],
@@ -243,18 +280,20 @@ def copy_vcf_to_release(dataset: str):
 
     # Save the paths to the .vcf.bgz and .vcf.bgz.tbi files and upload them to the release bucket
     release_path = f'gs://cpg-{dataset}-release/{TODAY}/'
-    subprocess.run(
-        [  # noqa: S603, S607
-            'gcloud',
-            'storage',
-            '--billing-project',
-            dataset,
-            'cp',
-            *vcf_paths,
-            release_path,
-        ],
-        check=True,
-    )
+    for vcf_file_path in vcf_paths:
+        release_file_path = os.path.join(release_path, vcf_file_renames[vcf_file_path])
+        subprocess.run(
+            [  # noqa: S603, S607
+                'gcloud',
+                'storage',
+                '--billing-project',
+                dataset,
+                'cp',
+                vcf_file_path,
+                release_file_path,
+            ],
+            check=True,
+        )
     logging.info(f'Copied {vcf_paths} into {release_path}')
 
 
