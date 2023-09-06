@@ -147,14 +147,18 @@ def write_outputs(
         z.write(f'{output_path}/external_translation.json')
 
 
-def upload_metadata_to_release(dataset: str):
+def upload_metadata_to_release(dataset: str, billing_project: str | None):
     """Uploads the compressed metadata.zip into a directory with today's date in the release bucket"""
 
     zip_upload_path = os.path.join(TODAY, f'{dataset}_metadata.zip')
 
     release_bucket = f'cpg-{dataset}-release'
 
-    client = storage.Client()
+    if billing_project:
+        client = storage.Client(project=billing_project)
+    else:
+        client = storage.Client()
+
     bucket = client.get_bucket(release_bucket)
 
     zip_blob = bucket.blob(zip_upload_path)
@@ -166,7 +170,7 @@ def upload_metadata_to_release(dataset: str):
     )
 
 
-def copy_vcf_to_release(dataset: str):
+def copy_vcf_to_release(dataset: str, billing_project: str | None):
     """Copies the vcf created by the seqr loader to the metadata directory in the release bucket"""
     _query = """
              query AnalysisVCF($datasetName: String!) {
@@ -279,6 +283,8 @@ def copy_vcf_to_release(dataset: str):
         logging.info(f'{dataset}: No completed genome VCF analyses found.')
 
     # Save the paths to the .vcf.bgz and .vcf.bgz.tbi files and upload them to the release bucket
+    if not billing_project:
+        billing_project = dataset
     release_path = f'gs://cpg-{dataset}-release/{TODAY}/'
     for vcf_file_path in vcf_paths:
         release_file_path = os.path.join(release_path, vcf_file_renames[vcf_file_path])
@@ -287,7 +293,7 @@ def copy_vcf_to_release(dataset: str):
                 'gcloud',
                 'storage',
                 '--billing-project',
-                dataset,
+                billing_project,
                 'cp',
                 vcf_file_path,
                 release_file_path,
@@ -299,8 +305,9 @@ def copy_vcf_to_release(dataset: str):
 
 @click.command()
 @click.option('--dataset')
+@click.option('--billing-project', default=None)
 @click.option('--dry-run', is_flag=True)
-def main(dataset: str, dry_run: bool):
+def main(dataset: str, billing_project: str | None, dry_run: bool):
     """Creates the metadata files and saves them to the output path"""
 
     output_path = f'{dataset}_metadata'
@@ -317,8 +324,8 @@ def main(dataset: str, dry_run: bool):
     write_outputs(dataset, individual_hpo_terms, pedigrees, sample_map, output_path)
 
     if not dry_run:
-        upload_metadata_to_release(dataset)
-        copy_vcf_to_release(dataset)
+        upload_metadata_to_release(dataset, billing_project)
+        copy_vcf_to_release(dataset, billing_project)
 
 
 if __name__ == '__main__':
