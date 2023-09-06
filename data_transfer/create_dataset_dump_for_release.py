@@ -325,7 +325,7 @@ def main(dataset: str, billing_project: str | None, dry_run: bool):
 
     if not dry_run:
         upload_metadata_to_release(dataset, billing_project)
-        copy_vcf_to_release(dataset)
+        copy_vcf_to_release(dataset, billing_project)
 
 
 if __name__ == '__main__':
