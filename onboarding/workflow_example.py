@@ -23,7 +23,7 @@ from argparse import ArgumentParser
 
 # from metamist.graphql import gql, query
 # from collections import defaultdict
-from cpg_utils.config import get_config
+# from cpg_utils.config import get_config
 from cpg_utils.hail_batch import image_path, output_path
 
 from cpg_workflows.batch import get_batch
@@ -99,6 +99,12 @@ def main(samples: list[str]):
         # this pulls the image path from the portion of the config
         # populated by the images repository
         j.image(image_path('fastqe'))
+
+        # set some other job attributes, if required
+        # by default, ~4GB RAM, 0 additional storage, 1 CPU
+        # j.cpu(2)
+        # j.memory('4Gi')
+        # j.storage('10Gi')
 
         # read data into the batch tmp resource location
         file_1 = b.read_input(files[0])
