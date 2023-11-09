@@ -20,16 +20,20 @@ def get_dataset_mt_timestamps(
 ):
     """Finds the .mt directories and their create times in the seqr-main bucket"""
     mt_timestamps = {}
-    mt_folders = (
-        subprocess.run(  # Use subprocess because list_blobs lists everything inside each .mt folder
-            args=['gsutil', 'ls', f'gs://{bucket.name}/{prefix}'],
-            check=True,
-            capture_output=True,
-            text=True,
+    try: 
+        mt_folders = (
+            subprocess.run(  # Use subprocess because list_blobs lists everything inside each .mt folder
+                args=['gsutil', 'ls', f'gs://{bucket.name}/{prefix}'],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            .stdout.strip()
+            .split('\n')
         )
-        .stdout.strip()
-        .split('\n')
-    )
+    except subprocess.CalledProcessError:
+        logging.info(f'{dataset}:: No .mt folders found in {prefix}')
+        return mt_timestamps
 
     mt_folders = [
         mt_folder.removeprefix(f'gs://{bucket.name}/') for mt_folder in mt_folders
@@ -102,17 +106,18 @@ def main(dry_run: bool, datasets: list[str]):
             bucket=bucket,
             prefix=GENOME_PREFIX,
         )
-
-        genome_loads_to_delete = get_mt_folders_to_delete(
-            dataset=dataset,
-            mt_timestamps_dict=genome_loads,
-        )
-
-        if not dry_run:
-            delete_dataset_mts(
+        
+        if genome_loads:
+            genome_loads_to_delete = get_mt_folders_to_delete(
                 dataset=dataset,
-                dataset_mts_to_delete=genome_loads_to_delete,
+                mt_timestamps_dict=genome_loads,
             )
+
+            if not dry_run:
+                delete_dataset_mts(
+                    dataset=dataset,
+                    dataset_mts_to_delete=genome_loads_to_delete,
+                )
 
         logging.info(f'{dataset}:: EXOME')
         exome_loads = get_dataset_mt_timestamps(
@@ -120,17 +125,18 @@ def main(dry_run: bool, datasets: list[str]):
             bucket=bucket,
             prefix=EXOME_PREFIX,
         )
-
-        exome_loads_to_delete = get_mt_folders_to_delete(
-            dataset=dataset,
-            mt_timestamps_dict=exome_loads,
-        )
-
-        if not dry_run:
-            delete_dataset_mts(
+        
+        if exome_loads:
+            exome_loads_to_delete = get_mt_folders_to_delete(
                 dataset=dataset,
-                dataset_mts_to_delete=exome_loads_to_delete,
+                mt_timestamps_dict=exome_loads,
             )
+
+            if not dry_run:
+                delete_dataset_mts(
+                    dataset=dataset,
+                    dataset_mts_to_delete=exome_loads_to_delete,
+                )
 
 
 if __name__ == '__main__':
