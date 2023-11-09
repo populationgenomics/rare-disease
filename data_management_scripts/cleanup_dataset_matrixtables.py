@@ -74,7 +74,6 @@ def delete_dataset_mts(dataset: str, dataset_mts_to_delete: list[str]):
             'gsutil',
             '-m',
             'rm',
-            '-f',
             '-r',
             *dataset_mts_to_delete,
         ],

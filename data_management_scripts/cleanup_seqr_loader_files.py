@@ -77,7 +77,6 @@ def delete_seqr_load_files(seqr_loads_to_delete: list[str]):
             'gsutil',
             '-m',
             'rm',
-            '-f',
             '-r',
             *seqr_loads_to_delete,
         ],
