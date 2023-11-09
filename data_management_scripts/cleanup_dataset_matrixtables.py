@@ -11,7 +11,6 @@ from google.cloud import storage
 
 GENOME_PREFIX = 'mt/'
 EXOME_PREFIX = 'exome/mt/'
-VCF_SUFFIX = '/JointGenotyping/full.vcf.gz'
 
 
 def get_dataset_mt_timestamps(
