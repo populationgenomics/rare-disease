@@ -75,6 +75,7 @@ def delete_seqr_load_files(seqr_loads_to_delete: list[str]):
     subprocess.run(
         [  # noqa: S603, S607
             'gsutil',
+            '-m',
             'rm',
             '-f',
             '-r',
