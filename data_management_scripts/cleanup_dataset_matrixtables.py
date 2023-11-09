@@ -19,8 +19,8 @@ def get_dataset_mt_timestamps(
     prefix: str,
 ):
     """Finds the .mt directories and their create times in the seqr-main bucket"""
-    mt_timestamps = {}
-    try: 
+    mt_timestamps: dict[str, datetime] | None = {}
+    try:
         mt_folders = (
             subprocess.run(  # Use subprocess because list_blobs lists everything inside each .mt folder
                 args=['gsutil', 'ls', f'gs://{bucket.name}/{prefix}'],
@@ -106,7 +106,7 @@ def main(dry_run: bool, datasets: list[str]):
             bucket=bucket,
             prefix=GENOME_PREFIX,
         )
-        
+
         if genome_loads:
             genome_loads_to_delete = get_mt_folders_to_delete(
                 dataset=dataset,
@@ -125,7 +125,7 @@ def main(dry_run: bool, datasets: list[str]):
             bucket=bucket,
             prefix=EXOME_PREFIX,
         )
-        
+
         if exome_loads:
             exome_loads_to_delete = get_mt_folders_to_delete(
                 dataset=dataset,
