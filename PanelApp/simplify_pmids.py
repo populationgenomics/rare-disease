@@ -21,10 +21,19 @@ for content in data.values():
             gene_name,
             {'pmids': set(), 'disorders': set(), 'ensg': '', 'phenotypes': set()},
         )
-        gene_dict[gene_name]['phenotypes'].update(gene_data['phenotypes'])
-        gene_dict[gene_name]['pmids'].update(gene_data['publications'])
-        gene_dict[gene_name]['disorders'].update(content['disorders'])
-        gene_dict[gene_name]['ensg'] = gene_data['ensembl_id']
+        gene_dict[gene_name]['phenotypes'].update(
+            x.replace('\t', ' ') for x in gene_data['phenotypes']
+        )
+        gene_dict[gene_name]['pmids'].update(
+            x.replace('\t', ' ') for x in gene_data['publications']
+        )
+        gene_dict[gene_name]['disorders'].update(
+            x.replace('\t', ' ') for x in content['disorders']
+        )
+        gene_dict[gene_name]['ensg'] = (gene_data.get('ensembl_id', '') or '').replace(
+            '\t',
+            ' ',
+        )
 
 with open(OUTPUT, 'w', encoding='utf-8') as handle:
     handle.write('gene\tpmids\tdisorders\tphenotypes\tensg\n')
