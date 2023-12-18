@@ -60,17 +60,19 @@ def get_pedigrees(dataset: str):
     return query(_query, {'datasetName': dataset})['project']['pedigree']
 
 
-def get_sample_map(dataset: str):
-    """Returns the internal SG id : external sample id mapping for a dataset."""
+def get_participant_sg_map(dataset: str, sequencing_type: str):
+    """Returns the internal SG id : external participant id mapping for a dataset."""
     _query = """
-            query DatasetSampleMap($datasetName: String!) {
+            query DatasetSampleMap($datasetName: String!, $sequencingType: String!) {
                 project(name: $datasetName) {
                     participants {
+                        externalId
                         samples {
                             id
                             externalId
-                            sequencingGroups {
+                            sequencingGroups(type: {eq: $sequencingType}) {
                                 id
+                                type
                             }
                         }
                     }
@@ -78,26 +80,29 @@ def get_sample_map(dataset: str):
             }
             """
 
-    samples_list = query(_query, {'datasetName': dataset})['project']['participants']
+    participants = query(_query, {'datasetName': dataset, 'sequencingType': sequencing_type})['project']['participants']
 
-    samples = [
-        sample
-        for samples_dict in samples_list
-        for sample in samples_dict.get('samples')
-        if samples_dict.get('samples')
-    ]
+    sg_id_participant_ext_id_map = {}
+    for participant in participants:
+        participant_ext_id = participant['externalId']
+        participant_samples = participant['samples']
+        for sample in participant_samples:
+            if not sample['sequencingGroups']:
+                continue
+            if len(sample['sequencingGroups']) > 1:
+                ValueError(f'Participant {participant_ext_id} has multiple sequencing groups of the same sequencing type: {sequencing_type}.')
 
-    # Assuming only one sequencing group per sample
-    return {
-        sample['sequencingGroups'][0]['id']: sample['externalId'] for sample in samples
-    }
+            sg_id = sample['sequencingGroups'][0]['id']
+            sg_id_participant_ext_id_map[sg_id] = participant_ext_id
+
+    return sg_id_participant_ext_id_map
 
 
 def write_outputs(
     dataset: str,
     individual_hpo_terms: dict[str, list],
     pedigrees: list[dict],
-    sample_map: dict[str, str],
+    sg_partitipant_map: dict[str, str],
     output_path: str,
 ):
     """Writes the two HPO terms files, pedigree file, and sample map file to a zip."""
@@ -136,8 +141,8 @@ def write_outputs(
 
     # Sample map
     with open(f'{output_path}/external_translation.json', 'w') as f:
-        json.dump(sample_map, f, indent=4, sort_keys=True)
-    logging.info(f'Wrote sample ID map json to {output_path}.')
+        json.dump(sg_partitipant_map, f, indent=4, sort_keys=True)
+    logging.info(f'Wrote SG ID : Participant external ID map json to {output_path}.')
 
     # Zip everything
     with ZipFile(f'{dataset}_metadata.zip', 'w') as z:
@@ -305,9 +310,11 @@ def copy_vcf_to_release(dataset: str, billing_project: str | None):
 
 @click.command()
 @click.option('--dataset')
+@click.option('--sequencing-type', default='exome')
 @click.option('--billing-project', default=None)
+@click.option('--metadata-only', is_flag=True)
 @click.option('--dry-run', is_flag=True)
-def main(dataset: str, billing_project: str | None, dry_run: bool):
+def main(dataset: str, sequencing_type: str, billing_project: str | None, metadata_only: bool, dry_run: bool):
     """Creates the metadata files and saves them to the output path"""
 
     output_path = f'{dataset}_metadata'
@@ -319,13 +326,14 @@ def main(dataset: str, billing_project: str | None, dry_run: bool):
 
     pedigrees = get_pedigrees(dataset)
 
-    sample_map = get_sample_map(dataset)
+    sg_participant_map = get_participant_sg_map(dataset, sequencing_type)
 
-    write_outputs(dataset, individual_hpo_terms, pedigrees, sample_map, output_path)
+    write_outputs(dataset, individual_hpo_terms, pedigrees, sg_participant_map, output_path)
 
     if not dry_run:
         upload_metadata_to_release(dataset, billing_project)
-        copy_vcf_to_release(dataset, billing_project)
+        if not metadata_only:
+            copy_vcf_to_release(dataset, billing_project)
 
 
 if __name__ == '__main__':
