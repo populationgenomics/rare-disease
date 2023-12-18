@@ -72,7 +72,6 @@ def get_participant_sg_map(dataset: str):
                             externalId
                             sequencingGroups {
                                 id
-                                type
                             }
                         }
                     }
@@ -324,7 +323,13 @@ def main(dataset: str, billing_project: str | None, metadata_only: bool, dry_run
 
     sg_participant_map = get_participant_sg_map(dataset)
 
-    write_outputs(dataset, individual_hpo_terms, pedigrees, sg_participant_map, output_path)
+    write_outputs(
+        dataset,
+        individual_hpo_terms,
+        pedigrees,
+        sg_participant_map,
+        output_path,
+    )
 
     if not dry_run:
         upload_metadata_to_release(dataset, billing_project)
