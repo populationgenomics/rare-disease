@@ -60,17 +60,17 @@ def get_pedigrees(dataset: str):
     return query(_query, {'datasetName': dataset})['project']['pedigree']
 
 
-def get_participant_sg_map(dataset: str, sequencing_type: str):
+def get_participant_sg_map(dataset: str):
     """Returns the internal SG id : external participant id mapping for a dataset."""
     _query = """
-            query DatasetSampleMap($datasetName: String!, $sequencingType: String!) {
+            query DatasetSampleMap($datasetName: String!) {
                 project(name: $datasetName) {
                     participants {
                         externalId
                         samples {
                             id
                             externalId
-                            sequencingGroups(type: {eq: $sequencingType}) {
+                            sequencingGroups {
                                 id
                                 type
                             }
@@ -80,7 +80,7 @@ def get_participant_sg_map(dataset: str, sequencing_type: str):
             }
             """
 
-    participants = query(_query, {'datasetName': dataset, 'sequencingType': sequencing_type})['project']['participants']
+    participants = query(_query, {'datasetName': dataset})['project']['participants']
 
     sg_id_participant_ext_id_map = {}
     for participant in participants:
@@ -89,9 +89,6 @@ def get_participant_sg_map(dataset: str, sequencing_type: str):
         for sample in participant_samples:
             if not sample['sequencingGroups']:
                 continue
-            if len(sample['sequencingGroups']) > 1:
-                ValueError(f'Participant {participant_ext_id} has multiple sequencing groups of the same sequencing type: {sequencing_type}.')
-
             sg_id = sample['sequencingGroups'][0]['id']
             sg_id_participant_ext_id_map[sg_id] = participant_ext_id
 
@@ -310,11 +307,10 @@ def copy_vcf_to_release(dataset: str, billing_project: str | None):
 
 @click.command()
 @click.option('--dataset')
-@click.option('--sequencing-type', default='exome')
 @click.option('--billing-project', default=None)
 @click.option('--metadata-only', is_flag=True)
 @click.option('--dry-run', is_flag=True)
-def main(dataset: str, sequencing_type: str, billing_project: str | None, metadata_only: bool, dry_run: bool):
+def main(dataset: str, billing_project: str | None, metadata_only: bool, dry_run: bool):
     """Creates the metadata files and saves them to the output path"""
 
     output_path = f'{dataset}_metadata'
@@ -326,7 +322,7 @@ def main(dataset: str, sequencing_type: str, billing_project: str | None, metada
 
     pedigrees = get_pedigrees(dataset)
 
-    sg_participant_map = get_participant_sg_map(dataset, sequencing_type)
+    sg_participant_map = get_participant_sg_map(dataset)
 
     write_outputs(dataset, individual_hpo_terms, pedigrees, sg_participant_map, output_path)
 
