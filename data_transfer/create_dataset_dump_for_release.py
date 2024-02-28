@@ -11,6 +11,8 @@ The latest dataset-vcf type analyses for the dataset are also uploaded.\
 Requires two files, one for exome and one for genome, containing the mapping of
 SG_ID to seqr family GUID. Pass the path containing these files to the script
 using the --seqr-guid-file-path flag.
+The files should be named: 
+{dataset}_exome_seqr_processed.json AND {dataset}_genome_seqr_processed.json
 """
 
 import csv
@@ -81,23 +83,28 @@ def get_sg_id_to_family_guid_map(dataset: str, seqr_metadata_file_path: str):
     with genome_file_path.open() as f:
         genome_family_guid_map = json.load(f)
         
-    return {**exome_family_guid_map, **genome_family_guid_map}
+    return {'exome': exome_family_guid_map, 'genome': genome_family_guid_map}
 
 
-def get_family_guid_map(pedigrees: str, sg_participant_map: dict[str, str], sg_id_family_guid_map: dict[str, str]):
+def get_family_guid_map(pedigrees: str, sg_participant_map: dict[str, str], sg_id_family_guid_maps: dict[str, dict[str, str]]):
     """Returns a mapping of family ID to GUID"""
     participant_sg_id_map = {}
     for sg_id, participant in sg_participant_map.items():
         participant_sg_id_map[participant] = sg_id
         
-    family_guid_map = {}
+    family_guid_map_exome = {}
+    family_guid_map_genome = {}
     for row in pedigrees:
         individual_id = row['individual_id']
         sg_id = participant_sg_id_map.get(individual_id)
-        family_guid = sg_id_family_guid_map.get(sg_id)
-        family_guid_map[row['family_id']] = family_guid
+        exome_family_guid = sg_id_family_guid_maps['exome'].get(sg_id)
+        genome_family_guid = sg_id_family_guid_maps['genome'].get(sg_id)
+        if exome_family_guid:
+            family_guid_map_exome[row['family_id']] = exome_family_guid
+        if genome_family_guid:
+            family_guid_map_genome[row['family_id']] = genome_family_guid
 
-    return family_guid_map
+    return {'exome': family_guid_map_exome, 'genome': family_guid_map_genome}
 
 
 def get_participant_sg_map(dataset: str):
@@ -141,7 +148,7 @@ def write_outputs(
     individual_hpo_terms: dict[str, list],
     pedigrees: list[dict],
     sg_partitipant_map: dict[str, str],
-    family_guid_map: dict[str, str],
+    family_guid_maps: dict[str, dict[str,str]],
     output_path: str,
 ):
     """Writes the two HPO terms files, pedigree file, and sample map file to a zip."""
@@ -183,10 +190,10 @@ def write_outputs(
         json.dump(sg_partitipant_map, f, indent=4, sort_keys=True)
     logging.info(f'Wrote SG ID : Participant external ID map json to {output_path}.')
 
-    # Family GUID map
+    # Family GUID maps
     with open(f'{output_path}/family_guid_map.json', 'w') as f:
-        json.dump(family_guid_map, f, indent=4, sort_keys=True)
-    logging.info(f'Wrote family GUID map json to {output_path}.')
+        json.dump(family_guid_maps, f, indent=4, sort_keys=True)
+    logging.info(f'Wrote family GUID map jsons to {output_path}.')
     
     # Zip everything
     with ZipFile(f'{dataset}_metadata.zip', 'w') as z:
@@ -373,18 +380,20 @@ def main(dataset: str, billing_project: str | None, metadata_only: bool, seqr_me
 
     sg_participant_map = get_participant_sg_map(dataset)
     
-    sg_id_family_guid_map = get_sg_id_to_family_guid_map(dataset, seqr_metadata_file_path)
+    sg_id_family_guid_maps = get_sg_id_to_family_guid_map(dataset, seqr_metadata_file_path)
     
-    family_guid_map = get_family_guid_map(pedigrees, sg_participant_map, sg_id_family_guid_map)
-    for k, v in family_guid_map.items():
-        logging.info(f'{k}: {v}')
+    family_guid_maps = get_family_guid_map(pedigrees, sg_participant_map, sg_id_family_guid_maps)
+    logging.info('Family GUID maps:')
+    for k, v in family_guid_maps.items():
+        for k2, v2 in v.items():
+            logging.info(f'{k}: {k2} -> {v2}')
 
     write_outputs(
         dataset,
         individual_hpo_terms,
         pedigrees,
         sg_participant_map,
-        family_guid_map,
+        family_guid_maps,
         output_path,
     )
 
