@@ -66,12 +66,12 @@ def get_pedigrees(dataset: str):
 def get_sg_id_to_family_guid_map(dataset: str, access_level: str):
     """Reads the json files in the bucket and returns a mapping of SG ID to family GUID"""
     exome_family_guid_map = {}
-    exome_file_path = to_path(f'gs://cpg-{dataset}-{access_level}-upload/seqr_metadata/udn-aus_exome_seqr_processed.json')
+    exome_file_path = to_path(f'gs://cpg-{dataset}-{access_level}-upload/seqr_metadata/{dataset}_exome_seqr_processed.json')
     with exome_file_path.open() as f:
         exome_family_guid_map = json.load(f)
     
     genome_family_guid_map = {}
-    genome_file_path = to_path(f'gs://cpg-{dataset}-{access_level}-upload/seqr_metadata/udn-aus_genome_seqr_processed.json')
+    genome_file_path = to_path(f'gs://cpg-{dataset}-{access_level}-upload/seqr_metadata/{dataset}_genome_seqr_processed.json')
     with genome_file_path.open() as f:
         genome_family_guid_map = json.load(f)
         
