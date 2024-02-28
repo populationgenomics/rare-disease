@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from zipfile import ZipFile
 
 import click
+from cpg_utils import to_path
 from google.cloud import storage
 from metamist.apis import ParticipantApi
 from metamist.graphql import query, gql
@@ -65,15 +66,13 @@ def get_pedigrees(dataset: str):
 def get_sg_id_to_family_guid_map(dataset: str, access_level: str):
     """Reads the json files in the bucket and returns a mapping of SG ID to family GUID"""
     exome_family_guid_map = {}
-    with open(
-        f'gs://cpg-{dataset}-{access_level}-upload/seqr_metadata/udn-aus_exome_seqr_processed.json',
-    ) as f:
+    exome_file_path = to_path(f'gs://cpg-{dataset}-{access_level}-upload/seqr_metadata/udn-aus_exome_seqr_processed.json')
+    with exome_file_path.open() as f:
         exome_family_guid_map = json.load(f)
     
     genome_family_guid_map = {}
-    with open(
-        f'gs://cpg-{dataset}-{access_level}-upload/seqr_metadata/udn-aus_genome_seqr_processed.json',
-    ) as f:
+    genome_file_path = to_path(f'gs://cpg-{dataset}-{access_level}-upload/seqr_metadata/udn-aus_genome_seqr_processed.json')
+    with genome_file_path.open() as f:
         genome_family_guid_map = json.load(f)
         
     return {**exome_family_guid_map, **genome_family_guid_map}
