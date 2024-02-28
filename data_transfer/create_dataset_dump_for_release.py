@@ -383,10 +383,6 @@ def main(dataset: str, billing_project: str | None, metadata_only: bool, seqr_me
     sg_id_family_guid_maps = get_sg_id_to_family_guid_map(dataset, seqr_metadata_file_path)
     
     family_guid_maps = get_family_guid_map(pedigrees, sg_participant_map, sg_id_family_guid_maps)
-    logging.info('Family GUID maps:')
-    for k, v in family_guid_maps.items():
-        for k2, v2 in v.items():
-            logging.info(f'{k}: {k2} -> {v2}')
 
     write_outputs(
         dataset,
