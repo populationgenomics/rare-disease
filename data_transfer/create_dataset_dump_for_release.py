@@ -363,7 +363,9 @@ def main(dataset: str, billing_project: str | None, metadata_only: bool, dry_run
 
     sg_participant_map = get_participant_sg_map(dataset)
     
-    family_guid_map = get_family_guid_map(pedigrees, sg_participant_map)
+    sg_id_family_guid_map = get_sg_id_to_family_guid_map(dataset)
+    
+    family_guid_map = get_family_guid_map(pedigrees, sg_participant_map, sg_id_family_guid_map)
 
     write_outputs(
         dataset,
