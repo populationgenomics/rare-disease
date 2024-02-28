@@ -20,7 +20,7 @@ from zipfile import ZipFile
 import click
 from google.cloud import storage
 from metamist.apis import ParticipantApi
-from metamist.graphql import query
+from metamist.graphql import query, gql
 
 PAPI = ParticipantApi()
 
@@ -49,35 +49,68 @@ def get_hpo_terms(individual_metadata: list[dict]):
 
 def get_pedigrees(dataset: str):
     """Get all pedigree rows for a dataset"""
-    _query = """
-             query DatasetPedigree($datasetName: String!) {
-                 project(name: $datasetName) {
-                     pedigree
-                 }
-             }
-             """
+    _query = gql(
+        """
+        query DatasetPedigree($datasetName: String!) {
+            project(name: $datasetName) {
+                pedigree
+            }
+        }
+        """
+    )
 
     return query(_query, {'datasetName': dataset})['project']['pedigree']
 
 
+def get_sg_id_to_family_guid_map(dataset: str):
+    """Reads the json files in the bucket and returns a mapping of SG ID to family GUID"""
+    exome_family_guid_map = {}
+    with open(
+        f'gs://cpg-{dataset}-main-upload/seqr_metadata/udn-aus_exome_seqr_processed.json',
+    ) as f:
+        exome_family_guid_map = json.load(f)
+    
+    genome_family_guid_map = {}
+    with open(
+        f'gs://cpg-{dataset}-main-upload/seqr_metadata/udn-aus_genome_seqr_processed.json',
+    ) as f:
+        genome_family_guid_map = json.load(f)
+        
+    return {**exome_family_guid_map, **genome_family_guid_map}
+
+
+def get_family_guid_map(pedigrees: str, sg_participant_map: dict[str, str], sg_id_family_guid_map: dict[str, str]):
+    """Returns a mapping of family ID to GUID"""
+    family_guid_map = {}
+    for row in pedigrees:
+        individual_id = row['individual_id']
+        sg_id = sg_participant_map.get(individual_id)
+        family_guid = sg_id_family_guid_map.get(sg_id)
+        family_guid_map[row['family_id']] = family_guid
+
+    return family_guid_map
+
+
 def get_participant_sg_map(dataset: str):
     """Returns the internal SG id : external participant id mapping for a dataset."""
-    _query = """
-            query DatasetSampleMap($datasetName: String!) {
-                project(name: $datasetName) {
-                    participants {
+    _query = gql(
+        """
+        query DatasetSampleMap($datasetName: String!) {
+            project(name: $datasetName) {
+                participants {
+                    externalId
+                    samples {
+                        id
                         externalId
-                        samples {
+                        sequencingGroups {
                             id
-                            externalId
-                            sequencingGroups {
-                                id
-                            }
                         }
                     }
                 }
             }
-            """
+        }
+        """
+    )
 
     participants = query(_query, {'datasetName': dataset})['project']['participants']
 
@@ -99,6 +132,7 @@ def write_outputs(
     individual_hpo_terms: dict[str, list],
     pedigrees: list[dict],
     sg_partitipant_map: dict[str, str],
+    family_guid_map: dict[str, str],
     output_path: str,
 ):
     """Writes the two HPO terms files, pedigree file, and sample map file to a zip."""
@@ -140,12 +174,18 @@ def write_outputs(
         json.dump(sg_partitipant_map, f, indent=4, sort_keys=True)
     logging.info(f'Wrote SG ID : Participant external ID map json to {output_path}.')
 
+    # Family GUID map
+    with open(f'{output_path}/family_guid_map.json', 'w') as f:
+        json.dump(family_guid_map, f, indent=4, sort_keys=True)
+    logging.info(f'Wrote family GUID map json to {output_path}.')
+    
     # Zip everything
     with ZipFile(f'{dataset}_metadata.zip', 'w') as z:
         z.write(f'{output_path}/hpo_terms.tsv')
         z.write(f'{output_path}/hpo_terms.json')
         z.write(f'{output_path}/pedigree.fam')
         z.write(f'{output_path}/external_translation.json')
+        z.write(f'{output_path}/family_guid_map.json')
 
 
 def upload_metadata_to_release(dataset: str, billing_project: str | None):
@@ -322,6 +362,8 @@ def main(dataset: str, billing_project: str | None, metadata_only: bool, dry_run
     pedigrees = get_pedigrees(dataset)
 
     sg_participant_map = get_participant_sg_map(dataset)
+    
+    family_guid_map = get_family_guid_map(pedigrees, sg_participant_map)
 
     write_outputs(
         dataset,
