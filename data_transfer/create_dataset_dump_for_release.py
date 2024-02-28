@@ -62,17 +62,17 @@ def get_pedigrees(dataset: str):
     return query(_query, {'datasetName': dataset})['project']['pedigree']
 
 
-def get_sg_id_to_family_guid_map(dataset: str):
+def get_sg_id_to_family_guid_map(dataset: str, access_level: str):
     """Reads the json files in the bucket and returns a mapping of SG ID to family GUID"""
     exome_family_guid_map = {}
     with open(
-        f'gs://cpg-{dataset}-main-upload/seqr_metadata/udn-aus_exome_seqr_processed.json',
+        f'gs://cpg-{dataset}-{access_level}-upload/seqr_metadata/udn-aus_exome_seqr_processed.json',
     ) as f:
         exome_family_guid_map = json.load(f)
     
     genome_family_guid_map = {}
     with open(
-        f'gs://cpg-{dataset}-main-upload/seqr_metadata/udn-aus_genome_seqr_processed.json',
+        f'gs://cpg-{dataset}-{access_level}-upload/seqr_metadata/udn-aus_genome_seqr_processed.json',
     ) as f:
         genome_family_guid_map = json.load(f)
         
@@ -348,10 +348,15 @@ def copy_vcf_to_release(dataset: str, billing_project: str | None):
 @click.option('--dataset')
 @click.option('--billing-project', default=None)
 @click.option('--metadata-only', is_flag=True)
+@click.option('--test', is_flag=True)
 @click.option('--dry-run', is_flag=True)
-def main(dataset: str, billing_project: str | None, metadata_only: bool, dry_run: bool):
+def main(dataset: str, billing_project: str | None, metadata_only: bool, test: bool, dry_run: bool):
     """Creates the metadata files and saves them to the output path"""
 
+    if test:
+        access_level = 'test'
+    else:
+        access_level = 'main'
     output_path = f'{dataset}_metadata'
     if not os.path.exists(f'./{output_path}'):
         os.makedirs(f'./{output_path}')
@@ -363,7 +368,7 @@ def main(dataset: str, billing_project: str | None, metadata_only: bool, dry_run
 
     sg_participant_map = get_participant_sg_map(dataset)
     
-    sg_id_family_guid_map = get_sg_id_to_family_guid_map(dataset)
+    sg_id_family_guid_map = get_sg_id_to_family_guid_map(dataset, access_level)
     
     family_guid_map = get_family_guid_map(pedigrees, sg_participant_map, sg_id_family_guid_map)
 
@@ -372,6 +377,7 @@ def main(dataset: str, billing_project: str | None, metadata_only: bool, dry_run
         individual_hpo_terms,
         pedigrees,
         sg_participant_map,
+        family_guid_map,
         output_path,
     )
 
