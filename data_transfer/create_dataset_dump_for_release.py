@@ -355,7 +355,7 @@ def copy_vcf_to_release(dataset: str, billing_project: str | None):
 @click.option('--metadata-only', is_flag=True)
 @click.option('--seqr-metadata-file-path', '-s', required=True)
 @click.option('--dry-run', is_flag=True)
-def main(dataset: str, billing_project: str | None, metadata_only: bool, seqr_metdata_file_path: str, dry_run: bool):
+def main(dataset: str, billing_project: str | None, metadata_only: bool, seqr_metadata_file_path: str, dry_run: bool):
     """Creates the metadata files and saves them to the output path"""
 
     output_path = f'{dataset}_metadata'
@@ -369,7 +369,7 @@ def main(dataset: str, billing_project: str | None, metadata_only: bool, seqr_me
 
     sg_participant_map = get_participant_sg_map(dataset)
     
-    sg_id_family_guid_map = get_sg_id_to_family_guid_map(dataset, seqr_metdata_file_path)
+    sg_id_family_guid_map = get_sg_id_to_family_guid_map(dataset, seqr_metadata_file_path)
     
     family_guid_map = get_family_guid_map(pedigrees, sg_participant_map, sg_id_family_guid_map)
     for k, v in family_guid_map.items():
