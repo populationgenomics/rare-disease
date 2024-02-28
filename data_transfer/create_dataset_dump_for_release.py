@@ -86,10 +86,14 @@ def get_sg_id_to_family_guid_map(dataset: str, seqr_metadata_file_path: str):
 
 def get_family_guid_map(pedigrees: str, sg_participant_map: dict[str, str], sg_id_family_guid_map: dict[str, str]):
     """Returns a mapping of family ID to GUID"""
+    participant_sg_id_map = {}
+    for sg_id, participant in sg_participant_map.items():
+        participant_sg_id_map[participant] = sg_id
+        
     family_guid_map = {}
     for row in pedigrees:
         individual_id = row['individual_id']
-        sg_id = sg_participant_map.get(individual_id)
+        sg_id = participant_sg_id_map.get(individual_id)
         family_guid = sg_id_family_guid_map.get(sg_id)
         family_guid_map[row['family_id']] = family_guid
 
