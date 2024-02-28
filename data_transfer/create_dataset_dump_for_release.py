@@ -7,11 +7,11 @@ external family ID : seqr family GUID mapping. These are
 saved to files on disk before being zipped and uploaded into the release
 bucket of the dataset, in a directory containing today's date.
 The latest dataset-vcf type analyses for the dataset are also uploaded.\
-    
+
 Requires two files, one for exome and one for genome, containing the mapping of
 SG_ID to seqr family GUID. Pass the path containing these files to the script
 using the --seqr-guid-file-path flag.
-The files should be named: 
+The files should be named:
 {dataset}_exome_seqr_processed.json AND {dataset}_genome_seqr_processed.json
 """
 
@@ -28,7 +28,7 @@ import click
 from cpg_utils import to_path
 from google.cloud import storage
 from metamist.apis import ParticipantApi
-from metamist.graphql import query, gql
+from metamist.graphql import gql, query
 
 PAPI = ParticipantApi()
 
@@ -64,7 +64,7 @@ def get_pedigrees(dataset: str):
                 pedigree
             }
         }
-        """
+        """,
     )
 
     return query(_query, {'datasetName': dataset})['project']['pedigree']
@@ -73,25 +73,33 @@ def get_pedigrees(dataset: str):
 def get_sg_id_to_family_guid_map(dataset: str, seqr_metadata_file_path: str):
     """Reads the json files in the bucket and returns a mapping of SG ID to family GUID"""
     exome_family_guid_map = {}
-    exome_file_path = to_path(f'{seqr_metadata_file_path}/{dataset}_exome_seqr_processed.json')
+    exome_file_path = to_path(
+        f'{seqr_metadata_file_path}/{dataset}_exome_seqr_processed.json',
+    )
     if exome_file_path.exists():
         with exome_file_path.open() as f:
             exome_family_guid_map = json.load(f)
-    
+
     genome_family_guid_map = {}
-    genome_file_path = to_path(f'{seqr_metadata_file_path}/{dataset}_genome_seqr_processed.json')
+    genome_file_path = to_path(
+        f'{seqr_metadata_file_path}/{dataset}_genome_seqr_processed.json',
+    )
     with genome_file_path.open() as f:
         genome_family_guid_map = json.load(f)
-        
+
     return {'exome': exome_family_guid_map, 'genome': genome_family_guid_map}
 
 
-def get_family_guid_map(pedigrees: str, sg_participant_map: dict[str, str], sg_id_family_guid_maps: dict[str, dict[str, str]]):
+def get_family_guid_map(
+    pedigrees: list[dict[str, str]],
+    sg_participant_map: dict[str, str],
+    sg_id_family_guid_maps: dict[str, dict[str, str]],
+):
     """Returns a mapping of family ID to GUID"""
     participant_sg_id_map = {}
     for sg_id, participant in sg_participant_map.items():
         participant_sg_id_map[participant] = sg_id
-        
+
     family_guid_map_exome = {}
     family_guid_map_genome = {}
     for row in pedigrees:
@@ -125,7 +133,7 @@ def get_participant_sg_map(dataset: str):
                 }
             }
         }
-        """
+        """,
     )
 
     participants = query(_query, {'datasetName': dataset})['project']['participants']
@@ -148,7 +156,7 @@ def write_outputs(
     individual_hpo_terms: dict[str, list],
     pedigrees: list[dict],
     sg_partitipant_map: dict[str, str],
-    family_guid_maps: dict[str, dict[str,str]],
+    family_guid_maps: dict[str, dict[str, str]],
     output_path: str,
 ):
     """Writes the two HPO terms files, pedigree file, and sample map file to a zip."""
@@ -194,7 +202,7 @@ def write_outputs(
     with open(f'{output_path}/family_guid_map.json', 'w') as f:
         json.dump(family_guid_maps, f, indent=4, sort_keys=True)
     logging.info(f'Wrote family GUID map jsons to {output_path}.')
-    
+
     # Zip everything
     with ZipFile(f'{dataset}_metadata.zip', 'w') as z:
         z.write(f'{output_path}/hpo_terms.tsv')
@@ -366,7 +374,13 @@ def copy_vcf_to_release(dataset: str, billing_project: str | None):
 @click.option('--metadata-only', is_flag=True)
 @click.option('--seqr-metadata-file-path', '-s', required=True)
 @click.option('--dry-run', is_flag=True)
-def main(dataset: str, billing_project: str | None, metadata_only: bool, seqr_metadata_file_path: str, dry_run: bool):
+def main(
+    dataset: str,
+    billing_project: str | None,
+    metadata_only: bool,
+    seqr_metadata_file_path: str,
+    dry_run: bool,
+):
     """Creates the metadata files and saves them to the output path"""
 
     output_path = f'{dataset}_metadata'
@@ -379,10 +393,17 @@ def main(dataset: str, billing_project: str | None, metadata_only: bool, seqr_me
     pedigrees = get_pedigrees(dataset)
 
     sg_participant_map = get_participant_sg_map(dataset)
-    
-    sg_id_family_guid_maps = get_sg_id_to_family_guid_map(dataset, seqr_metadata_file_path)
-    
-    family_guid_maps = get_family_guid_map(pedigrees, sg_participant_map, sg_id_family_guid_maps)
+
+    sg_id_family_guid_maps = get_sg_id_to_family_guid_map(
+        dataset,
+        seqr_metadata_file_path,
+    )
+
+    family_guid_maps = get_family_guid_map(
+        pedigrees,
+        sg_participant_map,
+        sg_id_family_guid_maps,
+    )
 
     write_outputs(
         dataset,
