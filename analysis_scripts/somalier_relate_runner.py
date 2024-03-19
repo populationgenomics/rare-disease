@@ -99,33 +99,26 @@ def main(
     somalier_job.memory(job_memory)
     somalier_job.cpu(job_ncpu)
 
+    somalier_job.declare_resource_group(
+        output={
+            'pairs': '{root}.pairs.tsv',
+            'samples': '{root}.samples.tsv',
+            'html': '{root}.html',
+        },
+    )
+
     somalier_job.command(
         f"""
-                somalier relate  \\
-                {" ".join(batch_input_files)} \\
-                --infer \\
-                -o related
-
-                mv related.pairs.tsv {somalier_job.output_pairs}
-                mv related.samples.tsv {somalier_job.output_samples}
-                mv related.html {somalier_job.output_html}
+            somalier relate  \\
+            {" ".join(batch_input_files)} \\
+            --infer \\
+            -o {somalier_job.output}
         """,
     )
+
     # Output writing
-    b.write_output(
-        somalier_job.output_samples,
-        str(output_path(f'{num_samples}_samples_somalier.samples.tsv', 'analysis')),
-    )
-
-    b.write_output(
-        somalier_job.output_pairs,
-        str(output_path(f'{num_samples}_samples_somalier.pairs.tsv', 'analysis')),
-    )
-    b.write_output(
-        somalier_job.output_html,
-        str(output_path(f'{num_samples}_samples_somalier.html', 'analysis')),
-    )
-
+    out_path = output_path(f'{num_samples}_samples_somalier', 'analysis')
+    b.write_output(somalier_job.output, out_path)
     b.run(wait=False)
 
 
