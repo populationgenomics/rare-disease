@@ -105,7 +105,7 @@ def get_family_guid_map(
     family_guid_map_genome = {}
     for row in pedigrees:
         individual_id = row['individual_id']
-        sg_ids = participant_sg_id_map.get(individual_id)
+        sg_ids = participant_sg_id_map.get(individual_id, [])
         for sg_id in sg_ids:
             exome_family_guid = sg_id_family_guid_maps['exome'].get(sg_id)
             genome_family_guid = sg_id_family_guid_maps['genome'].get(sg_id)
