@@ -259,7 +259,7 @@ def copy_vcf_to_release(dataset: str, billing_project: str | None):
     vcf_analyses = [
         analysis
         for analysis in analyses
-        if ('type', 'dataset-vcf') in analysis['meta'].items()
+        if ('stage', 'DatasetVCF') in analysis['meta'].items()
     ]
 
     if not vcf_analyses:
