@@ -8,5 +8,9 @@
   "no-multiple-blanks": false,
   "MD024": false,
   "MD001": false,
-  "MD049": false
+  "MD049": false,
+  "MD033": false,
+  "MD010": false,
+  "MD029": false,
+  "MD040": false
 }
