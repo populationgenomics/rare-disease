@@ -2,6 +2,17 @@
 
 """
 Transfer data files from MCRI owncloud cURLs to a dataset's GCP main-upload bucket.
+Also works for any other downloads that can be done via "Copy as CURL" command from a browser.
+
+HOWTO:
+1. Go to the owncloud page (or other source, e.g. BluePrintGenetics) and right-click > inspect.
+2. Open the network tab, then click the download links for the files you want to download.
+3. Cancel the download that has started in your broswer.
+4. Right-click on the download request in the network tab, and select "Copy as cURL".
+5. Paste the cURL command into a file, one per line.
+6. Remove all linebreaks and '\ ' characters from the cURL command so each line is a singluar
+   command, containing all the necessary information, e.g. cookies, referer, etc.
+7. Save the file and run this script with the file path as the argument.
 """
 
 import os
@@ -48,6 +59,8 @@ def main(owncloud_curl_file_path: str):
 
     # may as well batch them to reduce the number of VMs
     for idx, curl in enumerate(owncloud_curls):
+        if curl.startswith('curl '):
+            curl.removeprefix('curl ')
         url = curl.split(' ')[0]
         try:
             filename = os.path.basename(url).split('&files=')[1].removesuffix("'")
