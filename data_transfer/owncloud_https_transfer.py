@@ -49,7 +49,10 @@ def main(owncloud_curl_file_path: str):
     # may as well batch them to reduce the number of VMs
     for idx, curl in enumerate(owncloud_curls):
         url = curl.split(' ')[0]
-        filename = os.path.basename(url).split('&files=')[1].removesuffix("'")
+        try:
+            filename = os.path.basename(url).split('&files=')[1].removesuffix("'")
+        except IndexError:
+            filename = url.split('?')[0].split('/')[-1]
         if '&downloadStartSecret' in filename:
             filename = filename.split('&downloadStartSecret')[0]
         if not filename:
