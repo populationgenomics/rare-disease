@@ -30,12 +30,10 @@ Comparing two files:
 
 import click
 from cpg_utils import to_path
-from cpg_utils.config import get_config
-from cpg_utils.hail_batch import get_batch, output_path
+from cpg_utils.config import config_retrieve, output_path
+from cpg_utils.hail_batch import get_batch
 
-config = get_config()
-
-SOMALIER_IMAGE = config['images']['somalier']
+SOMALIER_IMAGE = config_retrieve(['images', 'somalier'])
 
 
 @click.option(
@@ -48,6 +46,7 @@ SOMALIER_IMAGE = config['images']['somalier']
     help='2nd (optional)input directory to cram.somalier files',
     default=None,
 )
+@click.option('-p', '--expected-ped-path', help='Expected pedigree file', default=None)
 @click.option(
     '-i',
     '--input-filepaths',
@@ -67,6 +66,7 @@ def main(
     job_ncpu: int,
     job_storage: str,
     input_filepaths: str,
+    expected_ped_path: str | None,
     input_dir_1: str | None,
     input_dir_2: str | None,
 ):  # pylint: disable=missing-function-docstring
@@ -93,6 +93,9 @@ def main(
     for each_file in input_files:
         batch_input_files.append(b.read_input(each_file))
 
+    if expected_ped_path:
+        expected_ped_path = b.read_input(expected_ped_path)
+
     somalier_job = b.new_job(name=f'Somalier relate: {num_samples} samples')
     somalier_job.image(SOMALIER_IMAGE)
     somalier_job.storage(job_storage)
@@ -107,11 +110,12 @@ def main(
         },
     )
 
+    expected_ped_path = f'--ped {expected_ped_path}' if expected_ped_path else ''
     somalier_job.command(
         f"""
             somalier relate  \\
             {" ".join(batch_input_files)} \\
-            --infer \\
+            {expected_ped_path} --infer \\
             -o {somalier_job.output}
         """,
     )
