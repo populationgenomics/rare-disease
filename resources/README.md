@@ -27,15 +27,15 @@
 
 ### i. Purpose
 
-The purpose of this document is to provide easy to follow instructions on how to transfer your genomic data to the CPG’s cloud storage.
+The purpose of this document is to provide easy to follow instructions on how to transfer your genomic data to the CPG's cloud storage.
 
 
 <br />
 
 ### ii. The Google Cloud Platform
 
-The Centre for Population Genomics currently uses Google’s cloud infrastructure to securely store data before it is ingested into Seqr and our metadata platform.
-Each project is compartmentalised into its own corner of the Google cloud platform and named accordingly. Projects are split up into “buckets”, which is Google’s term for storage disk.
+The Centre for Population Genomics currently uses Google's cloud infrastructure to securely store data before it is ingested into Seqr and our metadata platform.
+Each project is compartmentalised into its own corner of the Google cloud platform and named accordingly. Projects are split up into “buckets”, which is Google's term for storage disk.
 
 
 **This document outlines how you can transfer your data into the “upload” bucket of your project.**
@@ -44,15 +44,12 @@ Each project is compartmentalised into its own corner of the Google cloud platfo
 
 ### iii. Requirements
 
-To successfully upload your data to the cloud bucket, you will need to install two services using the command line.
+To successfully upload your data to the cloud bucket, you will need to install the Google cloud service for accessing the cloud through the command line: `gcloud` CLI.
 
-1.	The Google cloud service for accessing the cloud: `gcloud`
-2.	The Google storage utility for accessing the buckets: `gsutil`
+-	**For large uploads (i.e., large batches of sequence data) you should access gcloud through your organisation's server / HPC where your data is stored.**
+-	**If gcloud is not already installed in your organisation's environment, coordinate with your systems administrator to install and activate gcloud.**
 
--	**For large uploads (i.e., large batches of sequence data) you should access gcloud through your organisation’s server / HPC where your data is stored.**
--	**If gcloud is not already installed in your organisation’s environment, coordinate with your systems administrator to install and activate gcloud.**
-
-To install gcloud and gsutil, [follow these steps](https://cloud.google.com/sdk/docs/downloads-interactive#linux-mac).
+To install gcloud CLI, [follow these steps](https://cloud.google.com/sdk/docs/downloads-interactive#linux-mac).
 
 &emsp;&ensp;➢	&nbsp;If you are using Mac OS or Linux, you will need to open a terminal session and copy and paste the commands from the instructions in the above link.<br />
 &emsp;&ensp;➢	&nbsp;If you are using Windows, you can download an executable installer and follow the prompts to install.
@@ -98,32 +95,29 @@ Activated service account credentials for:
 
 ## 3. Upload your data
 
-To upload your data, use the gsutil copy command “`cp`”:
+To upload your data, use the [gcloud storage copy](https://cloud.google.com/sdk/gcloud/reference/storage/cp) command “`cp`”:
 
 ```
-gsutil -m cp -r source destination
+gcloud storage cp -r source destination
 ```
 
-Or use the gsutil remote sync command “`rsync`”:
+Or use the [gcloud storage remote sync](https://cloud.google.com/sdk/gcloud/reference/storage/rsync) command “`rsync`”:
 
 ```
-gsutil -m rsync -r source destination
+gcloud storage -m rsync -r source destination
 ```
 
 **For example**:
 
 ```
-gsutil -m cp -r /path/to/data gs://cpg-your-project-upload/subdir/date/
+gcloud storage cp -r /path/to/data gs://cpg-your-project-main-upload/2025-01-01/batch1/
 ```
 
 &emsp;&ensp;➢	&nbsp;Replace `your-project` with the name of your project <br />
-&emsp;&ensp;➢	&nbsp;Replace `subdir` with the upload directory specified in the email<br />
-&emsp;&ensp;➢	&nbsp;Replace `date` with the upload date (e.g. “2023-01-01”)
 
 <br />
 
-**Note**:	Include the `-m` flag to upload your data faster by using parallel processing. <br />
-&emsp;&emsp;&ensp;&ensp;Include the `-r` flag to recursively upload all directories in your data folder.
+**Note**:	Include the `-r` flag to recursively upload all directories in your data folder.
 
 <br />
 
@@ -142,4 +136,4 @@ Operation completed over n objects/xyz B
 
 ## 5. Getting Help
 
-If you require assistance with the above steps, contact CPG’s data ingestion coordinator [Edward Formaini](mailto:edward.formaini@populationgenomics.org.au) [edward.formaini@populationgenomics.org.au](mailto:edward.formaini@populationgenomics.org.au)
+If you require assistance with the above steps, contact CPG's data ingestion coordinator [Edward Formaini](mailto:edward.formaini@populationgenomics.org.au) [edward.formaini@populationgenomics.org.au](mailto:edward.formaini@populationgenomics.org.au)
