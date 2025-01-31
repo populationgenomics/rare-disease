@@ -46,7 +46,7 @@ Each project is compartmentalised into its own corner of the Google cloud platfo
 
 To successfully upload your data to the cloud bucket, you will need to install the Google cloud service for accessing the cloud through the command line: `gcloud` CLI.
 
--	**For large uploads (i.e., large batches of sequence data) you should access gcloud through your organisation's server / HPC where your data is stored.**
+-	**For large uploads (i.e., large batches of read data) you should access gcloud through your organisation's server / HPC where your data is stored.**
 -	**If gcloud is not already installed in your organisation's environment, coordinate with your systems administrator to install and activate gcloud.**
 
 To install gcloud CLI, [follow these steps](https://cloud.google.com/sdk/docs/downloads-interactive#linux-mac).
