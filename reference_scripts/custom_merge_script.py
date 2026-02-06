@@ -7,20 +7,31 @@ from cpg_utils import hail_batch
 # This assumes you have your environment variables/billing project configured
 hail_batch.init_batch()
 parser = argparse.ArgumentParser(description='Import and merge Hail Tables')
-parser.add_argument('--input_file1', type=str, help='Path to the input hail table')
-parser.add_argument('--input_file2', type=str, help='Path to the input hail table')
+parser.add_argument(
+    '--input_file1',
+    type=str,
+    required=True,
+    help='Path to the input hail table',
+)
+parser.add_argument(
+    '--input_file2',
+    type=str,
+    required=True,
+    help='Path to the input hail table',
+)
 parser.add_argument(
     '--output',
     '-o',
     type=str,
     default=None,
+    required=True,
     help='Output path for merged Hail Table (default: merged.ht)',
 )
 
 args = parser.parse_args()
 HT_A = args.input_file1
 HT_B = args.input_file2
-DESTINATION = args.output if args.output else 'merged.ht'
+DESTINATION = args.output
 
 
 def merge_hail_tables(path_a: str, path_b: str, output_path: str) -> None:
