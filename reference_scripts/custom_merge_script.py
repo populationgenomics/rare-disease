@@ -4,25 +4,17 @@ import hail as hl
 from cpg_utils import hail_batch
 
 # 1. Initialize Hail with the Service Backend for Batch
-# This assumes you have your environment variables/billing project configured
 hail_batch.init_batch()
+
 parser = argparse.ArgumentParser(description='Import and merge Hail Tables')
 parser.add_argument(
-    '--input_file1',
-    type=str,
+    '--input',
     required=True,
-    help='Path to the input hail table',
-)
-parser.add_argument(
-    '--input_file2',
-    type=str,
-    required=True,
+    nargs='+',
     help='Path to the input hail table',
 )
 parser.add_argument(
     '--output',
-    '-o',
-    type=str,
     required=True,
     help='Output path for merged Hail Table',
 )
@@ -34,18 +26,17 @@ parser.add_argument(
 )
 
 args = parser.parse_args()
-HT_A = args.input_file1
-HT_B = args.input_file2
-DESTINATION = args.output
 
 
-def merge_hail_tables(path_a: str, path_b: str, output_path: str) -> None:
-    # Load the two Hail Tables
-    ht1 = hl.read_table(path_a)
-    ht2 = hl.read_table(path_b)
+def merge_hail_tables(table_paths: list[str], output_path: str) -> None:
+    """Merge an arbitrary number of Hail Tables, assumes matching schema and non-overlapping rows."""
+
+    assert len(table_paths) > 1
+
+    opened_tables = [hl.read_table(each_path) for each_path in table_paths]
 
     # 2. Perform the union (concatenate rows)
-    merged_ht = ht1.union(ht2)
+    merged_ht = opened_tables[0].union(table_paths[1:])
 
     # 3. Write the result to a persistent location
     merged_ht.write(output_path, overwrite=True)
@@ -64,8 +55,8 @@ def write_ht_as_vcf(ht_path: str, output_path: str) -> None:
     hl.export_vcf(ht, output_path, tabix=True)
 
 
-merge_hail_tables(HT_A, HT_B, DESTINATION)
+merge_hail_tables(table_paths=args.input, output_path=args.output)
 
 # optional second write as a VCF
 if args.vcf:
-    write_ht_as_vcf(DESTINATION, args.vcf)
+    write_ht_as_vcf(args.output, args.vcf)
