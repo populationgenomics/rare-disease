@@ -63,6 +63,7 @@ def write_ht_as_vcf(ht_path: str, output_path: str) -> None:
     )
     hl.export_vcf(ht, output_path, tabix=True)
 
+
 merge_hail_tables(HT_A, HT_B, DESTINATION)
 
 # optional second write as a VCF
