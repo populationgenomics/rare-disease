@@ -23,9 +23,14 @@ parser.add_argument(
     '--output',
     '-o',
     type=str,
-    default=None,
     required=True,
-    help='Output path for merged Hail Table (default: merged.ht)',
+    help='Output path for merged Hail Table',
+)
+parser.add_argument(
+    '--vcf',
+    required=False,
+    default=None,
+    help='Optional output path for the same data as a VCF',
 )
 
 args = parser.parse_args()
@@ -48,4 +53,18 @@ def merge_hail_tables(path_a: str, path_b: str, output_path: str) -> None:
     print(f"Merge complete. Final HT saved to: {output_path}")
 
 
+def write_ht_as_vcf(ht_path: str, output_path: str) -> None:
+    """Reads the HT which was just written, moves annotation into INFO, and writes as a VCF."""
+    ht = hl.read_table(ht_path)
+    ht = ht.transmute(
+        info=hl.Struct(
+            avis=ht.avis,
+        ),
+    )
+    hl.export_vcf(ht, output_path, tabix=True)
+
 merge_hail_tables(HT_A, HT_B, DESTINATION)
+
+# optional second write as a VCF
+if args.vcf:
+    write_ht_as_vcf(DESTINATION, args.vcf)
