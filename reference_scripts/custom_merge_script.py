@@ -36,7 +36,7 @@ def merge_hail_tables(table_paths: list[str], output_path: str) -> None:
     opened_tables = [hl.read_table(each_path) for each_path in table_paths]
 
     # 2. Perform the union (concatenate rows)
-    merged_ht = opened_tables[0].union(table_paths[1:])
+    merged_ht = opened_tables[0].union(*opened_tables[1:])
 
     # 3. Write the result to a persistent location
     merged_ht.write(output_path, overwrite=True)
