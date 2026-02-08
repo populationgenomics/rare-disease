@@ -11,7 +11,7 @@ parser.add_argument(
     '--input',
     required=True,
     nargs='+',
-    help='Path to the input hail table',
+    help='Paths to the input Hail tables to merge',
 )
 parser.add_argument(
     '--output',
