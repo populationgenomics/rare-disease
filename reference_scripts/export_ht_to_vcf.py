@@ -38,4 +38,4 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    write_ht_as_vcf(args.output, args.output)
+    write_ht_as_vcf(args.input, args.output)
