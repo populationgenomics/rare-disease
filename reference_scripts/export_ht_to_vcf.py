@@ -25,11 +25,11 @@ def write_ht_as_vcf(ht_path: str, output_path: str) -> None:
 if __name__ == '__main__':
     hail_batch.init_batch()
 
-    parser = argparse.ArgumentParser(description='Read a VCF and export it as a VCF.')
+    parser = argparse.ArgumentParser(description='Read a Hail Table and export it as a VCF.')
     parser.add_argument(
         '--input',
         required=True,
-        help='HT Path to write as VCF',
+        help='Input Hail Table path to export as VCF',
     )
     parser.add_argument(
         '--output',
