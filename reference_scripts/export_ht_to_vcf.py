@@ -1,8 +1,9 @@
 """
-Single purpose script to export a VCF version of a HT. This is currently specific to the [REDACTED] use case, but
-could be made generic.
+Script to extract a VCF representation of a Hail Table
+input and output arguments are self-explanatory.
+--fields takes a list of Strings, these represent fields in the HT schema which will be migrated to vcf.INFO.
 
-If this became generic, we would need to take a list/config for the fields which need to be migrated to the vcf INFO.
+This script doesn't accommodate nested fields.
 """
 
 import argparse
@@ -11,13 +12,11 @@ import hail as hl
 from cpg_utils import hail_batch
 
 
-def write_ht_as_vcf(ht_path: str, output_path: str) -> None:
+def write_ht_as_vcf(ht_path: str, output_path: str, fields: list[str]) -> None:
     """Reads the HT which was just written, moves annotation into INFO, and writes as a VCF."""
     ht = hl.read_table(ht_path)
     ht = ht.transmute(
-        info=hl.Struct(
-            avis=ht.avis,
-        ),
+        info=hl.Struct(**{f: ht[f] for f in fields}),
     )
     hl.export_vcf(ht, output_path, tabix=True)
 
@@ -25,7 +24,7 @@ def write_ht_as_vcf(ht_path: str, output_path: str) -> None:
 if __name__ == '__main__':
     hail_batch.init_batch()
 
-    parser = argparse.ArgumentParser(description='Read a Hail Table and export it as a VCF.')
+    parser = argparse.ArgumentParser(description='Read a HT and export it as a VCF.')
     parser.add_argument(
         '--input',
         required=True,
@@ -36,6 +35,11 @@ if __name__ == '__main__':
         required=True,
         help='Output path for VCF of Hail Table',
     )
+    parser.add_argument(
+        '--fields',
+        nargs='+',
+        help='Specific fields to move from the HT base schema to vcf.INFO.',
+    )
     args = parser.parse_args()
 
-    write_ht_as_vcf(args.input, args.output)
+    write_ht_as_vcf(args.input, args.output, fields=args.fields)
