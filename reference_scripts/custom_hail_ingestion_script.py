@@ -37,7 +37,7 @@ input_types = {
 ht = hl.import_table(args.input, types=input_types, delimiter='\t', force_bgz=True)
 
 # Apply sigmoid transformation to avis column
-ht = ht.annotate(normalised_avis=1 / (1 + hl.exp(-ht.avis)))
+ht = ht.annotate(normalised_avis=hl.expit(ht.avis))
 ht = ht.rename({'avis': 'raw_avis'})
 
 # 3. Transform to standard Hail genomic format
