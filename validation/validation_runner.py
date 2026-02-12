@@ -201,9 +201,7 @@ def comparison_job(
         ), f'{stratification} does not exist, or was not accessible'
 
         definitions = strat_folder / 'definition.tsv'
-        assert (
-            definitions.exists()
-        ), f'the region file {str(definitions)} does not exist'
+        assert definitions.exists(), f'the region file {definitions!s} does not exist'
 
         strat_bed_files = list(strat_folder.glob('*.bed*'))
         assert len(strat_bed_files) > 0, 'No bed files in the stratified BED folder'
