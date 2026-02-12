@@ -1,4 +1,5 @@
 import argparse
+import math
 
 import hail as hl
 from cpg_utils import hail_batch
@@ -22,6 +23,11 @@ parser.add_argument(
     required=True,
 )
 
+
+def sigmoid(x: float) -> float:
+    return 1 / (1 + math.exp(-x))
+
+
 args = parser.parse_args()
 reference_genome = 'GRCh38'
 output_path = args.output
@@ -40,6 +46,10 @@ input_types = {
 
 # 2. Load the TSV
 ht = hl.import_table(tsv_path, types=input_types, delimiter='\t', force_bgz=True)
+
+# Apply sigmoid transformation to avis column
+ht = ht.annotate(normalised_avis=sigmoid(ht.avis))
+ht = ht.rename({'avis': 'raw_avis'})
 
 # 3. Transform to standard Hail genomic format
 # We create a 'locus' object and an 'alleles' array
