@@ -1,5 +1,4 @@
 import argparse
-import math
 
 import hail as hl
 from cpg_utils import hail_batch
@@ -20,10 +19,6 @@ parser.add_argument(
 )
 
 
-def sigmoid(x: float) -> float:
-    return 1 / (1 + math.exp(-x))
-
-
 args = parser.parse_args()
 
 reference_genome = 'GRCh38'
@@ -42,7 +37,7 @@ input_types = {
 ht = hl.import_table(args.input, types=input_types, delimiter='\t', force_bgz=True)
 
 # Apply sigmoid transformation to avis column
-ht = ht.annotate(normalised_avis=sigmoid(ht.avis))
+ht = ht.annotate(normalised_avis=1 / (1 + hl.exp(-ht.avis)))
 ht = ht.rename({'avis': 'raw_avis'})
 
 # 3. Transform to standard Hail genomic format
