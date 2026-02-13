@@ -1,0 +1,20 @@
+[workflow]
+
+name = 'custom_ingestion'
+
+# used to make sure we don't repeat previously completed stages
+check_expected_outputs = true
+
+# the method to register outputs, can be missing - will not generate metamist analysis entries
+status_reporter = 'metamist'
+
+[ingestion]
+
+# highem, standard, or a string, e.g. "4Gi"
+driver_memory = "highmem"
+# string, e.g. "4Gi"
+driver_storage = "10Gi"
+# integer
+driver_cores = 8
+# highem, standard, or a string, e.g. "4Gi"
+worker_memory = "highmem"
