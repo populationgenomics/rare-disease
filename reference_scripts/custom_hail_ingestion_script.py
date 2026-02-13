@@ -1,9 +1,13 @@
 import argparse
 
 import hail as hl
-from cpg_utils import hail_batch
+from cpg_utils import config, hail_batch
 
-hail_batch.init_batch()
+hail_batch.init_batch(
+    worker_memory=config.config_retrieve(['ingestion', 'worker_memory']),
+    driver_memory=config.config_retrieve(['ingestion', 'driver_memory']),
+    driver_cores=config.config_retrieve(['ingestion', 'driver_cores']),
+)
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='Import TSV file into Hail Table format')

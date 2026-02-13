@@ -1,0 +1,10 @@
+[ingestion]
+
+# highem, standard, or a string, e.g. "4Gi"
+driver_memory = "highmem"
+# string, e.g. "4Gi"
+driver_storage = "10Gi"
+# integer
+driver_cores = 8
+# highem, standard, or a string, e.g. "4Gi"
+worker_memory = "highmem"
