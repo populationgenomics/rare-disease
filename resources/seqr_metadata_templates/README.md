@@ -7,10 +7,10 @@
 ---
 
 - [1. Genomic Data](#1-genomic-data)
-- [2. Pedigree\_template](#2-pedigree_template)
-- [3. Families\_metadata\_template (Optional)](#3-families_metadata_template-optional)
-- [4. Individuals\_metadata\_template](#4-individuals_metadata_template)
-- [5. Sample\_mapping\_template](#5-sample_mapping_template)
+- [2. Pedigree](#2-pedigree)
+- [3. Families\_metadata (Optional)](#3-families_metadata-optional)
+- [4. Individuals\_metadata](#4-individuals_metadata)
+- [5. Sample\_mapping](#5-sample_mapping)
 
 ---
 
@@ -34,10 +34,10 @@ A template for each of these files is provided in section iii. Quick Links, and 
 
 |     **Metadata template**    |     **Required**    |     **Description**    |     **Download**     |
 |:---:|:---:|:---|:---:|
-|     *Pedigree_template*    |     **Yes**    |     Used to describe the individuals in each dataset and how they relate to other individuals in the same dataset, mainly their parents.<br /><br />The information in this file is used to generate the participant pedigrees*.    | [CSV](csv_templates/pedigree_template.csv) <br /> [Excel](excel_templates/pedigree_template.xlsx) |
-|     *Families_metadata_template*    |     No    |     Used to describe the families in each dataset. | [CSV](csv_templates/families_metadata_template.csv) <br /> [Excel](excel_templates/families_metadata_template.xlsx) |
-|     *Individuals_metadata_template*    |     **Yes**    |     Used to describe the clinical information related to individuals in each dataset. | [CSV](csv_templates/individuals_metadata_template.csv) <br /> [Excel](excel_templates/individuals_metadata_template.xlsx) |
-|     *Sample_mapping_template*    |     **Yes**    |     Used to map individual IDs AND sample IDs back to the files that have been transferred. | [CSV](csv_templates/sample_mapping_template.csv) <br /> [Excel](excel_templates/sample_mapping_template.xlsx) |
+|     *Pedigree*    |     **Yes**    |     Used to describe the individuals in each dataset and how they relate to other individuals in the same dataset, mainly their parents.<br /><br />The information in this file is used to generate the participant pedigrees*.    | [CSV](csv_templates/pedigree_template.csv) <br /> [Excel](excel_templates/pedigree_template.xlsx) |
+|     *Families_metadata*    |     No    |     Used to describe the families in each dataset. | [CSV](csv_templates/families_metadata_template.csv) <br /> [Excel](excel_templates/families_metadata_template.xlsx) |
+|     *Individuals_metadata*    |     **Yes**    |     Used to describe the clinical information related to individuals in each dataset. | [CSV](csv_templates/individuals_metadata_template.csv) <br /> [Excel](excel_templates/individuals_metadata_template.xlsx) |
+|     *Sample_mapping*    |     **Yes**    |     Used to map individual IDs AND sample IDs back to the files that have been transferred. | [CSV](csv_templates/sample_mapping_template.csv) <br /> [Excel](excel_templates/sample_mapping_template.xlsx) |
 
 *Pedigrees are the structured descriptions of the phenotypical and familial relationships between samples.
 
@@ -74,7 +74,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 <br />
 <br />
 
-## 2. Pedigree_template
+## 2. Pedigree
 
 **Note**: *The Individual_ID is used by CPG to internally track individuals.*  If a new Individual_ID is provided in the metadata, a new individual will be created within our system. <br /> <br />  ***If providing new data for individuals that have already been included in metadata previously sent to CPG, please use the exact same Individual_ID.***
 
@@ -84,23 +84,23 @@ A template for each of these files is provided in section iii. Quick Links, and 
 
 2. [CSV template](csv_templates/pedigree_template.csv)<br />
 
-2.2.&emsp;Information relating to **all** individuals should be documented in a single *pedigree_template* file. If an individual appears in the Paternal ID or Maternal ID column, then that individual needs their own dedicated row.
+2.2.&emsp;Information relating to **all** individuals should be documented in a single *pedigree* file. If an individual appears in the Paternal ID or Maternal ID column, then that individual needs their own dedicated row.
 
-**Note**: You should only have one *pedigree_template* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many individuals as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *pedigree_template* files for each individual in your cohort/dataset.
+**Note**: You should only have one *pedigree* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many individuals as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *pedigree* files for each individual in your cohort/dataset.
 
 2.3.&emsp;Populate the *pedigree_template* according to Table 2. <br />
 &emsp;&emsp;&ensp;&nbsp;An example is given below in Table 3.
 
-2.4.&emsp;Ensure that the *pedigree_template* file is shared alongside your transfer.
+2.4.&emsp;Ensure that the *pedigree* file is shared alongside your transfer.
 <br />
 <br />
 
-#### **Table 2:** Data dictionary for *pedigree_template* file describing inputs for template fields <!-- omit from toc -->
+#### **Table 2:** Data dictionary for *pedigree* file describing inputs for template fields <!-- omit from toc -->
 
 | **Field label** | **Allowed Values** | **Notes** |
 |:---:|:---:|:---|
-| Family ID | Alphanumeric family ID | The combination of family and individual ID should uniquely identify a person.    |
-|     Individual ID    |     Alphanumeric individual   ID    | The combination of family and individual ID should uniquely identify a person. |
+| Family ID | Alphanumeric family ID | The family ID should uniquely identify a family within a seqr project.    |
+|     Individual ID    |     Alphanumeric individual   ID    | The individual ID should uniquely identify a person within a seqr project. |
 |     Paternal ID    |     Alphanumeric paternal ID    | Individuals without parental data can use a 0 in this column or leave it blank. |
 |     Maternal ID    |     Alphanumeric maternal ID    | Individuals without parental data can use a 0 in this column or leave it blank. |
 |     Sex    | 0 = unknown<br />1 = male<br />2 = female | If an individual's sex is unknown, a 0 should be used in this column. |
@@ -109,7 +109,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 <br />
 <br />
 
-#### **Table 3:** Example of a populated *pedigree_template* file. <!-- omit from toc -->
+#### **Table 3:** Example of a populated *pedigree* file. <!-- omit from toc -->
 
 | **Family ID** | **Individual ID** | **Paternal ID** | **Maternal ID** | **Sex** | **Affected Status** |
 |:---:|:---:|:---:|:---:|:---:|:---:|
@@ -122,7 +122,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 <br />
 <br />
 
-## 3. Families_metadata_template (Optional)
+## 3. Families_metadata (Optional)
 
 3.1.&emsp;Download the *families_metadata_template* file from the CPG Rare-Disease github repository.
 
@@ -131,18 +131,18 @@ A template for each of these files is provided in section iii. Quick Links, and 
 2. [CSV template](csv_templates/families_metadata_template.csv)<br />
 
 
-3.2.&emsp;All information relating to families should be documented in a single *families_metadata_template* file.
+3.2.&emsp;All information relating to families should be documented in a single *families_metadata* file.
 
-**Note**: You should only have **one** *families_metadata_template* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many families as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *families_metadata_template* files for each family in your cohort/dataset.
+**Note**: You should only have **one** *families_metadata* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many families as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *families_metadata* files for each family in your cohort/dataset.
 
 3.3.&emsp;Populate the *families_metadata_template* according to Table 4.<br />
 &emsp;&emsp;&ensp;&nbsp;An example is given below in Table 5.
 
-3.4.&emsp;Ensure that the *families_metadata_template* file is shared alongside your transfer.
+3.4.&emsp;If populated, ensure that the *families_metadata* file is shared alongside your transfer.
 
 <br />
 
-#### **Table 4:** Data dictionary for *families_metadata_template* file describing inputs for the template fields <!-- omit from toc -->
+#### **Table 4:** Data dictionary for *families_metadata* file describing inputs for the template fields <!-- omit from toc -->
 
 | **Field label** | **Allowed Values** | **Notes** |
 |:---:|:---:|:---|
@@ -155,7 +155,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 <br />
 <br />
 
-#### **Table 5:** Example of a populated *families_metadata_template* file. <!-- omit from toc -->
+#### **Table 5:** Example of a populated *families_metadata* file. <!-- omit from toc -->
 
 | **Family ID** | **Display Name** | **Description** | **Coded Phenotype** |
 |---|---|---|---|
@@ -166,7 +166,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 <br />
 
 
-## 4. Individuals_metadata_template
+## 4. Individuals_metadata
 
 4.1.&emsp;Download the *individuals_metadata_template* file from the CPG Rare-Disease github repository.
 
@@ -174,25 +174,25 @@ A template for each of these files is provided in section iii. Quick Links, and 
 
 2. [csv template](csv_templates/individuals_metadata_template.csv)<br />
 
-4.2.&emsp;All information relating to individuals should be documented in a single *individuals_metadata_template* file.
+4.2.&emsp;All information relating to individuals should be documented in a single *individuals_metadata* file.
 
-**Note:** You should only have **one** *individuals_metadata_template* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many individuals as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *individuals_metadata_template* files for each family in your cohort/dataset.
+**Note:** You should only have **one** *individuals_metadata* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many individuals as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *individuals_metadata* files for each family in your cohort/dataset.
 
 4.3.&emsp;Populate the *individuals_metadata_template* according to Table 6.<br />
 &emsp;&emsp;&ensp;&nbsp;An example is given below in Table 7.
 
 **Note**: Only populate the fields that you have information for. Not every field needs to be populated in this template file.  <br />&emsp;&emsp;&ensp;&ensp;The more information you provide in the file, the better your experience will be in seqr.
 
-4.4.&emsp;Ensure that the *individuals_metadata_template* file is shared alongside your transfer.
+4.4.&emsp;Ensure that the populated *individuals_metadata* file is shared alongside your transfer.
 
 <br />
 
-#### **Table 6:** Data dictionary for *individuals_metadata_template* file describing inputs for the template fields. <!-- omit from toc -->
+#### **Table 6:** Data dictionary for *individuals_metadata* file describing inputs for the template fields. <!-- omit from toc -->
 
 | **Field label** | **Allowed Values** | **Notes** |
 |:---:|:---:|:---|
-| Family ID | Alphanumeric family ID | The   combination of family ID and individual ID should uniquely identify an individual. |
-| Individual ID | Alphanumeric individual ID |  |
+| Family ID | Alphanumeric family ID | The family ID should uniquely identify a family in a seqr project. |
+| Individual ID | Alphanumeric individual ID | The individual ID should uniquely identify an individual in a seqr project. |
 | HPO Terms (present) | Comma-separated list of HPO codes for phenotypes present in this individual | This field should have the HPO codes, not the descriptions. |
 | HPO Terms (absent) | Comma-separated list of HPO codes for phenotypes not present in this individual | This field should have the HPO codes, not the descriptions. |
 | Birth Year | Numeric year of birth. E.g. 2010 | If you have collected a DOB, e.g. 01-01-2001, please only include the **year** component. |
@@ -218,14 +218,14 @@ A template for each of these files is provided in section iii. Quick Links, and 
 <br />
 <br />
 
-#### **Table 7:** Example of a populated *individuals_metadata_template* file. <!-- omit from toc -->
+#### **Table 7:** Example of a populated *individuals_metadata* file. <!-- omit from toc -->
 
-![Table 7](../images/Individuals_metadata_template_example.png)
+![Table 7](../images/Individuals_metadata_example.png)
 
 <br />
 <br />
 
-## 5. Sample_mapping_template
+## 5. Sample_mapping
 
 5.1.&emsp;Download the *sample_mapping_template* file from the CPG Rare-Disease github repository.
 
@@ -236,11 +236,11 @@ A template for each of these files is provided in section iii. Quick Links, and 
 5.2.&emsp;Populate the *sample_mapping_template* file according to Table 8. <br />
 &emsp;&emsp;&ensp;&nbsp;An example is given below in Table 9.
 
-5.3.&emsp;Ensure that the *sample_mapping_template* file is shared alongside your transfer.
+5.3.&emsp;Ensure that the populated *sample_mapping* file is shared alongside your transfer.
 
 <br />
 
-#### **Table 8:** Data dictionary for *sample_mapping_template* file describing inputs for the template fields <!-- omit from toc -->
+#### **Table 8:** Data dictionary for *sample_mapping* file describing inputs for the template fields <!-- omit from toc -->
 
 | **Field label** | **Allowed Values** | **Notes** |
 |:---:|:---:|---|
@@ -252,7 +252,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 <br />
 <br />
 
-#### **Table 9:** Example of a populated *sample_mapping_template* file. <!-- omit from toc -->
+#### **Table 9:** Example of a populated *sample_mapping* file. <!-- omit from toc -->
 
 | **Individual ID** | **Sample ID** | **File names** | **Type** |
 |:---:|:---:|---|:---:|
