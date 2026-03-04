@@ -13,7 +13,11 @@ How:
     - retain the data, but in a more easily searchable way
  - aggregate all CPG IDs with variants up to the top level of the MT
     - allows us to remove all entry fields, whilst
+
+Learn to love the Hail documentation, personally I think it's the best thing about Hail
+https://hail.is/docs/0.2/expressions.html
 """
+
 from argparse import ArgumentParser
 
 import hail as hl
@@ -78,7 +82,9 @@ def main(input_path: str, output_path: str) -> None:
     # that syntax might not work, maybe it should be a collect over all transcript_consequences first, then a max over the collection?
     # now quite the same as https://github.com/populationgenomics/talos/blob/main/src/talos/run_hail_filtering.py#L743
     mt = mt.annotate_rows(
-        am_max_score=hl.agg.max(hl.map(lambda x: x.am_score, mt.vep.transcript_consequences)),
+        am_max_score=hl.agg.max(
+            hl.map(lambda x: x.am_score, mt.vep.transcript_consequences)
+        ),
     )
     fields_to_keep.append('am_max_score')
 
@@ -128,6 +134,7 @@ def main(input_path: str, output_path: str) -> None:
 
     # maybe write it as a TSV instead?
     ht.export(output_path, delimiter='\t')
+
 
 if __name__ == "__main__":
 
