@@ -128,8 +128,12 @@ def main(input_path: str, output_path: str) -> None:
     # any of the Entry fields can be filtered out - filtering removes them completely, and replaces them with <missing>
 
 	#Sam: Gemini thinks that its crashing when too many samples have the variant. Lets filter against AC too
-    mt = mt.filter_rows(mt.info.AC[0] < 50)
-
+    mt = mt.filter_rows(
+        hl.or_missing(
+            hl.len(mt.info.AC) > 0, 
+            mt.info.AC[0]
+        ) < 50
+    )
     # aggregate all sample IDs remaining (samples with a variant (and high GQ?))
     # this would create a new field, `var_samples`, which is a set of all CPG IDs with variants fitting above criteria
     mt = mt.annotate_rows(
@@ -138,6 +142,9 @@ def main(input_path: str, output_path: str) -> None:
     # mt = mt.annotate_rows(var_samples=hl.agg.collect_as_set(mt.s))
     fields_to_keep.append('var_samples')
 
+	#Sam: we don't need variants that don't have AVIs (indels not in gnomAD and SVs)
+    mt = mt.filter_rows(hl.is_defined(mt.avis))
+	
 	# Filter the rows where the avis score is greater than 0.75
     filtered_mt = mt.filter_rows(mt.avis > 0.7)
 
