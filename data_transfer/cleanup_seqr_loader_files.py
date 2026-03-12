@@ -73,7 +73,7 @@ def delete_seqr_load_files(seqr_loads_to_delete: list[str]):
         f'gs://cpg-seqr-main/{load}' for load in seqr_loads_to_delete
     ]
     subprocess.run(
-        [  # noqa: S607
+        [  # noqa: S603, S607
             'gsutil',
             'rm',
             '-f',
