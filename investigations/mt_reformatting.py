@@ -164,6 +164,7 @@ def main(input_path: str, output_path: str) -> None:
     ht = ht.select(*fields_to_keep)
 
     # write this skinny HT to a new location
+    ht.show(5) #test to make sure logic works
     ht.write(output_path)
 
     # maybe write it as a TSV instead?
