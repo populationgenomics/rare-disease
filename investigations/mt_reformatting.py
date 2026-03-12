@@ -21,7 +21,6 @@ https://hail.is/docs/0.2/expressions.html
 from argparse import ArgumentParser
 
 import hail as hl
-
 from cpg_utils.hail_batch import init_batch
 
 
@@ -54,16 +53,26 @@ def main(input_path: str, output_path: str) -> None:
     # but some of the fields remain nested. see schema in comments on https://cpg-populationanalysis.atlassian.net/browse/RD-757
     mt = mt.annotate_rows(
         primate_ai=mt.primate_ai.score,
-		revel=mt.dbnsfp.REVEL_score,
+        revel=mt.dbnsfp.REVEL_score,
         splice_ai_delta=mt.splice_ai.delta_score,
-		cadd=mt.cadd.PHRED,
-		eigen=mt.eigen.Eigen_phred,
+        cadd=mt.cadd.PHRED,
+        eigen=mt.eigen.Eigen_phred,
         gnomad_genomes_faf=mt.gnomad_genomes.FAF_AF,
-		gnomad_exomes_faf=mt.gnomad_exomes.FAF_AF,
+        gnomad_exomes_faf=mt.gnomad_exomes.FAF_AF,
     )
 
     # add these fields to the list to keep
-    fields_to_keep.extend(['primate_ai', 'revel', 'splice_ai_delta', 'cadd', 'eigen', 'gnomad_genomes_faf', 'gnomad_exomes_faf'])
+    fields_to_keep.extend(
+        [
+            'primate_ai',
+            'revel',
+            'splice_ai_delta',
+            'cadd',
+            'eigen',
+            'gnomad_genomes_faf',
+            'gnomad_exomes_faf',
+        ],
+    )
 
     # some fields were previously aggregated, e.g. vep.transcript_consequences.consequence_terms
     # https://github.com/populationgenomics/cpg-flow-seqr-loader/blob/main/src/cpg_seqr_loader/scripts/annotate_cohort.py#L267
@@ -79,22 +88,22 @@ def main(input_path: str, output_path: str) -> None:
     # AlphaMissense class/pathogenicity?
     # these are fun :) the annotations are applied per-transcript, not per-variant, so we need to fish for them
     # AM_Score we might be happy with the max score, e.g. (IDK if this syntax works)
-    #mt = mt.annotate_rows(
+    # mt = mt.annotate_rows(
     #    am_max_score=hl.agg.max(mt.vep.transcript_consequences.am_pathogenicity),
-    #)
+    # )
 
     # that syntax might not work, maybe it should be a collect over all transcript_consequences first, then a max over the collection?
     # now quite the same as https://github.com/populationgenomics/talos/blob/main/src/talos/run_hail_filtering.py#L743
     mt = mt.annotate_rows(
         am_max_score=hl.agg.max(
-            hl.map(lambda x: x.am_pathogenicity, mt.vep.transcript_consequences)
+            hl.map(lambda x: x.am_pathogenicity, mt.vep.transcript_consequences),
         ),
     )
     fields_to_keep.append('am_max_score')
 
     # UTR annotations will be tricky as they are applied per transcript, and you may want to keep both the transcript and result?
     # if you want to keep just the list of 5'UTR predicted consequences you can use some aggregation logic similar to above
-	# Sam: I think we leave this for now. If I'm going to dive into this properly, I'll also want to pull out specifically the MANE transcript from VEP
+    # Sam: I think we leave this for now. If I'm going to dive into this properly, I'll also want to pull out specifically the MANE transcript from VEP
 
     # next step is taking the entries (genotypes) and
 
@@ -106,24 +115,27 @@ def main(input_path: str, output_path: str) -> None:
     mt = mt.filter_entries(mt.GQ > 20)
     fields_to_keep.append('GQ')
 
-	#Sam: would also be good to get rid of anything that didn't pass VQSR filters. Not 100% sure if the MT has 'PASS' as an option or if it is left blank to save space.
+    # Sam: would also be good to get rid of anything that didn't pass VQSR filters. Not 100% sure if the MT has 'PASS' as an option or if it is left blank to save space.
     mt.rows().select('filters').show(5)
     mt = mt.filter_entries(mt.filters == 'PASS')
     mt.rows().select('filters').show(5)
 
-	#Sam: I want to remove common variants
+    # Sam: I want to remove common variants
     mt = mt.filter_entries(mt.gnomad_genomes.FAF_AF < 0.1)
     mt = mt.filter_entries(mt.gnomad_exomes.FAF_AF < 0.1)
     # any of the Entry fields can be filtered out - filtering removes them completely, and replaces them with <missing>
 
     # aggregate all sample IDs remaining (samples with a variant (and high GQ?))
     # this would create a new field, `var_samples`, which is a set of all CPG IDs with variants fitting above criteria
-    mt = mt.annotate_rows(var_samples=hl.agg.filter(mt.GT.is_non_ref(), hl.agg.collect_as_set(mt.s)))
-	#mt = mt.annotate_rows(var_samples=hl.agg.collect_as_set(mt.s))
+    mt = mt.annotate_rows(
+        var_samples=hl.agg.filter(mt.GT.is_non_ref(), hl.agg.collect_as_set(mt.s)),
+    )
+    # mt = mt.annotate_rows(var_samples=hl.agg.collect_as_set(mt.s))
     fields_to_keep.append('var_samples')
 
-	#Sam: I think we'll want to get variant info too
-    fields_to_keep.append(['locus', 'alleles'])
+    # Sam: I think we'll want to get variant info too
+    fields_to_keep.append('locus')
+    fields_to_keep.append('alleles')
 
     # it probably makes sense to keep all genotypes fitting your strict criteria here
     # later when you want to make specific choices, such as 'only affected', or 'only with RNA data'

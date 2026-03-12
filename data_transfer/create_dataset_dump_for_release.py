@@ -356,7 +356,7 @@ def copy_vcf_to_release(dataset: str, billing_project: str | None):
     for vcf_file_path in vcf_paths:
         release_file_path = os.path.join(release_path, vcf_file_renames[vcf_file_path])
         subprocess.run(
-            [  # noqa: S603, S607
+            [  # noqa: S607
                 'gcloud',
                 'storage',
                 '--billing-project',
