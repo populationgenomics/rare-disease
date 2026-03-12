@@ -40,7 +40,7 @@ def main(input_path: str, output_path: str) -> None:
     """
 
     # start a Query-on-batch runtime
-    init_batch(worker_cores = 8, worker_memory = '20Gi')
+    init_batch(worker_cores = 8, worker_memory = 'highmem')
 
     # get the MatrixTable
     mt = load_in_mt(input_path)
