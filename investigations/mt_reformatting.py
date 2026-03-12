@@ -92,12 +92,13 @@ def main(input_path: str, output_path: str) -> None:
 
     # that syntax might not work, maybe it should be a collect over all transcript_consequences first, then a max over the collection?
     # now quite the same as https://github.com/populationgenomics/talos/blob/main/src/talos/run_hail_filtering.py#L743
-    
+	
     mt = mt.annotate_rows(
-        am_max_score=hl.agg.max(
-            hl.agg.explode(lambda tc: tc.am_pathogenicity, mt.vep.transcript_consequences),
-        ),
+        am_max_score=hl.max(
+            mt.vep.transcript_consequences.map(lambda tc: tc.am_pathogenicity)
+        )
     )
+
     fields_to_keep.append('am_max_score')
     
     # UTR annotations will be tricky as they are applied per transcript, and you may want to keep both the transcript and result?
