@@ -109,11 +109,9 @@ def main(input_path: str, output_path: str) -> None:
 
     # remove all entries (genotypes) from the dataset where the sample was WT/HomRef
     mt = mt.filter_entries(mt.GT.is_hom_ref(), keep=False)
-    fields_to_keep.append('GT')
 
     # you could also do something similar for GQ
     mt = mt.filter_entries(mt.GQ > 20)
-    fields_to_keep.append('GQ')
 
     # Sam: would also be good to get rid of anything that didn't pass VQSR filters. Variants that 'PASS' are left blank to save space.
     mt.rows().select('filters').show(5)
@@ -121,8 +119,8 @@ def main(input_path: str, output_path: str) -> None:
     mt.rows().select('filters').show(5)
 
     # Sam: I want to remove common variants
-    mt = mt.filter_entries(mt.gnomad_genomes.FAF_AF < 0.1)
-    mt = mt.filter_entries(mt.gnomad_exomes.FAF_AF < 0.1)
+    mt = mt.filter_rows(mt.gnomad_genomes.FAF_AF < 0.1)
+    mt = mt.filter_rows(mt.gnomad_exomes.FAF_AF < 0.1)
     # any of the Entry fields can be filtered out - filtering removes them completely, and replaces them with <missing>
 
     # aggregate all sample IDs remaining (samples with a variant (and high GQ?))
