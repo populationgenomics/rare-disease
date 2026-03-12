@@ -92,13 +92,14 @@ def main(input_path: str, output_path: str) -> None:
 
     # that syntax might not work, maybe it should be a collect over all transcript_consequences first, then a max over the collection?
     # now quite the same as https://github.com/populationgenomics/talos/blob/main/src/talos/run_hail_filtering.py#L743
+    
     mt = mt.annotate_rows(
         am_max_score=hl.agg.max(
-            hl.map(lambda x: x.am_pathogenicity, mt.vep.transcript_consequences),
+            hl.agg.explode(lambda tc: tc.am_pathogenicity, mt.vep.transcript_consequences),
         ),
     )
     fields_to_keep.append('am_max_score')
-
+    
     # UTR annotations will be tricky as they are applied per transcript, and you may want to keep both the transcript and result?
     # if you want to keep just the list of 5'UTR predicted consequences you can use some aggregation logic similar to above
     # Sam: I think we leave this for now. If I'm going to dive into this properly, I'll also want to pull out specifically the MANE transcript from VEP
@@ -143,7 +144,7 @@ def main(input_path: str, output_path: str) -> None:
 
     # once AVI scores are annotated in, keep 'em
     fields_to_keep.append('avis')
-	
+
     # it probably makes sense to keep all genotypes fitting your strict criteria here
     # later when you want to make specific choices, such as 'only affected', or 'only with RNA data'
     # you can add a list of samples, make it into a hail object, and do some matches, e.g.
