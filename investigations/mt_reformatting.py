@@ -95,11 +95,14 @@ def main(input_path: str, output_path: str) -> None:
 
     mt = mt.annotate_rows(
         am_max_score=hl.or_missing(
-			hl.is_defined(mt.vep.transcript_consequences),
-			hl.max(mt.vep.transcript_consequences.map(lambda tc: tc.am_pathogenicity))
+            hl.is_defined(mt.vep.transcript_consequences),
+            hl.max(
+                mt.vep.transcript_consequences
+                .filter(lambda tc: hl.is_defined(tc)) # <--- NEW: Kicks out any 'null' transcripts inside the array
+                .map(lambda tc: tc.am_pathogenicity)
+            )
         )
     )
-
     fields_to_keep.append('am_max_score')
     
     # UTR annotations will be tricky as they are applied per transcript, and you may want to keep both the transcript and result?
@@ -123,6 +126,9 @@ def main(input_path: str, output_path: str) -> None:
     mt = mt.filter_rows(mt.gnomad_genomes.FAF_AF < 0.1)
     mt = mt.filter_rows(mt.gnomad_exomes.FAF_AF < 0.1)
     # any of the Entry fields can be filtered out - filtering removes them completely, and replaces them with <missing>
+
+	#Sam: Gemini thinks that its crashing when too many samples have the variant. Lets filter against AC too
+    mt = mt.filter_rows(mt.info.AC[0] < 50)
 
     # aggregate all sample IDs remaining (samples with a variant (and high GQ?))
     # this would create a new field, `var_samples`, which is a set of all CPG IDs with variants fitting above criteria
