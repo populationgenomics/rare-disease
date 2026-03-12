@@ -165,7 +165,7 @@ def main(input_path: str, output_path: str) -> None:
 
     # write this skinny HT to a new location
     ht.show(5) #test to make sure logic works
-    ht.write(output_path)
+    ht.write(output_path, overwrite=True)
 
     # maybe write it as a TSV instead?
     ht.export(output_path, delimiter='\t')
