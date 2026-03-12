@@ -92,7 +92,7 @@ def main(input_path: str, output_path: str) -> None:
 
     # that syntax might not work, maybe it should be a collect over all transcript_consequences first, then a max over the collection?
     # now quite the same as https://github.com/populationgenomics/talos/blob/main/src/talos/run_hail_filtering.py#L743
-	
+
     mt = mt.annotate_rows(
         am_max_score=hl.max(
             mt.vep.transcript_consequences.map(lambda tc: tc.am_pathogenicity)
@@ -115,9 +115,9 @@ def main(input_path: str, output_path: str) -> None:
     mt = mt.filter_entries(mt.GQ > 20)
     fields_to_keep.append('GQ')
 
-    # Sam: would also be good to get rid of anything that didn't pass VQSR filters. Not 100% sure if the MT has 'PASS' as an option or if it is left blank to save space.
+    # Sam: would also be good to get rid of anything that didn't pass VQSR filters. Variants that 'PASS' are left blank to save space.
     mt.rows().select('filters').show(5)
-    mt = mt.filter_entries(mt.filters == 'PASS')
+    mt = mt.filter_rows(hl.len(mt.filters) == 0)
     mt.rows().select('filters').show(5)
 
     # Sam: I want to remove common variants
