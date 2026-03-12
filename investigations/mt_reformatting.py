@@ -21,6 +21,7 @@ https://hail.is/docs/0.2/expressions.html
 from argparse import ArgumentParser
 
 import hail as hl
+
 from cpg_utils.hail_batch import init_batch
 
 
@@ -82,9 +83,6 @@ def main(input_path: str, output_path: str) -> None:
     # add the field to keep, unless you rename it... in which case add that instead
     fields_to_keep.append('transcriptConsequenceTerms')
 
-    # once AVI scores are annotated in, keep 'em
-    fields_to_keep.append('avis')
-
     # AlphaMissense class/pathogenicity?
     # these are fun :) the annotations are applied per-transcript, not per-variant, so we need to fish for them
     # AM_Score we might be happy with the max score, e.g. (IDK if this syntax works)
@@ -128,7 +126,7 @@ def main(input_path: str, output_path: str) -> None:
     # aggregate all sample IDs remaining (samples with a variant (and high GQ?))
     # this would create a new field, `var_samples`, which is a set of all CPG IDs with variants fitting above criteria
     mt = mt.annotate_rows(
-        var_samples=hl.agg.filter(mt.GT.is_non_ref(), hl.agg.collect_as_set(mt.s)),
+        var_samples=hl.agg.filter(mt.GT.is_non_ref(), hl.agg.collect_as_set(mt.s))
     )
     # mt = mt.annotate_rows(var_samples=hl.agg.collect_as_set(mt.s))
     fields_to_keep.append('var_samples')
@@ -137,6 +135,15 @@ def main(input_path: str, output_path: str) -> None:
     fields_to_keep.append('locus')
     fields_to_keep.append('alleles')
 
+	# Filter the rows where the avis score is greater than 0.75
+    filtered_mt = mt.filter_rows(mt.avis > 0.7)
+
+	# To see the first few results (showing just the locus, alleles, and avis score)
+    filtered_mt.rows().select("avis").show()
+
+    # once AVI scores are annotated in, keep 'em
+    fields_to_keep.append('avis')
+	
     # it probably makes sense to keep all genotypes fitting your strict criteria here
     # later when you want to make specific choices, such as 'only affected', or 'only with RNA data'
     # you can add a list of samples, make it into a hail object, and do some matches, e.g.
