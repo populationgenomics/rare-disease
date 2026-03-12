@@ -94,8 +94,9 @@ def main(input_path: str, output_path: str) -> None:
     # now quite the same as https://github.com/populationgenomics/talos/blob/main/src/talos/run_hail_filtering.py#L743
 
     mt = mt.annotate_rows(
-        am_max_score=hl.max(
-            mt.vep.transcript_consequences.map(lambda tc: tc.am_pathogenicity)
+        am_max_score=hl.or_missing(
+			hl.is_defined(mt.vep.transcript_consequences),
+			hl.max(mt.vep.transcript_consequences.map(lambda tc: tc.am_pathogenicity))
         )
     )
 
