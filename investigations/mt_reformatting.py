@@ -131,10 +131,6 @@ def main(input_path: str, output_path: str) -> None:
     # mt = mt.annotate_rows(var_samples=hl.agg.collect_as_set(mt.s))
     fields_to_keep.append('var_samples')
 
-    # Sam: I think we'll want to get variant info too
-    fields_to_keep.append('locus')
-    fields_to_keep.append('alleles')
-
 	# Filter the rows where the avis score is greater than 0.75
     filtered_mt = mt.filter_rows(mt.avis > 0.7)
 
