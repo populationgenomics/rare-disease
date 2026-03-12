@@ -40,7 +40,7 @@ def main(input_path: str, output_path: str) -> None:
     """
 
     # start a Query-on-batch runtime
-    init_batch()
+    init_batch(worker_cores = 8, worker_memory = '20Gi')
 
     # get the MatrixTable
     mt = load_in_mt(input_path)
@@ -144,7 +144,7 @@ def main(input_path: str, output_path: str) -> None:
 
 	#Sam: we don't need variants that don't have AVIs (indels not in gnomAD and SVs)
     mt = mt.filter_rows(hl.is_defined(mt.avis))
-	
+
 	# Filter the rows where the avis score is greater than 0.75
     filtered_mt = mt.filter_rows(mt.avis > 0.7)
 
