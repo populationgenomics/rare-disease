@@ -43,9 +43,8 @@ def main(input_path: str, output_path: str) -> None:
     init_batch(
         worker_cores=8, 
         worker_memory='highmem',
-        worker_storage='20Gi',
+        driver_cores=8,
         driver_memory='highmem',
-        driver_storage='20Gi'
     )
 
     # get the MatrixTable
