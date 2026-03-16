@@ -159,6 +159,10 @@ def main(input_path: str, output_path: str) -> None:
     # there's much more comprehensive logic for entries here: https://github.com/populationgenomics/cpg-flow-seqr-loader/blob/main/src/cpg_seqr_loader/scripts/annotate_dataset.py#L13
     # annotate_dataset generates a number of columns which retains more sample level information, e.g. sample GQ -> samples_gq.5_to_10, samples_gq.10_to_15, samples_gq.15_to_20
     # this might be useful, it might be overkill - you might want to duplicate some of that into this script
+    
+	# adding checkpoint for stability
+    checkpoint_path = output_path.replace('.ht', '_checkpoint.mt')
+    mt = mt.checkpoint(checkpoint_path, overwrite=True)
 
     # once we've pulled out all the entry data we want, we can drop all the entries, and all the fields we no longer need
     ht = mt.rows()
@@ -169,8 +173,13 @@ def main(input_path: str, output_path: str) -> None:
     ht.show(5) #test to make sure logic works
     ht.write(output_path, overwrite=True)
 
-    # maybe write it as a TSV instead?
-    ht.export(output_path, delimiter='\t')
+    # print the number of rows
+    written_ht = hl.read_table(output_path)
+    print(f"Final table size: {written_ht.count()} rows")
+
+    # export as a tsv too?
+    tsv_path = output_path.replace('.ht', '.tsv')
+    written_ht.export(tsv_path, delimiter='\t')
 
 
 if __name__ == "__main__":
