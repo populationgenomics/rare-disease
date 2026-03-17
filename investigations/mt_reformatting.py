@@ -49,14 +49,6 @@ def main(input_path: str, output_path: str) -> None:
     # get the MatrixTable
     mt = load_in_mt(input_path)
 
-    # 1. Count exactly how many rows are missing the 'avis' score
-    missing_avis_count = mt.aggregate_rows(hl.agg.count_where(hl.is_missing(mt.avis)))
-    print(f"Number of variants missing an AVI score: {missing_avis_count}")
-
-    # 2. (Optional) Visually inspect what those missing rows look like
-    print("Here is a peek at the rows with missing AVIS scores:")
-    mt.filter_rows(hl.is_missing(mt.avis)).rows().select('avis').show(5)
-
     # keep a record of all the fields we want to keep in the final output (used in a dataset.select command to throw everything else away)
     fields_to_keep: list[str] = []
 
