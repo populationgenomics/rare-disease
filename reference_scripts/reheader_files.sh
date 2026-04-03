@@ -4,5 +4,5 @@ IN=$1
 OUT=$2
 
 
-set -euo pipefail
-gcloud storage cat "${IN}" | gunzip | awk '{if(NR==1){print "#CHROM\tPOS\tREF\tALT\tavis\tphred"}else{print $0}}' | bgzip -c | gcloud storage cp "${OUT}"
+set -euxo pipefail
+gcloud storage cat "${IN}" | gunzip | awk '{if(NR==1){print "#CHROM\tPOS\tREF\tALT\tavis\tphred"}else{print $0}}' | bgzip -c | gcloud storage cp - "${OUT}"
