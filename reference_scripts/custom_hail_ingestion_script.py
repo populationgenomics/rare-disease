@@ -35,6 +35,7 @@ input_types = {
     'REF': hl.tstr,
     'ALT': hl.tstr,
     'avis': hl.tfloat64,
+    'phred': hl.tfloat64,
 }
 
 # 2. Load the TSV
