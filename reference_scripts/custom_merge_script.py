@@ -48,7 +48,11 @@ def write_ht_as_vcf(ht_path: str, output_path: str) -> None:
     """Reads the HT which was just written, moves annotation into INFO, and writes as a VCF."""
     ht = hl.read_table(ht_path)
     ht = ht.transmute(
-        info=hl.Struct(raw_avis=ht.raw_avis, normalised_avis=ht.normalised_avis),
+        info=hl.Struct(
+            raw_avis=ht.raw_avis,
+            normalised_avis=ht.normalised_avis,
+            phred_avis=ht.phred,
+        ),
     )
     hl.export_vcf(ht, output_path, tabix=True)
 
