@@ -8,9 +8,9 @@
 
 - [1. Genomic Data](#1-genomic-data)
 - [2. Pedigree](#2-pedigree)
-- [3. Families\_metadata (Optional)](#3-families_metadata-optional)
-- [4. Individuals\_metadata](#4-individuals_metadata)
-- [5. Sample\_mapping](#5-sample_mapping)
+- [3. Families metadata (Optional)](#3-families-metadata-optional)
+- [4. Individuals metadata](#4-individuals-metadata)
+- [5. Sample-file mapping](#5-sample-file-mapping)
 
 ---
 
@@ -34,10 +34,10 @@ A template for each of these files is provided in section iii. Quick Links, and 
 
 |     **Metadata template**    |     **Required**    |     **Description**    |     **Download**     |
 |:---:|:---:|:---|:---:|
-|     *Pedigree*    |     **Yes**    |     Used to describe the individuals in each dataset and how they relate to other individuals in the same dataset, mainly their parents.<br /><br />The information in this file is used to generate the participant pedigrees*.    | [CSV](csv_templates/pedigree_template.csv) <br /> [Excel](excel_templates/pedigree_template.xlsx) |
-|     *Families_metadata*    |     No    |     Used to describe the families in each dataset. | [CSV](csv_templates/families_metadata_template.csv) <br /> [Excel](excel_templates/families_metadata_template.xlsx) |
-|     *Individuals_metadata*    |     **Yes**    |     Used to describe the clinical information related to individuals in each dataset. | [CSV](csv_templates/individuals_metadata_template.csv) <br /> [Excel](excel_templates/individuals_metadata_template.xlsx) |
-|     *Sample_mapping*    |     **Yes**    |     Used to map individual IDs AND sample IDs back to the files that have been transferred. | [CSV](csv_templates/sample_mapping_template.csv) <br /> [Excel](excel_templates/sample_mapping_template.xlsx) |
+|     *Pedigree*    |     **Yes**    |     Used to describe the individuals in each dataset and how they relate to other individuals in the same dataset, mainly their parents.<br /><br />The information in this file is used to generate the participant pedigrees*.    | [CSV](csv_templates/ped_file.csv) <br /> [Excel](excel_templates/ped_file.xlsx) |
+|     *Families metadata*    |     No    |     Used to describe the families in each dataset. | [CSV](csv_templates/families_metadata.csv) <br /> [Excel](excel_templates/families_metadata.xlsx) |
+|     *Individuals metadata*    |     **Yes**    |     Used to describe the clinical information related to individuals in each dataset. | [CSV](csv_templates/individuals_metadata.csv) <br /> [Excel](excel_templates/individuals_metadata.xlsx) |
+|     *Sample-file mapping*    |     **Yes**    |     Used to map individual IDs AND sample IDs back to the files that have been transferred. | [CSV](csv_templates/sample_file_mapping.csv) <br /> [Excel](excel_templates/sample_file_mapping.xlsx) |
 
 *Pedigrees are the structured descriptions of the phenotypical and familial relationships between samples.
 
@@ -49,7 +49,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 
 2. [CSV templates](csv_templates/)<br />
 
-3. [Template data dictionaries](Template_data_dictionaries)
+3. [Template data dictionaries](Template_data_dictionaries/)
 
 <br />
 <br />
@@ -76,19 +76,19 @@ A template for each of these files is provided in section iii. Quick Links, and 
 
 ## 2. Pedigree
 
-**Note**: *The Individual_ID is used by CPG to internally track individuals.*  If a new Individual_ID is provided in the metadata, a new individual will be created within our system. <br /> <br />  ***If providing new data for individuals that have already been included in metadata previously sent to CPG, please use the exact same Individual_ID.***
+**Note**: *The `Individual ID` is used by CPG to internally track individuals.*  If a new `Individual ID` is provided in the metadata, a new individual will be created within our system. <br /> <br />  ***If providing new data for individuals that have already been included in metadata previously sent to CPG, please use the exact same `Individual ID`.***
 
-2.1.&emsp;Download the *pedigree_template* file from the CPG Rare-Disease github repository.
+2.1.&emsp;Download the *pedigree* template file from the CPG Rare-Disease github repository.
 
-1. [Excel template](excel_templates/pedigree_template.xlsx)<br />
+1. [Excel template](excel_templates/ped_file.xlsx)<br />
 
-2. [CSV template](csv_templates/pedigree_template.csv)<br />
+2. [CSV template](csv_templates/ped_file.csv)<br />
 
 2.2.&emsp;Information relating to **all** individuals should be documented in a single *pedigree* file. If an individual appears in the Paternal ID or Maternal ID column, then that individual needs their own dedicated row.
 
 **Note**: You should only have one *pedigree* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many individuals as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *pedigree* files for each individual in your cohort/dataset.
 
-2.3.&emsp;Populate the *pedigree_template* according to Table 2. <br />
+2.3.&emsp;Populate the *pedigree* template according to Table 2. <br />
 &emsp;&emsp;&ensp;&nbsp;An example is given below in Table 3.
 
 2.4.&emsp;Ensure that the *pedigree* file is shared alongside your transfer.
@@ -122,27 +122,27 @@ A template for each of these files is provided in section iii. Quick Links, and 
 <br />
 <br />
 
-## 3. Families_metadata (Optional)
+## 3. Families metadata (Optional)
 
-3.1.&emsp;Download the *families_metadata_template* file from the CPG Rare-Disease github repository.
+3.1.&emsp;Download the *families metadata* template file from the CPG Rare-Disease github repository.
 
-1. [Excel template](excel_templates/families_metadata_template.xlsx)<br />
+1. [Excel template](excel_templates/families_metadata.xlsx)<br />
 
-2. [CSV template](csv_templates/families_metadata_template.csv)<br />
+2. [CSV template](csv_templates/families_metadata.csv)<br />
 
 
-3.2.&emsp;All information relating to families should be documented in a single *families_metadata* file.
+3.2.&emsp;All information relating to families should be documented in a single *families metadata* file.
 
-**Note**: You should only have **one** *families_metadata* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many families as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *families_metadata* files for each family in your cohort/dataset.
+**Note**: You should only have **one** *families metadata* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many families as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *families metadata* files for each family in your cohort/dataset.
 
-3.3.&emsp;Populate the *families_metadata_template* according to Table 4.<br />
+3.3.&emsp;Populate the *families metadata template* according to Table 4.<br />
 &emsp;&emsp;&ensp;&nbsp;An example is given below in Table 5.
 
-3.4.&emsp;If populated, ensure that the *families_metadata* file is shared alongside your transfer.
+3.4.&emsp;If populated, ensure that the *families metadata* file is shared alongside your transfer.
 
 <br />
 
-#### **Table 4:** Data dictionary for *families_metadata* file describing inputs for the template fields <!-- omit from toc -->
+#### **Table 4:** Data dictionary for *families metadata* file describing inputs for the template fields <!-- omit from toc -->
 
 | **Field label** | **Allowed Values** | **Notes** |
 |:---:|:---:|:---|
@@ -155,7 +155,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 <br />
 <br />
 
-#### **Table 5:** Example of a populated *families_metadata* file. <!-- omit from toc -->
+#### **Table 5:** Example of a populated *families metadata* file. <!-- omit from toc -->
 
 | **Family ID** | **Display Name** | **Description** | **Coded Phenotype** |
 |---|---|---|---|
@@ -166,28 +166,28 @@ A template for each of these files is provided in section iii. Quick Links, and 
 <br />
 
 
-## 4. Individuals_metadata
+## 4. Individuals metadata
 
-4.1.&emsp;Download the *individuals_metadata_template* file from the CPG Rare-Disease github repository.
+4.1.&emsp;Download the *individuals metadata* template file from the CPG Rare-Disease github repository.
 
-1. [Excel template](excel_templates/individuals_metadata_template.xlsx)<br />
+1. [Excel template](excel_templates/individuals_metadata.xlsx)<br />
 
-2. [csv template](csv_templates/individuals_metadata_template.csv)<br />
+2. [CSV template](csv_templates/individuals_metadata.csv)<br />
 
-4.2.&emsp;All information relating to individuals should be documented in a single *individuals_metadata* file.
+4.2.&emsp;All information relating to individuals should be documented in a single *individuals metadata* file.
 
-**Note:** You should only have **one** *individuals_metadata* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many individuals as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *individuals_metadata* files for each family in your cohort/dataset.
+**Note:** You should only have **one** *individuals metadata* file. <br />&emsp;&emsp;&ensp;&ensp;This single file can contain as many individuals as described in your cohort/dataset. <br />&emsp;&emsp;&ensp;&ensp;Do not create separate *individuals metadata* files for each family in your cohort/dataset.
 
-4.3.&emsp;Populate the *individuals_metadata_template* according to Table 6.<br />
+4.3.&emsp;Populate the *individuals metadata* template according to Table 6.<br />
 &emsp;&emsp;&ensp;&nbsp;An example is given below in Table 7.
 
 **Note**: Only populate the fields that you have information for. Not every field needs to be populated in this template file.  <br />&emsp;&emsp;&ensp;&ensp;The more information you provide in the file, the better your experience will be in seqr.
 
-4.4.&emsp;Ensure that the populated *individuals_metadata* file is shared alongside your transfer.
+4.4.&emsp;Ensure that the populated *individuals metadata* file is shared alongside your transfer.
 
 <br />
 
-#### **Table 6:** Data dictionary for *individuals_metadata* file describing inputs for the template fields. <!-- omit from toc -->
+#### **Table 6:** Data dictionary for *individuals metadata* file describing inputs for the template fields. <!-- omit from toc -->
 
 | **Field label** | **Allowed Values** | **Notes** |
 |:---:|:---:|:---|
@@ -218,29 +218,29 @@ A template for each of these files is provided in section iii. Quick Links, and 
 <br />
 <br />
 
-#### **Table 7:** Example of a populated *individuals_metadata* file. <!-- omit from toc -->
+#### **Table 7:** Example of a populated *individuals metadata* file. <!-- omit from toc -->
 
 ![Table 7](../images/Individuals_metadata_example.png)
 
 <br />
 <br />
 
-## 5. Sample_mapping
+## 5. Sample-file mapping
 
-5.1.&emsp;Download the *sample_mapping_template* file from the CPG Rare-Disease github repository.
+5.1.&emsp;Download the *sample-file mapping template* file from the CPG Rare-Disease github repository.
 
-1. [Excel template](excel_templates/sample_mapping_template.xlsx)<br />
+1. [Excel template](excel_templates/sample_mapping.xlsx)<br />
 
-2. [CSV template](csv_templates/sample_mapping_template.csv)<br />
+2. [CSV template](csv_templates/sample_file_mapping.csv)<br />
 
-5.2.&emsp;Populate the *sample_mapping_template* file according to Table 8. <br />
+5.2.&emsp;Populate the *sample-file mapping template* file according to Table 8. <br />
 &emsp;&emsp;&ensp;&nbsp;An example is given below in Table 9.
 
-5.3.&emsp;Ensure that the populated *sample_mapping* file is shared alongside your transfer.
+5.3.&emsp;Ensure that the populated mapping file is shared alongside your transfer.
 
 <br />
 
-#### **Table 8:** Data dictionary for *sample_mapping* file describing inputs for the template fields <!-- omit from toc -->
+#### **Table 8:** Data dictionary for *sample-file mapping* file describing inputs for the template fields <!-- omit from toc -->
 
 | **Field label** | **Allowed Values** | **Notes** |
 |:---:|:---:|---|
@@ -252,7 +252,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 <br />
 <br />
 
-#### **Table 9:** Example of a populated *sample_mapping* file. <!-- omit from toc -->
+#### **Table 9:** Example of a populated *sample-file mapping* file. <!-- omit from toc -->
 
 | **Individual ID** | **Sample ID** | **File names** | **Type** |
 |:---:|:---:|---|:---:|
