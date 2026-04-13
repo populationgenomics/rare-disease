@@ -220,7 +220,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 
 #### **Table 7:** Example of a populated *individuals metadata* file. <!-- omit from toc -->
 
-![Table 7](../images/Individuals_metadata_example.png)
+![Table 7](../images/individuals_metadata_example.png)
 
 <br />
 <br />
