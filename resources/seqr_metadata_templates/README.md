@@ -229,7 +229,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 
 5.1.&emsp;Download the *sample-file mapping template* file from the CPG Rare-Disease github repository.
 
-1. [Excel template](excel_templates/sample_mapping.xlsx)<br />
+1. [Excel template](excel_templates/sample_file_mapping.xlsx)<br />
 
 2. [CSV template](csv_templates/sample_file_mapping.csv)<br />
 
