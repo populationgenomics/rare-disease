@@ -258,7 +258,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 |:---:|:---:|---|:---:|
 | IND_001    | A0001 | A0001-R1.fastq.gz, A0001-R2.fastq.gz    | WGS    |
 | IND_001    | A0001    | A0001_WES-R1.fastq.gz, A0001_WES-R2.fastq.gz    | WES    |
-| IND_002    | A0002    | A002-R1.fastq.gz, A0002-R2.fastq.gz    | WGS    |
+| IND_002    | A0002    | A0002-R1.fastq.gz, A0002-R2.fastq.gz    | WGS    |
 
 <br />
 <br />
