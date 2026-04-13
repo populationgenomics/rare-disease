@@ -254,7 +254,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 
 #### **Table 9:** Example of a populated *sample-file mapping* file. <!-- omit from toc -->
 
-| **Individual ID** | **Sample ID** | **File names** | **Type** |
+| **Individual ID** | **Sample ID** | **Filenames** | **Type** |
 |:---:|:---:|---|:---:|
 | IND_001    | A0001 | A0001-R1.fastq.gz, A0001-R2.fastq.gz    | WGS    |
 | IND_001    | A0001    | A0001_WES-R1.fastq.gz, A0001_WES-R2.fastq.gz    | WES    |
