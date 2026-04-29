@@ -13,10 +13,9 @@ python3 .../full_avi_ingestion.py \
 """
 
 import argparse
+
 import hail as hl
-
 from cpg_utils import Path, to_path
-
 
 REF_GENOME = "GRCh38"
 
