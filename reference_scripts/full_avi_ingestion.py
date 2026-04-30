@@ -15,7 +15,7 @@ python3 .../full_avi_ingestion.py \
 import argparse
 
 import hail as hl
-from cpg_utils import Path, to_path
+from cpg_utils import Path, hail_batch, to_path
 
 REF_GENOME = "GRCh38"
 
@@ -102,6 +102,9 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output-path", required=True)
     parser.add_argument("-t", "--tmp", required=True)
     args = parser.parse_args()
+
+    # start a QOB instance
+    hail_batch.init_batch()
 
     assert args.output_path.endswith(".ht")
 
