@@ -63,7 +63,7 @@ def write_single_table(table_path: str, tmp_dir: Path) -> hl.Table:
     ht = ht.key_by("locus", "alleles")
 
     # todo extend this with quantile when it's available across all component tables
-    ht = ht.select("locus", "alleles", "raw_avis", "normalised_avis", "phred")
+    ht = ht.select("raw_avis", "normalised_avis", "phred")
 
     # Write the table to disk in Hail format for later use
     return ht.checkpoint(str(ht_out))
