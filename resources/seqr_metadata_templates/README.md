@@ -220,7 +220,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 
 #### **Table 7:** Example of a populated *individuals_metadata* file. <!-- omit from toc -->
 
-![Table 7](../images/Individuals_metadata_example.png)
+![Table 7](../images/individuals_metadata_example.png)
 
 <br />
 <br />
@@ -248,7 +248,7 @@ A template for each of these files is provided in section iii. Quick Links, and 
 | Sample ID | Alphanumeric sample ID    | A sample ID should be unique within a project. Note that an individual can have multiple samples.    |
 | Filenames | Comma-separated list of filenames for this sample.    | If more than two files are provided, they will be grouped automatically    |
 | Type | One of the following: WGS, WES    | **WGS** (*whole-genome*), or **WES** (*whole-exome*) sequencing.<br><br>***If this field is blank the type will default to WGS.***<br> <br>**Note**: If a sample has both WES and WGS sequence data, you should include a row for each type.    |
-| Sample Type | Free text describing the biological source of the sample.<br>E.g. blood, saliva, fibroblasts, LCLs    | Optional. The tissue or specimen the sample was derived from. This is distinct from the *Type* column above, which describes the sequencing assay (WGS/WES).    |
+| Sample Type | Free text describing the biological source of the sample.<br>E.g. blood, saliva, fibroblasts, lcl    | Optional. The tissue or specimen the sample was derived from (blood, fibroblasts,lcl) . This is distinct from the *Type* column above, which describes the sequencing assay (WGS/WES).    |
 
 <br />
 <br />
