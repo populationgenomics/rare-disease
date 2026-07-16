@@ -248,17 +248,18 @@ A template for each of these files is provided in section iii. Quick Links, and 
 | Sample ID | Alphanumeric sample ID    | A sample ID should be unique within a project. Note that an individual can have multiple samples.    |
 | Filenames | Comma-separated list of filenames for this sample.    | If more than two files are provided, they will be grouped automatically    |
 | Type | One of the following: WGS, WES    | **WGS** (*whole-genome*), or **WES** (*whole-exome*) sequencing.<br><br>***If this field is blank the type will default to WGS.***<br> <br>**Note**: If a sample has both WES and WGS sequence data, you should include a row for each type.    |
+| Sample Type | Free text describing the biological source of the sample.<br>E.g. blood, saliva, fibroblasts, LCLs    | Optional. The tissue or specimen the sample was derived from. This is distinct from the *Type* column above, which describes the sequencing assay (WGS/WES).    |
 
 <br />
 <br />
 
 #### **Table 9:** Example of a populated *sample_mapping* file. <!-- omit from toc -->
 
-| **Individual ID** | **Sample ID** | **File names** | **Type** |
-|:---:|:---:|---|:---:|
-| IND_001    | A0001 | A0001-R1.fastq.gz, A0001-R2.fastq.gz    | WGS    |
-| IND_001    | A0001    | A0001_WES-R1.fastq.gz, A0001_WES-R2.fastq.gz    | WES    |
-| IND_002    | A0002    | A002-R1.fastq.gz, A0002-R2.fastq.gz    | WGS    |
+| **Individual ID** | **Sample ID** | **File names** | **Type** | **Sample Type** |
+|:---:|:---:|---|:---:|:---:|
+| IND_001    | A0001 | A0001-R1.fastq.gz, A0001-R2.fastq.gz    | WGS    | blood    |
+| IND_001    | A0001    | A0001_WES-R1.fastq.gz, A0001_WES-R2.fastq.gz    | WES    | blood    |
+| IND_002    | A0002    | A002-R1.fastq.gz, A0002-R2.fastq.gz    | WGS    | saliva    |
 
 <br />
 <br />
