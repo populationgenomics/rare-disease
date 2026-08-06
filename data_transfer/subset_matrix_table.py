@@ -161,7 +161,6 @@ def clean_locus(contig: str, pos: str) -> hl.IntervalExpression | None:
 
 
 if __name__ == '__main__':
-
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s %(levelname)s %(module)s:%(lineno)d - %(message)s',

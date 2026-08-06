@@ -1,11 +1,23 @@
 #!/usr/bin/env python3  # noqa: EXE001
+"""
+  !!    THIS SCRIPT CAN DELETE PRODUCTION DATA. USE WITH CAUTION.     !!
 
+  - Seqr bucket matrixtable cleanup script -
+This script is used to delete old matrixtables from the seqr-main bucket.
+These tables are created with the AnnotateCohort step of the seqr_loader pipeline, for both exomes and genomes.
+Any matrixtables that are older than 30 days will be deleted, unless they are the most recent one.
+
+Once AnnotateCohort has its own Metamist analysis type, this script can be replaced with one that
+relies on Metamist analysis completion timestamps instead of the matrixtable creation timestamps.
+"""
 import logging
-import subprocess
+import os
 import sys
 from datetime import datetime, timedelta, timezone
 
 import click
+from cloudpathlib import CloudPath
+from cpg_utils.config import get_config
 from google.cloud import storage
 
 TODAY = datetime.now(tz=timezone.utc)
@@ -68,55 +80,44 @@ def get_seqr_loads_to_delete(seqr_loads_dict: dict):
 
 def delete_seqr_load_files(seqr_loads_to_delete: list[str]):
     """Takes a list of seqr_loader folders and deletes them entirely"""
-
+    config = get_config()
+    bucket_path = config['storage']['seqr']['default']
     seqr_loads_to_delete = [
-        f'gs://cpg-seqr-main/{load}' for load in seqr_loads_to_delete
+        os.path.join(bucket_path, load) for load in seqr_loads_to_delete
     ]
-    subprocess.run(
-        [  # noqa: S603, S607
-            'gsutil',
-            'rm',
-            '-f',
-            '-r',
-            *seqr_loads_to_delete,
-        ],
-        check=True,
-    )
-    logging.info(f'Deleted: {seqr_loads_to_delete}')
+    for seqr_load in seqr_loads_to_delete:
+        seqr_load_path = CloudPath(seqr_load)
+        seqr_load_path.rmtree()
+        logging.info(f'Deleted: {seqr_load}')
 
 
 @click.command()
 @click.option('--dry-run', is_flag=True)
 def main(dry_run: bool):
     """Run the seqr_load analyser and deleter for genomes and exomes"""
+    matrixtables_to_delete = []
 
-    logging.info('GENOME')
-    genome_loads, extra_genome_folders = get_seqr_loads(
-        bucket=BUCKET,
-        prefix=GENOME_PREFIX,
-    )
+    for prefix in [GENOME_PREFIX, EXOME_PREFIX]:
+        logging.info(f'Prefix: {prefix}')
+        seqr_loads, extra_folders = get_seqr_loads(
+            bucket=BUCKET,
+            prefix=prefix,
+        )
 
-    for folder in extra_genome_folders:
-        logging.info(f'Genome folder {folder} has no VCF')
+        for folder in extra_folders:
+            logging.info(f'Folder {folder} has no VCF')
 
-    genome_loads_to_delete = get_seqr_loads_to_delete(seqr_loads_dict=genome_loads)
+        matrixtables_to_delete.extend(
+            get_seqr_loads_to_delete(seqr_loads_dict=seqr_loads),
+        )
 
-    if not dry_run:
-        delete_seqr_load_files(genome_loads_to_delete)
-
-    logging.info('EXOME')
-    exome_loads, extra_exome_folders = get_seqr_loads(
-        bucket=BUCKET,
-        prefix=EXOME_PREFIX,
-    )
-
-    for folder in extra_exome_folders:
-        logging.info(f'Exome folder {folder} has no VCF')
-
-    exome_loads_to_delete = get_seqr_loads_to_delete(seqr_loads_dict=exome_loads)
-
-    if not dry_run:
-        delete_seqr_load_files(exome_loads_to_delete)
+    if dry_run:
+        logging.info('<< Dry run, not deleting anything >>')
+        logging.info(
+            f'Would have deleted {len(matrixtables_to_delete)} matrixtables',
+        )
+    else:
+        delete_seqr_load_files(matrixtables_to_delete)
 
 
 if __name__ == '__main__':
