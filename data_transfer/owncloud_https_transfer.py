@@ -19,7 +19,8 @@ from cpg_utils.hail_batch import (
 
 @click.command('Transfer data from owncloud cURLs')
 @click.option('--owncloud-curl-file-path')
-def main(owncloud_curl_file_path: str):
+@click.option('--non-preemptible', is_flag=True)
+def main(owncloud_curl_file_path: str, non_preemptible: bool):
     """
     Given a list of cURL commands, download the files and upload them to GCS.
     GCP suffix in target GCP bucket is defined using analysis-runner's --output
@@ -55,6 +56,8 @@ def main(owncloud_curl_file_path: str):
         if not filename:
             filename = f'file_{idx}.tar'
         j = batch.new_job(f'URL {idx} ({filename})')
+        if non_preemptible:
+            j.spot(is_spot=False)
         authenticate_cloud_credentials_in_job(job=j)
         # catch errors during the cURL
         j.command('set -euxo pipefail')
