@@ -79,7 +79,6 @@ def mt_to_vcf(
 
     # extract all common samples into a separate file
     for sample in samples_in_jc:
-
         sample_path = os.path.join(
             output_root,
             'single_sample_vcfs',
